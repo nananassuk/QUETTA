@@ -6,9 +6,8 @@
 <title>QUETTA 등록 관리 시스템</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<!-- Firebase SDK v8 compat -->
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<!-- Supabase SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{--g1:#1B4332;--g2:#2D6A4F;--g3:#40916C;--gold:#C9A84C;--gold2:#E8C97A;--bg:#F4F1EB;--card:#FFFFFF;--danger:#C0392B;--danger2:#E74C3C;--success:#27AE60;--border:#D8CEB8;--muted:#888;--shadow:0 2px 16px rgba(27,67,50,0.13);}
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -291,7 +290,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
     </div>
     <div class="stats-row" id="payStats"></div>
     <div class="tbl-wrap">
-      <table class="data-tbl"><thead><tr><th>#</th><th>결제일자</th><th>반</th><th>학번</th><th>수험번호</th><th>성명</th><th>내역</th><th>결제금액</th><th>장학</th><th>상태</th></tr></thead><tbody id="payBody"></tbody></table>
+      <table class="data-tbl"><thead><tr><th>#</th><th>결제일자</th><th>반</th><th>학번</th><th>수험번호</th><th>성명</th><th>내역</th><th>결제금액</th><th>장학</th><th>상태</th><th>삭제</th></tr></thead><tbody id="payBody"></tbody></table>
     </div>
   </div>
   <div class="card">
@@ -379,22 +378,106 @@ const BAN_ORDER=['X','A','K','N','I','O','M','D','S'];
 const ALL_TERMS=['윈터','시즌제로(1월)','시즌제로(2월)','정규(2,3월)','정규1기(3월)','정규2기(4월)','정규3기(5월)','정규4기(6월)','정규5기(7월)','정규6기(8월)','정규7기(9월)','정규8기(10월)','정규9기(11월)'];
 const COL={결제일자:0,과정:1,학과:2,학과계열:3,반:4,번호:5,수험번호:6,이름:7,내역:8,구분:9,가상계좌:10,카드:11,현금:12,은행송금:13,카드사:14,결제금액:16,환불금액:17,비고:18};
 // ════════════════════════════════════════
-//  ★ FIREBASE 설정 (아래 값을 본인 프로젝트 값으로 교체하세요) ★
+//  ★ SUPABASE 설정 ★
 // ════════════════════════════════════════
-const FIREBASE_CONFIG = {
-  apiKey:            "AIzaSyCpsbKFcvgLGR6jHTZPJYWmwy9hCfKGAQU",
-  authDomain:        "quetta-2026.firebaseapp.com",
-  databaseURL:       "https://quetta-2026-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId:         "quetta-2026",
-  storageBucket:     "quetta-2026.firebasestorage.app",
-  messagingSenderId: "929659043265",
-  appId:             "1:929659043265:web:35eb9a480773b868b3c340"
-};
+const SUPABASE_URL  = 'https://elqxailuuxkzddsujimc.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVscXhhaWx1dXhremRkc3VqaW1jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM5Mzk0MTAsImV4cCI6MjA1OTUxNTQxMH0.eyJhbGciOiJIUzI1NiJ9';
 
 // 비밀번호 기본값
 const DEFAULT_PW = '1234';
 let _appPw = DEFAULT_PW;
-let _DB = null, _DB_REF = null, _isSyncing = false;
+let _SB = null;          // Supabase client
+let _isSyncing = false;
+let _pollTimer = null;
+
+// ─── Supabase 저장 ───
+function save(){
+  if(!_SB || _isSyncing) return;
+  setSyncStatus('wait','저장 중...');
+  _SB.from('quetta_state')
+    .upsert({id:1, data: S, updated_at: new Date().toISOString()})
+    .then(({error})=>{
+      if(error){ setSyncStatus('err','저장 실패'); console.error(error); }
+      else setSyncStatus('ok','저장됨');
+    });
+}
+
+// ─── Supabase 초기화 + 폴링 (로그인 후 호출) ───
+function setupFirebase(){
+  try{
+    _SB = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  }catch(e){ setSyncStatus('err','연결 실패'); console.error(e); return; }
+  setSyncStatus('wait','연결 중...');
+
+  // 비밀번호 로드
+  _SB.from('quetta_state').select('data').eq('id',1).single()
+    .then(({data:row})=>{
+      if(row?.data){
+        _isSyncing=true;
+        applyServerData(row.data);
+        _isSyncing=false;
+      }
+      setSyncStatus('ok','연결됨');
+      autoDetectTerms();
+      updateTermFilter(); renderFilterChips(); renderDash(); renderCfg();
+    }).catch(e=>{ setSyncStatus('err','로드 실패'); console.error(e); });
+
+  // 30초마다 폴링으로 동기화
+  _pollTimer = setInterval(()=>{
+    _SB.from('quetta_state').select('data').eq('id',1).single()
+      .then(({data:row})=>{
+        if(row?.data){
+          _isSyncing=true;
+          applyServerData(row.data);
+          _isSyncing=false;
+          const onTab=document.querySelector('.tab-btn.on');
+          if(onTab){ const m=onTab.getAttribute('onclick')?.match(/goTab\('(\w+)'/);
+            if(m){ if(m[1]==='pay'){renderPayTable();renderUnpaid();} if(m[1]==='daily')renderDaily(); }
+          }
+          renderDash();
+          setSyncStatus('ok','동기화됨');
+        }
+      }).catch(()=>{});
+  }, 30000);
+}
+
+function applyServerData(d){
+  S={...S,...d};
+  S.cfg={...S.cfg,...(d.cfg||{})};
+  if(!S.cfg.hiddenTerms) S.cfg.hiddenTerms=[];
+  if(!S.snapshots) S.snapshots={};
+  if(!Array.isArray(S.pays)) S.pays=[];
+  if(!Array.isArray(S.refunds)) S.refunds=[];
+  if(d.cfg?.password) _appPw=d.cfg.password;
+}
+
+// ─── 비밀번호 변경 ───
+function changePassword(){
+  const p1=document.getElementById('newPw1').value.trim();
+  const p2=document.getElementById('newPw2').value.trim();
+  if(!p1){ toast('새 비밀번호를 입력해주세요'); return; }
+  if(p1.length<4){ toast('4자 이상 입력해주세요'); return; }
+  if(p1!==p2){ toast('비밀번호가 일치하지 않습니다'); return; }
+  _appPw=p1;
+  S.cfg.password=p1;
+  save();
+  document.getElementById('newPw1').value='';
+  document.getElementById('newPw2').value='';
+  toast('✅ 비밀번호 변경 완료');
+}
+
+// ─── 기존 localStorage 데이터 마이그레이션 ───
+function migrateFromLocal(){
+  const SKEY='quetta_v4';
+  try{
+    const d=localStorage.getItem(SKEY);
+    if(!d){ alert('로컬 데이터가 없습니다.'); return; }
+    if(!confirm('기존 로컬 데이터를 클라우드로 업로드하시겠습니까?')) return;
+    const p=JSON.parse(d);
+    _SB.from('quetta_state').upsert({id:1, data:p, updated_at:new Date().toISOString()})
+      .then(({error})=>{ if(error) alert('오류: '+error.message); else toast('✅ 마이그레이션 완료!'); });
+  }catch(e){ alert('오류: '+e.message); }
+}
 
 // ─── 로그인 (Firebase 완전 독립) ───
 function doLogin(){
@@ -420,78 +503,10 @@ function setSyncStatus(state, msg){
   el.innerHTML = `<span class="sync-dot ${dot}"></span>${msg}`;
 }
 
-// ─── Firebase 저장 ───
-function save(){
-  if(!_DB_REF){ console.warn('DB not ready'); return; }
-  if(_isSyncing) return;
-  setSyncStatus('wait','저장 중...');
-  _DB_REF.set(JSON.parse(JSON.stringify(S)))
-    .then(()=>setSyncStatus('ok','저장됨'))
-    .catch(e=>{ setSyncStatus('err','저장 실패'); console.error(e); });
-}
-
-// ─── Firebase 초기화 + 실시간 수신 (로그인 후 호출) ───
-function setupFirebase(){
-  try{
-    if(!firebase.apps.length){
-      firebase.initializeApp(FIREBASE_CONFIG);
-    }
-    _DB = firebase.database();
-    _DB_REF = _DB.ref('quetta_v4');
-  } catch(e){
-    alert('Firebase 연결 오류: '+e.message);
-    return;
-  }
-  setSyncStatus('wait','연결 중...');
-  // 비밀번호 로드
-  _DB.ref('quetta_pw').once('value').then(snap=>{ if(snap.val()) _appPw=snap.val(); }).catch(()=>{});
-  _DB_REF.on('value', snapshot=>{
-    const data = snapshot.val();
-    _isSyncing = true;
-    if(data){
-      S = {...S, ...data};
-      S.cfg = {...S.cfg, ...(data.cfg||{})};
-      if(!S.cfg.hiddenTerms) S.cfg.hiddenTerms=[];
-      if(!S.snapshots) S.snapshots={};
-      if(!Array.isArray(S.pays)) S.pays=[];
-      if(!Array.isArray(S.refunds)) S.refunds=[];
-    }
-    _isSyncing = false;
-    setSyncStatus('ok','실시간 연결됨');
-    autoDetectTerms();
-    updateTermFilter(); renderFilterChips(); renderDash(); renderCfg();
-    // 현재 활성 탭도 갱신
-    const onTab = document.querySelector('.tab-btn.on');
-    if(onTab){
-      const m = onTab.getAttribute('onclick')?.match(/goTab\('(\w+)'/);
-      if(m){
-        if(m[1]==='pay'){renderPayTable();renderUnpaid();}
-        if(m[1]==='daily')renderDaily();
-      }
-    }
-    toast('🔄 데이터 동기화됨',1800);
-  }, err=>{
-    setSyncStatus('err','연결 오류');
-    console.error('Firebase error:',err);
-  });
-}
-
-// ─── 기존 localStorage 데이터 마이그레이션 ───
-function migrateFromLocal(){
-  const SKEY='quetta_v4';
-  try{
-    const d=localStorage.getItem(SKEY);
-    if(!d){ alert('로컬 데이터가 없습니다.'); return; }
-    if(!confirm('기존 로컬 데이터를 클라우드로 업로드하시겠습니까?\n⚠️ 현재 클라우드 데이터가 덮어씌워집니다.')) return;
-    const p=JSON.parse(d);
-    _DB_REF.set(p).then(()=>{ toast('✅ 마이그레이션 완료!'); }).catch(e=>alert('오류: '+e.message));
-  }catch(e){ alert('오류: '+e.message); }
-}
 let S={cfg:{prevTerms:['정규(2,3월)','정규1기(3월)'],currTerms:['정규2기(4월)'],dashDate:todayStr(),hiddenTerms:[],manualOverride:false},pays:[],refunds:[],snapshots:{}};
 
 function todayStr(){return new Date().toISOString().split('T')[0];}
-function load(){} // Firebase로 대체됨 (setupFirebase에서 처리)
-// save() → Firebase 버전으로 위에서 정의됨
+function load(){} // Supabase로 대체됨
 
 function parseDate(s){if(!s)return '';s=s.trim();const m1=s.match(/(\d+)월\s*(\d+)일/);if(m1)return`${new Date().getFullYear()}-${m1[1].padStart(2,'0')}-${m1[2].padStart(2,'0')}`;if(/^\d{4}-\d{2}-\d{2}/.test(s))return s.substring(0,10);const m3=s.match(/^(\d{1,2})\/(\d{1,2})$/);if(m3)return`${new Date().getFullYear()}-${m3[1].padStart(2,'0')}-${m3[2].padStart(2,'0')}`;return s;}
 function fmtShort(ymd){if(!ymd||ymd.length<7)return ymd||'';const p=ymd.split('-');return p.length>=3?`${p[1]}/${p[2]}`:ymd;}
@@ -730,6 +745,7 @@ function renderPayTable(){
       <td>${h(r.이름)}</td><td>${h(r.내역)}</td>
       <td style="text-align:right;">${r.결제금액.toLocaleString()}</td>
       <td>${h(r.장학)}</td><td>${bdg}</td>
+      <td><button onclick="deleteRecord('${r.id}')" style="background:none;border:none;cursor:pointer;font-size:14px;padding:2px 6px;" title="삭제">🗑️</button></td>
     </tr>`;
   }
   if(!html)html=`<tr><td colspan="10" style="text-align:center;color:#bbb;padding:30px;">데이터 없음</td></tr>`;
@@ -1241,19 +1257,23 @@ function exportData(){const blob=new Blob([JSON.stringify(S,null,2)],{type:'appl
 function importData(e){const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(!confirm('현재 데이터를 덮어씁니다. 계속?'))return;S=d;save();updateTermFilter();renderPayTable();renderUnpaid();renderDash();renderFilterChips();toast('가져오기 완료');}catch(err){alert('파일 오류: '+err.message);}};reader.readAsText(file);e.target.value='';}
 function resetAll(){if(!confirm('모든 데이터를 초기화하시겠습니까?'))return;if(!confirm('정말로 초기화하시겠습니까?'))return;S.pays=[];S.refunds=[];save();updateTermFilter();renderPayTable();renderUnpaid();renderDash();renderFilterChips();toast('초기화 완료');}
 
-// ─── 비밀번호 변경 ───
-function changePassword(){
-  const p1=document.getElementById('newPw1').value.trim();
-  const p2=document.getElementById('newPw2').value.trim();
-  if(!p1){ toast('새 비밀번호를 입력해주세요'); return; }
-  if(p1.length<4){ toast('비밀번호는 4자 이상이어야 합니다'); return; }
-  if(p1!==p2){ toast('비밀번호가 일치하지 않습니다'); return; }
-  _DB.ref('quetta_pw').set(p1).then(()=>{
-    _appPw=p1;
-    document.getElementById('newPw1').value='';
-    document.getElementById('newPw2').value='';
-    toast(`✅ 비밀번호가 변경됐습니다`);
-  }).catch(e=>toast('오류: '+e.message));
+// ─── 개별 레코드 삭제 ───
+function deleteRecord(id){
+  const r = S.pays.find(p=>p.id===id);
+  if(!r) return;
+  openModal('🗑️ 삭제 확인',
+    `<div style="font-size:13px;line-height:1.9;">
+      <strong>${h(r.이름)}</strong> (${h(r.수험번호)})<br>
+      내역: <strong>${h(r.내역)}</strong><br>
+      <span style="color:var(--danger);font-size:12px;">이 기록을 삭제하시겠습니까?</span>
+    </div>`,
+    [{label:'삭제',cls:'btn-red',fn:()=>{
+      S.pays=S.pays.filter(p=>p.id!==id);
+      save(); closeModal();
+      updateTermFilter(); renderPayTable(); renderUnpaid(); renderDash(); renderFilterChips();
+      toast(`✅ ${r.이름} (${r.내역}) 삭제 완료`);
+    }},{label:'취소',cls:'btn-ghost',fn:closeModal}]
+  );
 }
 
 // ─── 내역별 삭제 ───
