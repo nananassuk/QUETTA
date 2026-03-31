@@ -21,6 +21,16 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
 .sync-ok{background:#27AE60;box-shadow:0 0 6px #27AE60;}
 .sync-wait{background:#E67E22;animation:blink 1s infinite;}
 .sync-err{background:#C0392B;}
+/* 로그인 화면 */
+#loginScreen{position:fixed;inset:0;background:var(--g1);display:flex;align-items:center;justify-content:center;z-index:9999;}
+.login-box{background:#fff;border-radius:16px;padding:40px;width:340px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.4);}
+.login-logo{font-size:26px;font-weight:800;letter-spacing:3px;color:var(--g1);margin-bottom:4px;}
+.login-sub{font-size:12px;color:var(--muted);margin-bottom:28px;}
+.login-inp{width:100%;padding:12px;border:2px solid var(--border);border-radius:8px;font-size:16px;text-align:center;letter-spacing:4px;font-family:inherit;margin-bottom:12px;}
+.login-inp:focus{outline:none;border-color:var(--g3);}
+.login-btn{width:100%;padding:12px;background:var(--g1);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s;}
+.login-btn:hover{background:var(--g2);}
+.login-err{color:var(--danger);font-size:13px;margin-top:8px;min-height:18px;}
 @keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
 .tab-bar{background:var(--g1);display:flex;padding:0 20px;gap:2px;border-bottom:3px solid var(--gold);}
 .tab-btn{padding:10px 18px;background:transparent;border:none;color:rgba(255,255,255,.55);cursor:pointer;font-size:13px;font-weight:600;border-radius:6px 6px 0 0;transition:.2s;font-family:inherit;}
@@ -86,6 +96,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
 .daily-tbl td{padding:6px 8px;border:1px solid #ddd;text-align:center;}
 .daily-tbl tr:nth-child(even) td{background:#FAFAFA;}
 .daily-tbl .new-cell{color:var(--success);font-weight:700;font-size:11px;}
+.copy-cell{cursor:pointer;color:var(--g2);font-weight:600;text-decoration:underline dotted;}
+.copy-cell:hover{background:var(--gold2)!important;color:var(--g1);border-radius:3px;}
 .daily-tbl .ref-date{color:var(--danger);font-weight:700;}
 .refund-input-area{background:#FEF8F8;border:1px solid #F5B7B1;border-radius:8px;padding:12px;margin-bottom:14px;}
 .refund-input-area label{font-size:13px;font-weight:700;color:var(--danger);display:block;margin-bottom:8px;}
@@ -119,8 +131,21 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
 </style>
 </head>
 <body>
+<!-- 로그인 화면 -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">QUETTA</div>
+    <div class="login-sub">강남대성기숙 등록 관리 시스템</div>
+    <input class="login-inp" type="password" id="loginPw" placeholder="비밀번호"
+      onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="login-btn" onclick="doLogin()">입장</button>
+    <div class="login-err" id="loginErr"></div>
+    <div style="font-size:11px;color:#aaa;margin-top:16px;">초기 비밀번호: quetta2026</div>
+  </div>
+</div>
+
 <!-- mainApp -->
-<div id="mainApp">
+<div id="mainApp" style="display:none;">
 <div class="hdr">
   <div><div class="hdr-logo">강남대성기숙 QUETTA</div><div class="hdr-sub">등록 관리 시스템 v1.0</div></div>
   <div style="display:flex;align-items:center;gap:14px;">
@@ -326,7 +351,14 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
     </div>
   </div>
   <div class="card">
-    <div class="card-ttl">💾 저장 및 데이터 관리</div>
+    <div class="card-ttl">🔑 비밀번호 변경</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <input type="password" class="inp" id="newPw1" placeholder="새 비밀번호" style="width:160px;">
+      <input type="password" class="inp" id="newPw2" placeholder="비밀번호 확인" style="width:160px;">
+      <button class="btn btn-g" onclick="changePassword()">변경</button>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-top:8px;">현재 비밀번호: <span id="currentPwHint" style="letter-spacing:3px;">●●●●●●●●</span></div>
+  </div>
     <div class="btn-row">
       <button class="btn btn-g" onclick="saveSettings()">💾 설정 저장</button>
       <button class="btn btn-gold" onclick="exportData()">📤 데이터 내보내기</button>
@@ -360,15 +392,26 @@ const FIREBASE_CONFIG = {
   appId:             "1:929659043265:web:35eb9a480773b868b3c340"
 };
 
-// 비밀번호 설정 제거됨
+// 비밀번호 기본값
+const DEFAULT_PW = '1234';
+let _appPw = DEFAULT_PW;
+let _DB = null, _DB_REF = null, _isSyncing = false;
 
-// ════════════════════════════════════════
-//  Firebase 초기화
-// ════════════════════════════════════════
-firebase.initializeApp(FIREBASE_CONFIG);
-const DB = firebase.database();
-const DB_REF = DB.ref('quetta_v4');
-let _isSyncing = false;
+// ─── 로그인 (Firebase 완전 독립) ───
+function doLogin(){
+  const pw = (document.getElementById('loginPw').value || '').trim();
+  if(pw === _appPw){
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('mainApp').style.display='block';
+    setupFirebase();
+  } else {
+    const err = document.getElementById('loginErr');
+    err.textContent = '비밀번호가 틀렸습니다';
+    document.getElementById('loginPw').value='';
+    document.getElementById('loginPw').focus();
+    setTimeout(()=>{ err.textContent=''; }, 2500);
+  }
+}
 
 // ─── 동기화 상태 표시 ───
 function setSyncStatus(state, msg){
@@ -380,17 +423,30 @@ function setSyncStatus(state, msg){
 
 // ─── Firebase 저장 ───
 function save(){
+  if(!_DB_REF){ console.warn('DB not ready'); return; }
   if(_isSyncing) return;
   setSyncStatus('wait','저장 중...');
-  DB_REF.set(JSON.parse(JSON.stringify(S)))
+  _DB_REF.set(JSON.parse(JSON.stringify(S)))
     .then(()=>setSyncStatus('ok','저장됨'))
     .catch(e=>{ setSyncStatus('err','저장 실패'); console.error(e); });
 }
 
-// ─── Firebase 실시간 수신 ───
+// ─── Firebase 초기화 + 실시간 수신 (로그인 후 호출) ───
 function setupFirebase(){
+  try{
+    if(!firebase.apps.length){
+      firebase.initializeApp(FIREBASE_CONFIG);
+    }
+    _DB = firebase.database();
+    _DB_REF = _DB.ref('quetta_v4');
+  } catch(e){
+    alert('Firebase 연결 오류: '+e.message);
+    return;
+  }
   setSyncStatus('wait','연결 중...');
-  DB_REF.on('value', snapshot=>{
+  // 비밀번호 로드
+  _DB.ref('quetta_pw').once('value').then(snap=>{ if(snap.val()) _appPw=snap.val(); }).catch(()=>{});
+  _DB_REF.on('value', snapshot=>{
     const data = snapshot.val();
     _isSyncing = true;
     if(data){
@@ -429,7 +485,7 @@ function migrateFromLocal(){
     if(!d){ alert('로컬 데이터가 없습니다.'); return; }
     if(!confirm('기존 로컬 데이터를 클라우드로 업로드하시겠습니까?\n⚠️ 현재 클라우드 데이터가 덮어씌워집니다.')) return;
     const p=JSON.parse(d);
-    DB_REF.set(p).then(()=>{ toast('✅ 마이그레이션 완료!'); }).catch(e=>alert('오류: '+e.message));
+    _DB_REF.set(p).then(()=>{ toast('✅ 마이그레이션 완료!'); }).catch(e=>alert('오류: '+e.message));
   }catch(e){ alert('오류: '+e.message); }
 }
 let S={cfg:{prevTerms:['정규(2,3월)','정규1기(3월)'],currTerms:['정규2기(4월)'],dashDate:todayStr(),hiddenTerms:[],manualOverride:false},pays:[],refunds:[],snapshots:{}};
@@ -657,7 +713,14 @@ function renderPayTable(){
 
     // 내역 구분선
     if(r.내역!==lastTerm){
-      html+=`<tr><td colspan="10" style="background:var(--g1);color:var(--gold);font-weight:700;font-size:12px;padding:5px 14px;">📋 ${h(r.내역)}</td></tr>`;
+      const termEsc = r.내역.replace(/'/g,"\\'");
+      const termCnt = rows.filter(x=>x.내역===r.내역).length;
+      html+=`<tr><td colspan="10" style="background:var(--g1);color:var(--gold);font-weight:700;font-size:12px;padding:5px 14px;">
+        <span style="display:flex;align-items:center;justify-content:space-between;">
+          <span>📋 ${h(r.내역)} <span style="font-weight:400;opacity:.7;">(${termCnt}명)</span></span>
+          <button onclick="deleteByTerm('${termEsc}')" style="background:var(--danger);color:#fff;border:none;border-radius:4px;padding:2px 10px;font-size:11px;cursor:pointer;font-weight:700;">🗑️ 삭제</button>
+        </span>
+      </td></tr>`;
       lastTerm=r.내역; idx=1;
     }
 
@@ -951,7 +1014,7 @@ function renderDaily(){
       })))
   );
   let regHtml='';
-  regs.forEach((r,i)=>{const isNew=!prevIds.has(r.수험번호);regHtml+=`<tr><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td>${h(r.장학)}</td><td class="new-cell">${isNew?'신규':''}</td></tr>`;});
+  regs.forEach((r,i)=>{const isNew=!prevIds.has(r.수험번호);regHtml+=`<tr><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td class="copy-cell" onclick="copySuhum('${h(r.수험번호)}')" title="클릭하여 복사">${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td>${h(r.장학)}</td><td class="new-cell">${isNew?'신규':''}</td></tr>`;});
   if(!regHtml)regHtml=`<tr><td colspan="8" style="text-align:center;color:#bbb;padding:20px;">등록 내역 없음</td></tr>`;
   document.getElementById('regBody').innerHTML=regHtml;
   let refHtml='';
@@ -975,7 +1038,7 @@ function renderDaily(){
     const dot=refPersonColor[r.수험번호]
       ?`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${refPersonColor[r.수험번호]};border:1.5px solid #888;margin-right:4px;vertical-align:middle;"></span>`
       :'';
-    refHtml+=`<tr ${bg}><td>${h(r.반)}</td><td>${h(r.번호||'')}</td><td>${h(r.수험번호)}</td><td>${dot}${h(r.이름)}</td><td>${h(r.내역)}</td><td class="ref-date">${fmtShort(date)}</td><td>${h(r.장학||'')}</td></tr>`;
+    refHtml+=`<tr ${bg}><td>${h(r.반)}</td><td>${h(r.번호||'')}</td><td class="copy-cell" onclick="copySuhum('${h(r.수험번호)}')" title="클릭하여 복사">${h(r.수험번호)}</td><td>${dot}${h(r.이름)}</td><td>${h(r.내역)}</td><td class="ref-date">${fmtShort(date)}</td><td>${h(r.장학||'')}</td></tr>`;
   });
   if(!refHtml)refHtml=`<tr><td colspan="7" style="text-align:center;color:#bbb;padding:20px;">환불 내역 없음</td></tr>`;
   document.getElementById('refBody').innerHTML=refHtml;
@@ -1179,7 +1242,49 @@ function exportData(){const blob=new Blob([JSON.stringify(S,null,2)],{type:'appl
 function importData(e){const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(!confirm('현재 데이터를 덮어씁니다. 계속?'))return;S=d;save();updateTermFilter();renderPayTable();renderUnpaid();renderDash();renderFilterChips();toast('가져오기 완료');}catch(err){alert('파일 오류: '+err.message);}};reader.readAsText(file);e.target.value='';}
 function resetAll(){if(!confirm('모든 데이터를 초기화하시겠습니까?'))return;if(!confirm('정말로 초기화하시겠습니까?'))return;S.pays=[];S.refunds=[];save();updateTermFilter();renderPayTable();renderUnpaid();renderDash();renderFilterChips();toast('초기화 완료');}
 
-function openModal(title,body,buttons){document.getElementById('modalTtl').innerHTML=title;document.getElementById('modalBody').innerHTML=body;document.getElementById('modalFoot').innerHTML=buttons.map((b,i)=>`<button class="btn ${b.cls}" id="mbtn${i}">${b.label}</button>`).join('');buttons.forEach((b,i)=>{document.getElementById('mbtn'+i).onclick=b.fn;});document.getElementById('modalBg').classList.add('open');}
+// ─── 비밀번호 변경 ───
+function changePassword(){
+  const p1=document.getElementById('newPw1').value.trim();
+  const p2=document.getElementById('newPw2').value.trim();
+  if(!p1){ toast('새 비밀번호를 입력해주세요'); return; }
+  if(p1.length<4){ toast('비밀번호는 4자 이상이어야 합니다'); return; }
+  if(p1!==p2){ toast('비밀번호가 일치하지 않습니다'); return; }
+  _DB.ref('quetta_pw').set(p1).then(()=>{
+    _appPw=p1;
+    document.getElementById('newPw1').value='';
+    document.getElementById('newPw2').value='';
+    toast(`✅ 비밀번호가 변경됐습니다`);
+  }).catch(e=>toast('오류: '+e.message));
+}
+
+// ─── 내역별 삭제 ───
+function deleteByTerm(term){
+  const cnt=S.pays.filter(p=>p.내역===term).length;
+  openModal(`🗑️ "${term}" 전체 삭제`,
+    `<div style="font-size:13px;line-height:1.9;">
+      <strong>${h(term)}</strong> 내역의 납부 데이터 <strong>${cnt}명</strong>을 전부 삭제합니다.<br>
+      <span style="color:var(--danger);font-size:12px;">※ 퇴소 처리된 기록도 함께 삭제됩니다.</span>
+    </div>`,
+    [{label:'삭제',cls:'btn-red',fn:()=>{
+      S.pays=S.pays.filter(p=>p.내역!==term);
+      save(); closeModal();
+      updateTermFilter(); renderPayTable(); renderUnpaid(); renderDash(); renderFilterChips();
+      toast(`✅ "${term}" 삭제 완료`);
+    }},{label:'취소',cls:'btn-ghost',fn:closeModal}]
+  );
+}
+
+function copySuhum(val){
+  navigator.clipboard.writeText(val).then(()=>toast(`📋 ${val} 복사됨`,1500)).catch(()=>{
+    // fallback
+    const t=document.createElement('textarea');
+    t.value=val; document.body.appendChild(t); t.select();
+    document.execCommand('copy'); document.body.removeChild(t);
+    toast(`📋 ${val} 복사됨`,1500);
+  });
+}
+
+function openModal(title,body,buttons){
 function closeModal(){document.getElementById('modalBg').classList.remove('open');}
 document.getElementById('modalBg').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
 
@@ -1189,7 +1294,7 @@ function init(){
   document.getElementById('dailyDate').value=todayStr();
   const yesterday=new Date(); yesterday.setDate(yesterday.getDate()-1);
   document.getElementById('uploadDateInput').value=yesterday.toISOString().split('T')[0];
-  setupFirebase(); // Firebase 연결 시작
+  document.getElementById('loginPw').focus();
 }
 init();
 </script>
