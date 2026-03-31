@@ -1307,11 +1307,11 @@ function deleteByTerm(term){
 function copyAllSuhum(type){
   const tbody = document.getElementById(type==='reg'?'regBody':'refBody');
   if(!tbody) return;
-  // 3번째 td (수험번호 컬럼)
+  const colIdx = type==='reg' ? 3 : 2; // 등록: no/반/학번/수험번호 → index 3, 환불: 반/학번/수험번호 → index 2
   const nums = [...tbody.querySelectorAll('tr')].map(tr=>{
     const cells=tr.querySelectorAll('td');
-    return cells[2]?cells[2].textContent.trim():'';
-  }).filter(v=>v && v!=='환불 내역 없음' && v!=='등록 내역 없음');
+    return cells[colIdx]?cells[colIdx].textContent.trim():'';
+  }).filter(v=>v && v.length>3);
   if(!nums.length){ toast('복사할 수험번호가 없습니다'); return; }
   const text = '수험번호\n' + nums.join('\n');
   navigator.clipboard.writeText(text).then(()=>{
