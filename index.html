@@ -1029,7 +1029,16 @@ function renderDaily(){
       })))
   );
   let regHtml='';
-  regs.forEach((r,i)=>{const isNew=!prevIds.has(r.수험번호);regHtml+=`<tr><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td class="copy-cell" onclick="copySuhum('${h(r.수험번호)}')" title="클릭하여 복사">${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td>${h(r.장학)}</td><td class="new-cell">${isNew?'신규':''}</td></tr>`;});
+  regs.forEach((r,i)=>{
+    const isNew=!prevIds.has(r.수험번호);
+    const rowData=[r.반,r.번호,r.수험번호,r.이름,r.내역,r.장학,isNew?'신규':''].join('\t');
+    regHtml+=`<tr>
+      <td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td>
+      <td class="copy-cell" onclick="copyRow('${rowData.replace(/'/g,"\\'")}',this)" title="클릭하면 행 전체 복사">${h(r.수험번호)}</td>
+      <td>${h(r.이름)}</td><td>${h(r.내역)}</td><td>${h(r.장학)}</td>
+      <td class="new-cell">${isNew?'신규':''}</td>
+    </tr>`;
+  });
   if(!regHtml)regHtml=`<tr><td colspan="8" style="text-align:center;color:#bbb;padding:20px;">등록 내역 없음</td></tr>`;
   document.getElementById('regBody').innerHTML=regHtml;
   let refHtml='';
@@ -1053,7 +1062,10 @@ function renderDaily(){
     const dot=refPersonColor[r.수험번호]
       ?`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${refPersonColor[r.수험번호]};border:1.5px solid #888;margin-right:4px;vertical-align:middle;"></span>`
       :'';
-    refHtml+=`<tr ${bg}><td>${h(r.반)}</td><td>${h(r.번호||'')}</td><td class="copy-cell" onclick="copySuhum('${h(r.수험번호)}')" title="클릭하여 복사">${h(r.수험번호)}</td><td>${dot}${h(r.이름)}</td><td>${h(r.내역)}</td><td class="ref-date">${fmtShort(date)}</td><td>${h(r.장학||'')}</td></tr>`;
+    const rowData=[r.반,r.번호||'',r.수험번호,r.이름,r.내역].join('\t');
+    refHtml+=`<tr ${bg}><td>${h(r.반)}</td><td>${h(r.번호||'')}</td>
+      <td class="copy-cell" onclick="copyRow('${rowData.replace(/'/g,"\\'")}',this)" title="클릭하면 행 전체 복사">${h(r.수험번호)}</td>
+      <td>${dot}${h(r.이름)}</td><td>${h(r.내역)}</td><td class="ref-date">${fmtShort(date)}</td><td>${h(r.장학||'')}</td></tr>`;
   });
   if(!refHtml)refHtml=`<tr><td colspan="7" style="text-align:center;color:#bbb;padding:20px;">환불 내역 없음</td></tr>`;
   document.getElementById('refBody').innerHTML=refHtml;
@@ -1293,13 +1305,17 @@ function deleteByTerm(term){
   );
 }
 
-function copySuhum(val){
-  navigator.clipboard.writeText(val).then(()=>toast(`📋 ${val} 복사됨`,1500)).catch(()=>{
-    // fallback
+// ─── 행 전체 복사 (수험번호 클릭 시) ───
+function copyRow(rowData, el){
+  navigator.clipboard.writeText(rowData).then(()=>{
+    el.style.background='var(--gold2)';
+    setTimeout(()=>el.style.background='',800);
+    toast('📋 행 복사됨 (엑셀에 붙여넣기 가능)',1800);
+  }).catch(()=>{
     const t=document.createElement('textarea');
-    t.value=val; document.body.appendChild(t); t.select();
+    t.value=rowData; document.body.appendChild(t); t.select();
     document.execCommand('copy'); document.body.removeChild(t);
-    toast(`📋 ${val} 복사됨`,1500);
+    toast('📋 행 복사됨',1800);
   });
 }
 
