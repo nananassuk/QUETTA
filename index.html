@@ -250,11 +250,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
     <div class="daily-grid">
       <div>
         <div class="daily-side-ttl reg">✅ 등록</div>
-        <div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th>no</th><th>반</th><th>학번</th><th>수험번호</th><th>성명</th><th>등록</th><th>장학</th><th>신규</th></tr></thead><tbody id="regBody"></tbody></table></div>
+        <div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th>no</th><th>반</th><th>학번</th><th class="copy-cell" onclick="copyAllSuhum('reg')" title="클릭하면 수험번호 전체 복사" style="cursor:pointer;">수험번호 📋</th><th>성명</th><th>등록</th><th>장학</th><th>신규</th></tr></thead><tbody id="regBody"></tbody></table></div>
       </div>
       <div>
         <div class="daily-side-ttl ref">🔄 환불</div>
-        <div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th>반</th><th>학번</th><th>수험번호</th><th>성명</th><th>내역</th><th>환불</th><th>장학</th></tr></thead><tbody id="refBody"></tbody></table></div>
+        <div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th>반</th><th>학번</th><th class="copy-cell" onclick="copyAllSuhum('ref')" title="클릭하면 수험번호 전체 복사" style="cursor:pointer;">수험번호 📋</th><th>성명</th><th>내역</th><th>환불</th><th>장학</th></tr></thead><tbody id="refBody"></tbody></table></div>
       </div>
     </div>
   </div>
@@ -1031,10 +1031,9 @@ function renderDaily(){
   let regHtml='';
   regs.forEach((r,i)=>{
     const isNew=!prevIds.has(r.수험번호);
-    const rowData=[r.반,r.번호,r.수험번호,r.이름,r.내역,r.장학,isNew?'신규':''].join('\t');
     regHtml+=`<tr>
       <td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td>
-      <td class="copy-cell" onclick="copyRow('${rowData.replace(/'/g,"\\'")}',this)" title="클릭하면 행 전체 복사">${h(r.수험번호)}</td>
+      <td>${h(r.수험번호)}</td>
       <td>${h(r.이름)}</td><td>${h(r.내역)}</td><td>${h(r.장학)}</td>
       <td class="new-cell">${isNew?'신규':''}</td>
     </tr>`;
@@ -1062,9 +1061,8 @@ function renderDaily(){
     const dot=refPersonColor[r.수험번호]
       ?`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${refPersonColor[r.수험번호]};border:1.5px solid #888;margin-right:4px;vertical-align:middle;"></span>`
       :'';
-    const rowData=[r.반,r.번호||'',r.수험번호,r.이름,r.내역].join('\t');
     refHtml+=`<tr ${bg}><td>${h(r.반)}</td><td>${h(r.번호||'')}</td>
-      <td class="copy-cell" onclick="copyRow('${rowData.replace(/'/g,"\\'")}',this)" title="클릭하면 행 전체 복사">${h(r.수험번호)}</td>
+      <td>${h(r.수험번호)}</td>
       <td>${dot}${h(r.이름)}</td><td>${h(r.내역)}</td><td class="ref-date">${fmtShort(date)}</td><td>${h(r.장학||'')}</td></tr>`;
   });
   if(!refHtml)refHtml=`<tr><td colspan="7" style="text-align:center;color:#bbb;padding:20px;">환불 내역 없음</td></tr>`;
@@ -1305,17 +1303,24 @@ function deleteByTerm(term){
   );
 }
 
-// ─── 행 전체 복사 (수험번호 클릭 시) ───
-function copyRow(rowData, el){
-  navigator.clipboard.writeText(rowData).then(()=>{
-    el.style.background='var(--gold2)';
-    setTimeout(()=>el.style.background='',800);
-    toast('📋 행 복사됨 (엑셀에 붙여넣기 가능)',1800);
+// ─── 수험번호 헤더 클릭 → 전체 수험번호 복사 ───
+function copyAllSuhum(type){
+  const tbody = document.getElementById(type==='reg'?'regBody':'refBody');
+  if(!tbody) return;
+  // 3번째 td (수험번호 컬럼)
+  const nums = [...tbody.querySelectorAll('tr')].map(tr=>{
+    const cells=tr.querySelectorAll('td');
+    return cells[2]?cells[2].textContent.trim():'';
+  }).filter(v=>v && v!=='환불 내역 없음' && v!=='등록 내역 없음');
+  if(!nums.length){ toast('복사할 수험번호가 없습니다'); return; }
+  const text = '수험번호\n' + nums.join('\n');
+  navigator.clipboard.writeText(text).then(()=>{
+    toast(`📋 수험번호 ${nums.length}개 복사됨 — 엑셀에 붙여넣기 하세요!`, 2500);
   }).catch(()=>{
     const t=document.createElement('textarea');
-    t.value=rowData; document.body.appendChild(t); t.select();
+    t.value=text; document.body.appendChild(t); t.select();
     document.execCommand('copy'); document.body.removeChild(t);
-    toast('📋 행 복사됨',1800);
+    toast(`📋 수험번호 ${nums.length}개 복사됨`, 2500);
   });
 }
 
