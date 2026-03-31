@@ -1284,6 +1284,12 @@ function copySuhum(val){
 }
 
 function openModal(title,body,buttons){
+  document.getElementById('modalTtl').innerHTML=title;
+  document.getElementById('modalBody').innerHTML=body;
+  document.getElementById('modalFoot').innerHTML=buttons.map((b,i)=>`<button class="btn ${b.cls}" id="mbtn${i}">${b.label}</button>`).join('');
+  buttons.forEach((b,i)=>{document.getElementById('mbtn'+i).onclick=b.fn;});
+  document.getElementById('modalBg').classList.add('open');
+}
 function closeModal(){document.getElementById('modalBg').classList.remove('open');}
 document.getElementById('modalBg').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
 
