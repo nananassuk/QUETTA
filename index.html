@@ -653,9 +653,14 @@ function importPayExcel(e){
 function applyImport(records){
   if(!records.length){ toast('파싱된 데이터가 없습니다'); return; }
   const existKey = new Set(S.pays.filter(p=>p.status==='active').map(p=>`${p.내역}||${p.수험번호}`));
-  let added=0, dups=[];
+  // 퇴소 처리된 수험번호 집합
+  const withdrawnIds = new Set(S.pays.filter(p=>p.status==='퇴소').map(p=>p.수험번호).filter(Boolean));
+
+  let added=0, dups=[], withdrawn=[];
   const newKeys = new Set();
   for(const r of records){
+    // 퇴소 학생 제외
+    if(withdrawnIds.has(r.수험번호)){ withdrawn.push(r); continue; }
     const key=`${r.내역}||${r.수험번호}`;
     if(existKey.has(key)||newKeys.has(key)){ r._dup=true; dups.push(r); }
     else{ S.pays.push(r); existKey.add(key); newKeys.add(key); added++; }
@@ -665,6 +670,7 @@ function applyImport(records){
   updateTermFilter(); renderPayTable(); renderUnpaid(); renderDash(); renderFilterChips();
   let msg=`<span style="color:var(--success);font-weight:700;">✅ ${added}명 추가됨</span>`;
   if(dups.length) msg+=`<span style="color:var(--danger);margin-left:12px;font-weight:700;">⚠️ 중복 ${dups.length}명 (미적용)</span><div style="margin-top:8px;font-size:12px;color:var(--danger);">중복: ${dups.map(d=>`${d.이름}(${d.내역})`).join(', ')}</div>`;
+  if(withdrawn.length) msg+=`<span style="color:#856404;margin-left:12px;font-weight:700;">🚪 퇴소제외 ${withdrawn.length}명 (미적용)</span><div style="margin-top:4px;font-size:12px;color:#856404;">퇴소: ${withdrawn.map(d=>`${d.이름}(${d.수험번호})`).join(', ')}</div>`;
   document.getElementById('importResult').innerHTML=`<div style="padding:10px;background:#F8F8F8;border-radius:6px;">${msg}</div>`;
   toast(`${added}명 추가${dups.length?` (중복 ${dups.length}명 제외)`:''}`);
 }
