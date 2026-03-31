@@ -1,0 +1,1312 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QUETTA 등록 관리 시스템</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- Supabase SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--g1:#1B4332;--g2:#2D6A4F;--g3:#40916C;--gold:#C9A84C;--gold2:#E8C97A;--bg:#F4F1EB;--card:#FFFFFF;--danger:#C0392B;--danger2:#E74C3C;--success:#27AE60;--border:#D8CEB8;--muted:#888;--shadow:0 2px 16px rgba(27,67,50,0.13);}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);color:#1a1a1a;min-height:100vh;font-size:14px;}
+.hdr{background:var(--g1);color:#fff;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;}
+.hdr-logo{font-size:18px;font-weight:800;letter-spacing:3px;color:var(--gold);}
+.hdr-sub{font-size:11px;color:rgba(255,255,255,.6);margin-top:2px;}
+.hdr-date{font-size:13px;color:var(--gold2);}
+.sync-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle;}
+.sync-ok{background:#27AE60;box-shadow:0 0 6px #27AE60;}
+.sync-wait{background:#E67E22;animation:blink 1s infinite;}
+.sync-err{background:#C0392B;}
+/* 로그인 화면 */
+#loginScreen{position:fixed;inset:0;background:var(--g1);display:flex;align-items:center;justify-content:center;z-index:9999;}
+.login-box{background:#fff;border-radius:16px;padding:40px;width:340px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.4);}
+.login-logo{font-size:26px;font-weight:800;letter-spacing:3px;color:var(--g1);margin-bottom:4px;}
+.login-sub{font-size:12px;color:var(--muted);margin-bottom:28px;}
+.login-inp{width:100%;padding:12px;border:2px solid var(--border);border-radius:8px;font-size:16px;text-align:center;letter-spacing:4px;font-family:inherit;margin-bottom:12px;}
+.login-inp:focus{outline:none;border-color:var(--g3);}
+.login-btn{width:100%;padding:12px;background:var(--g1);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s;}
+.login-btn:hover{background:var(--g2);}
+.login-err{color:var(--danger);font-size:13px;margin-top:8px;min-height:18px;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
+.tab-bar{background:var(--g1);display:flex;padding:0 20px;gap:2px;border-bottom:3px solid var(--gold);}
+.tab-btn{padding:10px 18px;background:transparent;border:none;color:rgba(255,255,255,.55);cursor:pointer;font-size:13px;font-weight:600;border-radius:6px 6px 0 0;transition:.2s;font-family:inherit;}
+.tab-btn:hover{color:#fff;background:rgba(255,255,255,.1);}
+.tab-btn.on{background:var(--gold);color:var(--g1);}
+.tab-pane{display:none;padding:20px;}
+.tab-pane.on{display:block;}
+.card{background:var(--card);border-radius:10px;box-shadow:var(--shadow);padding:18px;margin-bottom:16px;}
+.card-ttl{font-size:14px;font-weight:700;color:var(--g1);padding-bottom:10px;border-bottom:2px solid var(--gold);margin-bottom:14px;display:flex;align-items:center;gap:8px;}
+.btn{padding:7px 16px;border:none;border-radius:5px;cursor:pointer;font-size:13px;font-weight:600;transition:.15s;font-family:inherit;}
+.btn-g{background:var(--g1);color:#fff;}.btn-g:hover{background:var(--g2);}
+.btn-gold{background:var(--gold);color:var(--g1);}.btn-gold:hover{background:var(--gold2);}
+.btn-red{background:var(--danger);color:#fff;}.btn-red:hover{background:var(--danger2);}
+.btn-sm{padding:4px 10px;font-size:12px;}
+.btn-ghost{background:#eee;color:#555;}.btn-ghost:hover{background:#ddd;}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.inp{padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;}
+.inp:focus{outline:none;border-color:var(--g3);}
+.paste-box{width:100%;height:90px;border:2px dashed var(--gold);border-radius:8px;padding:12px;font-size:13px;background:#FAFAF7;resize:vertical;font-family:monospace;}
+.paste-box:focus{outline:none;border-color:var(--g3);}
+/* 필터 */
+.dash-filter{background:#F8F5EE;border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:14px;}
+.dash-filter-top{font-size:12px;font-weight:700;color:var(--g1);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;}
+.filter-chips{display:flex;flex-wrap:wrap;gap:6px;}
+.fchip{display:flex;align-items:center;gap:4px;padding:3px 10px;border-radius:12px;font-size:12px;border:1px solid var(--border);background:#fff;cursor:pointer;user-select:none;}
+.fchip.on{background:#EAF6EE;border-color:var(--g3);color:#155724;font-weight:600;}
+/* 대시보드 테이블 */
+.dash-wrap{overflow-x:auto;}
+.dash-tbl{width:100%;border-collapse:collapse;font-size:14px;min-width:560px;}
+.dash-tbl th{background:var(--g1);color:#fff;padding:10px 14px;text-align:center;font-size:13px;}
+.dash-tbl td{padding:9px 14px;text-align:center;border:1px solid #ddd;}
+.dash-tbl .row-sub{background:var(--gold);color:var(--g1);font-weight:700;}
+.dash-tbl .row-curr{background:#FFFBE6;}
+.dash-tbl .neg{color:var(--danger);font-weight:700;}
+.dash-tbl .pos{color:var(--success);font-weight:700;}
+/* 납부 테이블 */
+.tbl-wrap{overflow-x:auto;max-height:480px;overflow-y:auto;border-radius:6px;border:1px solid var(--border);}
+.data-tbl{width:100%;border-collapse:collapse;font-size:12.5px;min-width:800px;}
+.data-tbl th{background:var(--g1);color:#fff;padding:8px 10px;text-align:center;position:sticky;top:0;white-space:nowrap;font-size:12px;z-index:2;}
+.data-tbl td{padding:6px 10px;border-bottom:1px solid #EEE;white-space:nowrap;}
+.data-tbl tr:hover td{background:#F8F5EE;}
+.row-dup{background:#FDE8E8!important;}.row-dup td{color:var(--danger);}
+.row-new{background:#EAF6EE!important;}
+.row-out{background:#FEF0EE!important;opacity:.75;}.row-out td{text-decoration:line-through;color:#999;}
+.row-unpaid{background:#FFF9E6!important;}
+.bdg{display:inline-block;padding:2px 7px;border-radius:9px;font-size:11px;font-weight:700;}
+.bdg-new{background:#D4EDDA;color:#155724;}.bdg-dup{background:#F8D7DA;color:#721C24;}
+.bdg-out{background:#F8D7DA;color:var(--danger);}.bdg-ok{background:#EEE;color:#666;font-weight:400;}
+.bdg-unpaid{background:#FFF3CD;color:#856404;}
+.stats-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
+.chip{background:#fff;border:1px solid var(--border);border-radius:8px;padding:8px 16px;text-align:center;min-width:90px;box-shadow:0 1px 4px rgba(0,0,0,.07);}
+.chip .v{font-size:22px;font-weight:800;color:var(--g1);}.chip .l{font-size:11px;color:var(--muted);margin-top:1px;}
+.chip.c-gold{border-color:var(--gold);background:#FFFAEE;}.chip.c-gold .v{color:var(--gold);}
+.chip.c-red{border-color:#F5B7B1;background:#FEF0EE;}.chip.c-red .v{color:var(--danger);}
+.chip.c-grn{border-color:#A9DDB8;background:#EAF6EE;}.chip.c-grn .v{color:var(--success);}
+/* 일일명단 */
+.daily-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media(max-width:900px){.daily-grid{grid-template-columns:1fr;}}
+.daily-side-ttl{font-size:14px;font-weight:700;color:#fff;padding:8px 14px;border-radius:6px 6px 0 0;}
+.daily-side-ttl.reg{background:var(--g1);}.daily-side-ttl.ref{background:var(--danger);}
+.daily-tbl{width:100%;border-collapse:collapse;font-size:12.5px;}
+.daily-tbl th{background:#f0f0f0;padding:7px 8px;text-align:center;border:1px solid #ccc;font-size:12px;}
+.daily-tbl td{padding:6px 8px;border:1px solid #ddd;text-align:center;}
+.daily-tbl tr:nth-child(even) td{background:#FAFAFA;}
+.daily-tbl .new-cell{color:var(--success);font-weight:700;font-size:11px;}
+.copy-cell{cursor:pointer;color:var(--g2);font-weight:600;text-decoration:underline dotted;}
+.copy-cell:hover{background:var(--gold2)!important;color:var(--g1);border-radius:3px;}
+.daily-tbl .ref-date{color:var(--danger);font-weight:700;}
+.refund-input-area{background:#FEF8F8;border:1px solid #F5B7B1;border-radius:8px;padding:12px;margin-bottom:14px;}
+.refund-input-area label{font-size:13px;font-weight:700;color:var(--danger);display:block;margin-bottom:8px;}
+.refund-input-row{display:flex;gap:8px;align-items:center;}
+.refund-input-row .inp{width:200px;border-color:#F5B7B1;}
+/* 설정 */
+.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media(max-width:700px){.settings-grid{grid-template-columns:1fr;}}
+.form-row{margin-bottom:12px;}
+.form-lbl{font-size:12px;font-weight:700;color:var(--g1);display:block;margin-bottom:5px;}
+.term-check-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:6px;}
+.term-check{display:flex;align-items:center;gap:6px;background:#F8F8F8;border:1px solid var(--border);border-radius:5px;padding:5px 8px;cursor:pointer;font-size:12px;}
+.term-check input{cursor:pointer;accent-color:var(--g2);}
+/* 모달 */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:999;}
+.modal-bg.open{display:flex;}
+.modal{background:#fff;border-radius:12px;padding:24px;width:440px;max-width:95vw;box-shadow:0 8px 40px rgba(0,0,0,.3);}
+.modal-ttl{font-size:16px;font-weight:700;color:var(--g1);margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid var(--gold);}
+.modal-body{font-size:13px;line-height:1.7;}
+.modal-foot{margin-top:16px;display:flex;gap:10px;justify-content:flex-end;}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--g1);color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;box-shadow:var(--shadow);z-index:1999;display:none;}
+.toast.show{display:block;animation:slideUp .3s ease;}
+@keyframes slideUp{from{transform:translateY(20px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+.sig-tbl{border-collapse:collapse;}
+.sig-tbl td{border:1px solid #999;padding:5px 14px;text-align:center;font-size:12px;min-width:54px;}
+.sig-tbl .sig-box{height:34px;}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px;}
+.divider{height:1px;background:var(--border);margin:12px 0;}
+.info-box{background:#F0F7F4;border-left:4px solid var(--g3);padding:10px 14px;border-radius:0 6px 6px 0;font-size:12.5px;color:#2D6A4F;line-height:1.7;margin-bottom:12px;}
+@media print{.tab-bar,.btn-row,.paste-box,.refund-input-area,.no-print,.dash-filter{display:none!important;}.tab-pane{display:block!important;padding:0;}.card{box-shadow:none;border:1px solid #ccc;}.daily-grid{grid-template-columns:1fr 1fr;}}
+</style>
+</head>
+<body>
+<!-- 로그인 화면 -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">QUETTA</div>
+    <div class="login-sub">강남대성기숙 등록 관리 시스템</div>
+    <input class="login-inp" type="password" id="loginPw" placeholder="비밀번호">
+    <button class="login-btn" id="loginBtn">입장</button>
+    <div class="login-err" id="loginErr"></div>
+    <div style="font-size:11px;color:#aaa;margin-top:16px;">초기 비밀번호: 1234</div>
+  </div>
+</div>
+
+<!-- mainApp -->
+<div id="mainApp" style="display:none;">
+<div class="hdr">
+  <div><div class="hdr-logo">강남대성기숙 QUETTA</div><div class="hdr-sub">등록 관리 시스템 v1.0</div></div>
+  <div style="display:flex;align-items:center;gap:14px;">
+    <span id="syncStatus" style="font-size:12px;color:var(--gold2);"></span>
+    <div class="hdr-date" id="hdrDate"></div>
+  </div>
+</div>
+<div class="tab-bar">
+  <button class="tab-btn on" onclick="goTab('dash',this)">📊 대시보드</button>
+  <button class="tab-btn" onclick="goTab('daily',this)">📄 일일 등록 명단</button>
+  <button class="tab-btn" onclick="goTab('pay',this)">📋 납부명단 입력</button>
+  <button class="tab-btn" onclick="goTab('cfg',this)">⚙️ 설정</button>
+</div>
+
+<!-- 대시보드 -->
+<div id="tab-dash" class="tab-pane on">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:16px;">
+      <div>
+        <div style="font-size:22px;font-weight:800;color:var(--g1);letter-spacing:2px;">일일 등록 현황</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:4px;" id="dashKorDate"></div>
+      </div>
+    </div>
+    <div class="btn-row no-print" style="margin-bottom:12px;">
+      <label style="font-size:13px;font-weight:600;color:var(--g1);">기준 날짜</label>
+      <input type="date" class="inp" id="dashDatePicker" onchange="onDashDateChange()">
+      <button class="btn btn-gold" onclick="renderDash()">🔄 새로고침</button>
+      <button class="btn btn-g" id="saveSnapBtn" onclick="saveSnapshot()">💾 현황 저장</button>
+      <button class="btn btn-ghost" onclick="window.print()">🖨️ 인쇄</button>
+      <span id="snapBadge" style="font-size:12px;font-weight:600;margin-left:4px;"></span>
+      <span style="font-size:12px;color:var(--muted);margin-left:4px;" id="prevDateLabel"></span>
+    </div>
+    <div class="dash-filter no-print" id="dashFilter">
+      <div class="dash-filter-top">
+        <span>📌 표시 내역 선택 (체크 해제 시 대시보드에서 숨김)</span>
+        <span>
+          <button class="btn btn-sm btn-ghost" onclick="filterAll(true)">전체 선택</button>
+          <button class="btn btn-sm btn-ghost" onclick="filterAll(false)" style="margin-left:4px;">전체 해제</button>
+        </span>
+      </div>
+      <div class="filter-chips" id="filterChips"></div>
+    </div>
+    <div class="dash-wrap">
+      <table class="dash-tbl">
+        <thead><tr><th>내역</th><th>전일등록</th><th>금일등록</th><th>금일환불</th><th>등록인원</th><th>비고</th></tr></thead>
+        <tbody id="dashBody"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card no-print">
+    <div class="card-ttl">📈 전체 통계</div>
+    <div class="stats-row" id="dashStats"></div>
+  </div>
+</div>
+
+<!-- 일일 등록 명단 -->
+<div id="tab-daily" class="tab-pane">
+  <div class="card no-print">
+    <div class="btn-row" style="margin-bottom:12px;">
+      <label style="font-size:13px;font-weight:600;">조회 날짜</label>
+      <input type="date" class="inp" id="dailyDate" onchange="renderDaily()">
+      <button class="btn btn-gold" onclick="renderDaily()">🔄 새로고침</button>
+      <button class="btn btn-g" onclick="exportDailyExcel()">⬇️ 엑셀 다운로드</button>
+      <button class="btn btn-ghost" onclick="window.print()">🖨️ 인쇄</button>
+    </div>
+    <div class="refund-input-area" id="refundArea">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+        <label style="margin:0;">🚪 퇴소 처리</label>
+        <span id="lockBadge"></span>
+      </div>
+
+      <!-- 개별 입력 -->
+      <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px;">개별 처리 — 수험번호 또는 학번 중 하나 입력 후 Enter</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+        <input class="inp" id="refundInput" placeholder="수험번호 입력..." maxlength="10"
+          style="width:180px;" onkeydown="if(event.key==='Enter') processRefundInput()">
+        <span style="font-size:12px;color:var(--muted);">또는</span>
+        <input class="inp" id="refundInputBunho" placeholder="학번 입력..." maxlength="10"
+          style="width:180px;" onkeydown="if(event.key==='Enter') processRefundInput()">
+        <button class="btn btn-red" id="refundProcessBtn" onclick="processRefundInput()">처리</button>
+        <span id="refundHint" style="font-size:12px;color:var(--muted);"></span>
+      </div>
+
+      <!-- 엑셀 일괄 업로드 -->
+      <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px;">일괄 처리 — 엑셀 파일 업로드 (수험번호 또는 학번 컬럼 포함)</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('refundExcelInput').click()">📂 엑셀 파일 선택</button>
+        <input type="file" id="refundExcelInput" accept=".xlsx,.xls" style="display:none" onchange="processRefundExcel(event)">
+        <span style="font-size:11px;color:var(--muted);">수험번호 또는 학번 컬럼이 있는 엑셀 파일</span>
+      </div>
+      <div id="refundExcelResult" style="margin-top:8px;"></div>
+
+      <div id="lockNotice" style="display:none;margin-top:8px;padding:8px 12px;background:#FFF3CD;border-radius:6px;font-size:12px;color:#856404;">
+        ⚠️ 이 날짜는 이미 전일등록에 반영된 데이터입니다. 조회만 가능합니다.
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:8px;">
+        수강 내역 → 금일환불 -1 &nbsp;|&nbsp; 선납 내역 → 등록 취소 + 미납자 조정
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div style="font-size:18px;font-weight:800;color:var(--g1);margin-bottom:4px;">재수정규반 일일 등록 명단</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:14px;" id="dailyKorDate"></div>
+    <div class="daily-grid">
+      <div>
+        <div class="daily-side-ttl reg">✅ 등록</div>
+        <div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th>no</th><th>반</th><th>학번</th><th>수험번호</th><th>성명</th><th>등록</th><th>장학</th><th>신규</th></tr></thead><tbody id="regBody"></tbody></table></div>
+      </div>
+      <div>
+        <div class="daily-side-ttl ref">🔄 환불</div>
+        <div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th>반</th><th>학번</th><th>수험번호</th><th>성명</th><th>내역</th><th>환불</th><th>장학</th></tr></thead><tbody id="refBody"></tbody></table></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 납부명단 입력 -->
+<div id="tab-pay" class="tab-pane">
+  <div class="card">
+    <div class="card-ttl">📥 납부 데이터 업로드</div>
+    <div class="info-box">
+      엑셀 파일을 업로드하면 자동으로 데이터를 읽어옵니다.<br>
+      <strong>동일 내역 + 동일 수험번호</strong>는 중복 감지 후 빨간색 표시됩니다.
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;padding:10px 14px;background:#F8F5EE;border-radius:8px;border:1px solid var(--border);">
+      <label style="font-size:13px;font-weight:700;color:var(--g1);">📅 업로드 날짜 지정</label>
+      <input type="date" class="inp" id="uploadDateInput" style="width:160px;">
+      <span style="font-size:12px;color:var(--muted);">← 비워두면 오늘 날짜로 자동 입력됩니다</span>
+    </div>
+    <div class="btn-row" style="margin-bottom:10px;">
+      <button class="btn btn-g" onclick="document.getElementById('payExcelInput').click()">📂 엑셀 파일 업로드</button>
+      <input type="file" id="payExcelInput" accept=".xlsx,.xls" style="display:none" onchange="importPayExcel(event)">
+      <button class="btn btn-ghost" onclick="downloadTemplate()">⬇️ 업로드 양식 다운로드</button>
+    </div>
+    <div id="importResult" style="margin-top:10px;"></div>
+  </div>
+  <div class="card">
+    <div class="card-ttl">📋 납부 현황</div>
+    <div class="toolbar">
+      <input class="inp" id="paySearch" placeholder="이름·수험번호 검색..." style="width:220px;" oninput="renderPayTable()">
+      <select class="inp" id="payTermFilter" onchange="renderPayTable()"><option value="">전체 내역</option></select>
+      <label style="font-size:12px;display:flex;align-items:center;gap:5px;"><input type="checkbox" id="showDupOnly" onchange="renderPayTable()"> 중복만 보기</label>
+      <button class="btn btn-red btn-sm" onclick="clearAllPay()" style="margin-left:auto;">🗑️ 전체 초기화</button>
+    </div>
+    <div class="stats-row" id="payStats"></div>
+    <div class="tbl-wrap">
+      <table class="data-tbl"><thead><tr><th>#</th><th>결제일자</th><th>반</th><th>학번</th><th>수험번호</th><th>성명</th><th>내역</th><th>결제금액</th><th>장학</th><th>상태</th></tr></thead><tbody id="payBody"></tbody></table>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-ttl">⚠️ 미납자 목록 <span id="unpaidTermLabel" style="font-weight:400;font-size:13px;color:var(--muted);"></span></div>
+    <div class="tbl-wrap">
+      <table class="data-tbl"><thead><tr><th>#</th><th>반</th><th>학번</th><th>수험번호</th><th>성명</th><th>수강 내역</th></tr></thead><tbody id="unpaidBody"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- 설정 -->
+<div id="tab-cfg" class="tab-pane">
+  <div class="settings-grid">
+    <div class="card">
+      <div class="card-ttl">📅 날짜 설정</div>
+      <div class="form-row">
+        <label class="form-lbl">대시보드 기준 날짜</label>
+        <input type="date" class="inp" id="cfgDashDate" style="width:180px;">
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-ttl">🗂️ 내역 분류 설정</div>
+      <div class="info-box" style="margin-bottom:10px;">
+        📅 <strong>날짜 기준으로 자동 감지</strong>됩니다. 수동 재지정이 필요한 경우에만 아래에서 변경하세요.<br>
+        <strong>현재 수강 내역</strong>: 퇴소 시 금일환불(-1) 반영 &nbsp;|&nbsp; <strong>선납 내역</strong>: 미납자 기준
+      </div>
+
+      <!-- 자동 감지 결과 표시 -->
+      <div id="autoDetectResult" style="background:#F0F7F4;border-radius:8px;padding:12px;margin-bottom:14px;">
+        <div style="font-size:12px;font-weight:700;color:var(--g2);margin-bottom:8px;">🤖 현재 자동 감지 결과</div>
+        <div style="font-size:13px;display:flex;gap:16px;flex-wrap:wrap;">
+          <div><span style="color:var(--g1);font-weight:700;">📘 현재 수강:</span> <span id="autoDetectPrev" style="color:var(--g1);"></span></div>
+          <div><span style="color:var(--g2);font-weight:700;">📗 선납:</span> <span id="autoDetectCurr" style="color:var(--g2);"></span></div>
+        </div>
+      </div>
+
+      <!-- 수동 재지정 토글 -->
+      <div style="margin-bottom:12px;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;">
+          <input type="checkbox" id="manualOverrideCheck" onchange="toggleManualOverride(this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--danger);">
+          <span>⚠️ 수동 재지정 모드 (자동 감지 무시)</span>
+        </label>
+      </div>
+
+      <div id="manualTermSection" style="display:none;">
+        <div class="form-row">
+          <label class="form-lbl">📘 현재 수강 내역 (금일환불 반영)</label>
+          <div class="term-check-grid" id="prevTermChecks"></div>
+        </div>
+        <div class="divider"></div>
+        <div class="form-row">
+          <label class="form-lbl">📗 선납 내역 (미납자 기준)</label>
+          <div class="term-check-grid" id="currTermChecks"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-ttl">🔑 비밀번호 변경</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <input type="password" class="inp" id="newPw1" placeholder="새 비밀번호" style="width:160px;">
+      <input type="password" class="inp" id="newPw2" placeholder="비밀번호 확인" style="width:160px;">
+      <button class="btn btn-g" onclick="changePassword()">변경</button>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-top:8px;">현재 비밀번호: <span id="currentPwHint" style="letter-spacing:3px;">●●●●●●●●</span></div>
+  </div>
+    <div class="btn-row">
+      <button class="btn btn-g" onclick="saveSettings()">💾 설정 저장</button>
+      <button class="btn btn-gold" onclick="exportData()">📤 데이터 내보내기</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('importFileInput').click()">📥 데이터 가져오기</button>
+      <button class="btn btn-ghost" onclick="migrateFromLocal()">🔄 로컬→클라우드 이전</button>
+      <button class="btn btn-red" onclick="resetAll()">⚠️ 전체 초기화</button>
+      <input type="file" id="importFileInput" accept=".json" style="display:none" onchange="importData(event)">
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal"><div class="modal-ttl" id="modalTtl"></div><div class="modal-body" id="modalBody"></div><div class="modal-foot" id="modalFoot"></div></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const BAN_ORDER=['X','A','K','N','I','O','M','D','S'];
+const ALL_TERMS=['윈터','시즌제로(1월)','시즌제로(2월)','정규(2,3월)','정규1기(3월)','정규2기(4월)','정규3기(5월)','정규4기(6월)','정규5기(7월)','정규6기(8월)','정규7기(9월)','정규8기(10월)','정규9기(11월)'];
+const COL={결제일자:0,과정:1,학과:2,학과계열:3,반:4,번호:5,수험번호:6,이름:7,내역:8,구분:9,가상계좌:10,카드:11,현금:12,은행송금:13,카드사:14,결제금액:16,환불금액:17,비고:18};
+// ════════════════════════════════════════
+//  ★ SUPABASE 설정 ★
+// ════════════════════════════════════════
+const SUPABASE_URL  = 'https://elqxailuuxkzddsujimc.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVscXhhaWx1dXhremRkc3VqaW1jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM5Mzk0MTAsImV4cCI6MjA1OTUxNTQxMH0.eyJhbGciOiJIUzI1NiJ9';
+
+// 비밀번호 기본값
+const DEFAULT_PW = '1234';
+let _appPw = DEFAULT_PW;
+let _SB = null;          // Supabase client
+let _isSyncing = false;
+let _pollTimer = null;
+
+// ─── Supabase 저장 ───
+function save(){
+  if(!_SB || _isSyncing) return;
+  setSyncStatus('wait','저장 중...');
+  _SB.from('quetta_state')
+    .upsert({id:1, data: S, updated_at: new Date().toISOString()})
+    .then(({error})=>{
+      if(error){ setSyncStatus('err','저장 실패'); console.error(error); }
+      else setSyncStatus('ok','저장됨');
+    });
+}
+
+// ─── Supabase 초기화 + 폴링 (로그인 후 호출) ───
+function setupFirebase(){
+  try{
+    _SB = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  }catch(e){ setSyncStatus('err','연결 실패'); console.error(e); return; }
+  setSyncStatus('wait','연결 중...');
+
+  // 비밀번호 로드
+  _SB.from('quetta_state').select('data').eq('id',1).single()
+    .then(({data:row})=>{
+      if(row?.data){
+        _isSyncing=true;
+        applyServerData(row.data);
+        _isSyncing=false;
+      }
+      setSyncStatus('ok','연결됨');
+      autoDetectTerms();
+      updateTermFilter(); renderFilterChips(); renderDash(); renderCfg();
+    }).catch(e=>{ setSyncStatus('err','로드 실패'); console.error(e); });
+
+  // 30초마다 폴링으로 동기화
+  _pollTimer = setInterval(()=>{
+    _SB.from('quetta_state').select('data').eq('id',1).single()
+      .then(({data:row})=>{
+        if(row?.data){
+          _isSyncing=true;
+          applyServerData(row.data);
+          _isSyncing=false;
+          const onTab=document.querySelector('.tab-btn.on');
+          if(onTab){ const m=onTab.getAttribute('onclick')?.match(/goTab\('(\w+)'/);
+            if(m){ if(m[1]==='pay'){renderPayTable();renderUnpaid();} if(m[1]==='daily')renderDaily(); }
+          }
+          renderDash();
+          setSyncStatus('ok','동기화됨');
+        }
+      }).catch(()=>{});
+  }, 30000);
+}
+
+function applyServerData(d){
+  S={...S,...d};
+  S.cfg={...S.cfg,...(d.cfg||{})};
+  if(!S.cfg.hiddenTerms) S.cfg.hiddenTerms=[];
+  if(!S.snapshots) S.snapshots={};
+  if(!Array.isArray(S.pays)) S.pays=[];
+  if(!Array.isArray(S.refunds)) S.refunds=[];
+  if(d.cfg?.password) _appPw=d.cfg.password;
+}
+
+// ─── 비밀번호 변경 ───
+function changePassword(){
+  const p1=document.getElementById('newPw1').value.trim();
+  const p2=document.getElementById('newPw2').value.trim();
+  if(!p1){ toast('새 비밀번호를 입력해주세요'); return; }
+  if(p1.length<4){ toast('4자 이상 입력해주세요'); return; }
+  if(p1!==p2){ toast('비밀번호가 일치하지 않습니다'); return; }
+  _appPw=p1;
+  S.cfg.password=p1;
+  save();
+  document.getElementById('newPw1').value='';
+  document.getElementById('newPw2').value='';
+  toast('✅ 비밀번호 변경 완료');
+}
+
+// ─── 기존 localStorage 데이터 마이그레이션 ───
+function migrateFromLocal(){
+  const SKEY='quetta_v4';
+  try{
+    const d=localStorage.getItem(SKEY);
+    if(!d){ alert('로컬 데이터가 없습니다.'); return; }
+    if(!confirm('기존 로컬 데이터를 클라우드로 업로드하시겠습니까?')) return;
+    const p=JSON.parse(d);
+    _SB.from('quetta_state').upsert({id:1, data:p, updated_at:new Date().toISOString()})
+      .then(({error})=>{ if(error) alert('오류: '+error.message); else toast('✅ 마이그레이션 완료!'); });
+  }catch(e){ alert('오류: '+e.message); }
+}
+
+// ─── 로그인 (Firebase 완전 독립) ───
+function doLogin(){
+  const pw = (document.getElementById('loginPw').value || '').trim();
+  if(pw === _appPw){
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('mainApp').style.display='block';
+    setupFirebase();
+  } else {
+    const err = document.getElementById('loginErr');
+    err.textContent = '비밀번호가 틀렸습니다';
+    document.getElementById('loginPw').value='';
+    document.getElementById('loginPw').focus();
+    setTimeout(()=>{ err.textContent=''; }, 2500);
+  }
+}
+
+// ─── 동기화 상태 표시 ───
+function setSyncStatus(state, msg){
+  const el = document.getElementById('syncStatus');
+  if(!el) return;
+  const dot = state==='ok'?'sync-ok':state==='wait'?'sync-wait':'sync-err';
+  el.innerHTML = `<span class="sync-dot ${dot}"></span>${msg}`;
+}
+
+let S={cfg:{prevTerms:['정규(2,3월)','정규1기(3월)'],currTerms:['정규2기(4월)'],dashDate:todayStr(),hiddenTerms:[],manualOverride:false},pays:[],refunds:[],snapshots:{}};
+
+function todayStr(){return new Date().toISOString().split('T')[0];}
+function load(){} // Supabase로 대체됨
+
+function parseDate(s){if(!s)return '';s=s.trim();const m1=s.match(/(\d+)월\s*(\d+)일/);if(m1)return`${new Date().getFullYear()}-${m1[1].padStart(2,'0')}-${m1[2].padStart(2,'0')}`;if(/^\d{4}-\d{2}-\d{2}/.test(s))return s.substring(0,10);const m3=s.match(/^(\d{1,2})\/(\d{1,2})$/);if(m3)return`${new Date().getFullYear()}-${m3[1].padStart(2,'0')}-${m3[2].padStart(2,'0')}`;return s;}
+function fmtShort(ymd){if(!ymd||ymd.length<7)return ymd||'';const p=ymd.split('-');return p.length>=3?`${p[1]}/${p[2]}`:ymd;}
+function fmtKor(ymd){if(!ymd)return '';const p=ymd.split('-');return`${parseInt(p[0])}년 ${parseInt(p[1])}월 ${parseInt(p[2])}일`;}
+function parseAmt(s){if(!s)return 0;return parseInt(String(s).replace(/[^0-9\-]/g,''))||0;}
+function extractScholarship(b){if(!b)return '';const m=b.match(/Q[①-⑩\d][_\-]\d+/);if(m)return m[0];const m2=b.match(/Q\S+_\d+/);return m2?m2[0]:'';}
+function banIdx(b){const i=BAN_ORDER.indexOf(b);return i<0?999:i;}
+function sortByBan(arr){return[...arr].sort((a,b)=>{const d=banIdx(a.반)-banIdx(b.반);return d!==0?d:(a.이름||'').localeCompare(b.이름||'');});}
+function h(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// 내역에서 월 숫자 추출 (정렬·그룹용)
+function extractMonth(term){
+  const ms=term.match(/(\d+)월/g);
+  if(ms&&ms.length>0)return parseInt(ms[ms.length-1]);
+  if(term.includes('윈터'))return 1;
+  return 0;
+}
+
+function toast(msg,dur=2800){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),dur);}
+
+function goTab(id,btn){
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));
+  document.getElementById('tab-'+id).classList.add('on');btn.classList.add('on');
+  if(id==='dash')renderDash();
+  if(id==='pay'){renderPayTable();renderUnpaid();}
+  if(id==='daily')renderDaily();
+  if(id==='cfg')renderCfg();
+}
+
+// 헤더명 → 컬럼 키 매핑
+const HEADER_ALIASES = {
+  '결제일자':['결제일자','날짜','결제날짜'],
+  '반':['반'],
+  '번호':['번호','학번'],
+  '수험번호':['수험번호'],
+  '이름':['이름','성명'],
+  '내역':['내역','과목','과정명'],
+  '구분':['구분'],
+  '결제금액':['결제금액','금액'],
+  '비고':['비고','메모','note'],
+  '장학':['장학','장학코드'],
+  '과정':['과정'],
+  '학과':['학과'],
+  '학과계열':['학과계열'],
+  '가상계좌':['가상계좌'],
+  '카드':['카드'],
+  '현금':['현금'],
+  '은행송금':['은행송금'],
+  '카드사':['카드사'],
+  '계좌번호':['계좌번호'],
+};
+
+// 헤더 행 감지: 첫 행에 '수험번호' 또는 '이름'이 있으면 헤더 행
+function detectHeader(row){
+  return row.some(c=>['수험번호','이름','성명','내역'].includes(String(c||'').trim()));
+}
+
+// 행 배열 → 레코드 파싱 (헤더 기반 또는 위치 기반)
+function parseRows(rows, uploadDate){
+  if(!rows.length) return [];
+  const useDate = uploadDate || todayStr();
+  let colIdx = null; // 헤더 기반 인덱스 맵
+  let dataStart = 0;
+
+  if(detectHeader(rows[0])){
+    // 헤더 행 있음 → 컬럼 인덱스 맵 생성
+    colIdx = {};
+    rows[0].forEach((cell,i)=>{
+      const name = String(cell||'').trim();
+      for(const [key, aliases] of Object.entries(HEADER_ALIASES)){
+        if(aliases.includes(name)){ colIdx[key]=i; break; }
+      }
+    });
+    dataStart = 1;
+  }
+
+  const out = [];
+  for(let ri=dataStart; ri<rows.length; ri++){
+    const c = rows[ri].map(v=>String(v||'').trim().replace(/\r/g,''));
+
+    // 컬럼값 가져오기 (헤더맵 우선, 없으면 위치)
+    const get = (key, pos) => colIdx ? (c[colIdx[key]]||'') : (c[pos]||'');
+
+    const 수험번호 = get('수험번호', 6);
+    const 이름     = get('이름', 7);
+    if(!수험번호 && !이름) continue;
+
+    // 결제일자: datetime 객체이면 변환
+    let 결제일자raw = colIdx ? rows[ri][colIdx['결제일자']] : rows[ri][0];
+    let 결제일자 = '';
+    if(결제일자raw instanceof Date){
+      결제일자 = 결제일자raw.toISOString().split('T')[0];
+    } else {
+      결제일자 = parseDate(String(결제일자raw||''));
+    }
+
+    const 비고raw  = get('비고', 17);  // col17 = 비고(메모)
+    const 장학raw  = get('장학', 18);  // col18 = 장학코드
+
+    // 장학: 별도 컬럼 있으면 직접, 없으면 비고에서 추출
+    const 장학 = 장학raw && /Q/.test(장학raw)
+      ? 장학raw.trim()
+      : extractScholarship(비고raw) || extractScholarship(장학raw);
+
+    out.push({
+      id: `${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
+      결제일자,
+      반:    get('반', 4),
+      번호:  get('번호', 5),
+      수험번호, 이름,
+      내역:  get('내역', 8),
+      구분:  get('구분', 9),
+      결제금액: parseAmt(colIdx ? rows[ri][colIdx['결제금액']] : rows[ri][16]),
+      환불금액: 0,
+      장학,
+      비고: 비고raw,
+      status: 'active',
+      addedAt: Date.now(),
+      uploadedDate: useDate   // 지정 날짜 or 오늘
+    });
+  }
+  return out;
+}
+
+// 엑셀 파일 업로드 처리
+function importPayExcel(e){
+  const file = e.target.files[0]; if(!file) return;
+  const uploadDate = document.getElementById('uploadDateInput').value || todayStr();
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try{
+      const wb = XLSX.read(ev.target.result, {type:'array', cellDates:true});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:'', raw:false});
+      applyImport(parseRows(rows, uploadDate));
+    }catch(err){ alert('파일 읽기 오류: '+err.message); }
+    e.target.value='';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// 공통 적용 로직
+function applyImport(records){
+  if(!records.length){ toast('파싱된 데이터가 없습니다'); return; }
+  const existKey = new Set(S.pays.filter(p=>p.status==='active').map(p=>`${p.내역}||${p.수험번호}`));
+  let added=0, dups=[];
+  const newKeys = new Set();
+  for(const r of records){
+    const key=`${r.내역}||${r.수험번호}`;
+    if(existKey.has(key)||newKeys.has(key)){ r._dup=true; dups.push(r); }
+    else{ S.pays.push(r); existKey.add(key); newKeys.add(key); added++; }
+  }
+  save();
+  autoDetectTerms();
+  updateTermFilter(); renderPayTable(); renderUnpaid(); renderDash(); renderFilterChips();
+  let msg=`<span style="color:var(--success);font-weight:700;">✅ ${added}명 추가됨</span>`;
+  if(dups.length) msg+=`<span style="color:var(--danger);margin-left:12px;font-weight:700;">⚠️ 중복 ${dups.length}명 (미적용)</span><div style="margin-top:8px;font-size:12px;color:var(--danger);">중복: ${dups.map(d=>`${d.이름}(${d.내역})`).join(', ')}</div>`;
+  document.getElementById('importResult').innerHTML=`<div style="padding:10px;background:#F8F8F8;border-radius:6px;">${msg}</div>`;
+  toast(`${added}명 추가${dups.length?` (중복 ${dups.length}명 제외)`:''}`);
+}
+
+// 업로드 양식 다운로드
+function downloadTemplate(){
+  const headers = ['결제일자','과정','학과','학과계열','반','번호','수험번호','이름','내역','구분','가상계좌','카드','현금','은행송금','카드사','계좌번호','결제금액','비고','장학'];
+  const sample  = ['2026-04-01','정규시즌','정규시즌','-','A','5001','640001','홍길동','정규2기(4월)','결제','','','','','','','3943180','수기결제',''];
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([headers, sample]);
+  ws['!cols'] = headers.map((_,i)=>({wch: i===16?14:12}));
+  XLSX.utils.book_append_sheet(wb, ws, '납부명단');
+  XLSX.writeFile(wb, 'QUETTA_납부명단_양식.xlsx');
+  toast('양식 다운로드 완료');
+}
+
+function clearAllPay(){if(!confirm('납부명단 전체를 초기화하시겠습니까?'))return;S.pays=[];S.refunds=[];save();updateTermFilter();renderPayTable();renderUnpaid();renderDash();renderFilterChips();toast('초기화 완료');}
+
+function updateTermFilter(){
+  const sel=document.getElementById('payTermFilter');const cur=sel.value;
+  const terms=[...new Set(S.pays.map(p=>p.내역).filter(Boolean))].sort((a,b)=>extractMonth(a)-extractMonth(b)||a.localeCompare(b));
+  sel.innerHTML='<option value="">전체 내역</option>'+terms.map(t=>`<option value="${h(t)}" ${t===cur?'selected':''}>${h(t)}</option>`).join('');
+}
+
+function renderPayTable(){
+  const search=(document.getElementById('paySearch')?.value||'').toLowerCase();
+  const termF=document.getElementById('payTermFilter')?.value||'';
+  const dupOnly=document.getElementById('showDupOnly')?.checked;
+  const currIds=new Set(S.pays.filter(p=>p.status==='active'&&(S.cfg.currTerms||[]).includes(p.내역)).map(p=>p.수험번호));
+  const prevIds=new Set(S.pays.filter(p=>p.status==='active'&&(S.cfg.prevTerms||[]).includes(p.내역)).map(p=>p.수험번호));
+  const keyCount={};
+  for(const p of S.pays.filter(p=>p.status==='active')){const k=`${p.내역}||${p.수험번호}`;keyCount[k]=(keyCount[k]||0)+1;}
+
+  let rows=S.pays.filter(p=>{
+    if(search&&!p.이름.toLowerCase().includes(search)&&!p.수험번호.toLowerCase().includes(search)&&!p.번호.toLowerCase().includes(search))return false;
+    if(termF&&p.내역!==termF)return false;
+    const isDup=(keyCount[`${p.내역}||${p.수험번호}`]||0)>1;
+    if(dupOnly&&!isDup)return false;
+    return true;
+  });
+
+  // 내역별 정렬 → 내역 안에서는 반 순서
+  rows=[...rows].sort((a,b)=>{
+    const md=extractMonth(a.내역)-extractMonth(b.내역);
+    if(md!==0)return md;
+    const nd=a.내역.localeCompare(b.내역);
+    if(nd!==0)return nd;
+    return banIdx(a.반)-banIdx(b.반);
+  });
+
+  let html='';let idx=1;
+  let lastTerm='';
+  for(const r of rows){
+    const isDup=(keyCount[`${r.내역}||${r.수험번호}`]||0)>1&&r.status==='active';
+    const isOut=r.status==='퇴소';
+    const isNew=r.status==='active'&&(S.cfg.currTerms||[]).includes(r.내역)&&!prevIds.has(r.수험번호);
+    const isUnpaid=r.status==='active'&&(S.cfg.prevTerms||[]).includes(r.내역)&&!currIds.has(r.수험번호);
+    const rc=isDup?'row-dup':isOut?'row-out':isNew?'row-new':isUnpaid?'row-unpaid':'';
+    const bdg=isDup?'<span class="bdg bdg-dup">중복</span>':isOut?'<span class="bdg bdg-out">퇴소</span>':isNew?'<span class="bdg bdg-new">신규</span>':isUnpaid?'<span class="bdg bdg-unpaid">미납</span>':'<span class="bdg bdg-ok">정상</span>';
+
+    // 내역 구분선
+    if(r.내역!==lastTerm){
+      const termEsc = r.내역.replace(/'/g,"\\'");
+      const termCnt = rows.filter(x=>x.내역===r.내역).length;
+      html+=`<tr><td colspan="10" style="background:var(--g1);color:var(--gold);font-weight:700;font-size:12px;padding:5px 14px;">
+        <span style="display:flex;align-items:center;justify-content:space-between;">
+          <span>📋 ${h(r.내역)} <span style="font-weight:400;opacity:.7;">(${termCnt}명)</span></span>
+          <button onclick="deleteByTerm('${termEsc}')" style="background:var(--danger);color:#fff;border:none;border-radius:4px;padding:2px 10px;font-size:11px;cursor:pointer;font-weight:700;">🗑️ 삭제</button>
+        </span>
+      </td></tr>`;
+      lastTerm=r.내역; idx=1;
+    }
+
+    html+=`<tr class="${rc}">
+      <td>${isDup?'':idx++}</td>
+      <td>${h(r.uploadedDate||r.결제일자)}</td>
+      <td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td>
+      <td>${h(r.이름)}</td><td>${h(r.내역)}</td>
+      <td style="text-align:right;">${r.결제금액.toLocaleString()}</td>
+      <td>${h(r.장학)}</td><td>${bdg}</td>
+    </tr>`;
+  }
+  if(!html)html=`<tr><td colspan="10" style="text-align:center;color:#bbb;padding:30px;">데이터 없음</td></tr>`;
+  document.getElementById('payBody').innerHTML=html;
+  const active=S.pays.filter(p=>p.status==='active');
+  const outCnt=S.pays.filter(p=>p.status==='퇴소').length;
+  const dupCnt=Object.values(keyCount).filter(v=>v>1).length;
+  document.getElementById('payStats').innerHTML=`
+    <div class="chip c-grn"><div class="v">${active.length}</div><div class="l">활성</div></div>
+    <div class="chip c-red"><div class="v">${outCnt}</div><div class="l">퇴소</div></div>
+    <div class="chip c-gold"><div class="v">${dupCnt}</div><div class="l">중복오류</div></div>`;
+}
+
+function renderUnpaid(){
+  const currIds=new Set(S.pays.filter(p=>p.status==='active'&&(S.cfg.currTerms||[]).includes(p.내역)).map(p=>p.수험번호));
+  const unpaid=sortByBan(S.pays.filter(p=>p.status==='active'&&(S.cfg.prevTerms||[]).includes(p.내역)&&!currIds.has(p.수험번호)));
+  document.getElementById('unpaidTermLabel').textContent=`(수강: ${(S.cfg.prevTerms||[]).join(', ')} → 선납: ${(S.cfg.currTerms||[]).join(', ')})`;
+  let html='';
+  unpaid.forEach((r,i)=>{html+=`<tr><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td></tr>`;});
+  if(!html)html=`<tr><td colspan="6" style="text-align:center;color:#bbb;padding:20px;">미납자 없음</td></tr>`;
+  document.getElementById('unpaidBody').innerHTML=html;
+}
+
+// ─── 필터 칩 ───
+function renderFilterChips(){
+  const allT=[...new Set(S.pays.map(p=>p.내역).filter(Boolean))].sort((a,b)=>extractMonth(a)-extractMonth(b)||a.localeCompare(b));
+  const hidden=S.cfg.hiddenTerms||[];
+  const html=allT.map(t=>{
+    const on=!hidden.includes(t);
+    return`<label class="fchip ${on?'on':''}"><input type="checkbox" style="display:none;" ${on?'checked':''} onchange="toggleTerm('${t.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}',this.checked)">${h(t)}</label>`;
+  }).join('');
+  document.getElementById('filterChips').innerHTML=html||'<span style="font-size:12px;color:var(--muted);">납부 데이터를 먼저 입력해주세요</span>';
+}
+function toggleTerm(term,show){
+  if(!S.cfg.hiddenTerms)S.cfg.hiddenTerms=[];
+  if(show)S.cfg.hiddenTerms=S.cfg.hiddenTerms.filter(t=>t!==term);
+  else if(!S.cfg.hiddenTerms.includes(term))S.cfg.hiddenTerms.push(term);
+  save();renderFilterChips();renderDash();
+}
+function filterAll(show){
+  const allT=[...new Set(S.pays.map(p=>p.내역).filter(Boolean))];
+  S.cfg.hiddenTerms=show?[...allT.filter(()=>false)]:[...allT];
+  save();renderFilterChips();renderDash();
+}
+
+// ─── 날짜 변경 핸들러 ───
+function onDashDateChange(){
+  S.cfg.dashDate = document.getElementById('dashDatePicker').value || todayStr();
+  autoDetectTerms(S.cfg.dashDate);
+  save();
+  renderDash();
+  renderPayTable();
+  renderUnpaid();
+  if(document.getElementById('tab-cfg').classList.contains('on')) renderCfg();
+}
+
+// ─── 전일 기준날짜 찾기: 선택 날짜 이전 중 가장 최근 활동일 ───
+function getPrevActivityDate(beforeDate){
+  const allDates = new Set();
+  S.pays.forEach(p=>{
+    const d = p.uploadedDate || p.결제일자;
+    if(d && d < beforeDate) allDates.add(d);
+  });
+  S.refunds.forEach(r=>{
+    const d = r.processedDate || new Date(r.processedAt).toISOString().split('T')[0];
+    if(d < beforeDate) allDates.add(d);
+  });
+  const sorted = [...allDates].sort();
+  return sorted.length > 0 ? sorted[sorted.length-1] : null;
+}
+
+// ─── 특정 날짜 기준 내역별 등록인원 계산 ───
+function countAsOf(term, dateStr){
+  if(!dateStr) return 0;
+  const dateEndMs = new Date(dateStr + 'T23:59:59').getTime();
+  return S.pays.filter(p=>{
+    if(p.내역 !== term) return false;
+    if(p.환불금액 > 0) return false;
+    // 업로드 날짜 기준 (없으면 결제일자 fallback)
+    const uploaded = p.uploadedDate || p.결제일자;
+    if(!uploaded || uploaded > dateStr) return false;
+    if(p.status === '퇴소' && p.withdrawnAt && p.withdrawnAt <= dateEndMs) return false;
+    return true;
+  }).length;
+}
+
+// ─── 대시보드 ───
+function renderDash(){
+  const today=S.cfg.dashDate||todayStr();
+  document.getElementById('dashKorDate').textContent=fmtKor(today);
+  document.getElementById('dashDatePicker').value=today;
+  const active=S.pays.filter(p=>p.status==='active');
+  const hidden=S.cfg.hiddenTerms||[];
+
+  // 전일 기준날짜 & 배지
+  const prevDate=getPrevActivityDate(today);
+  const prevDateLabel=document.getElementById('prevDateLabel');
+  if(prevDateLabel){
+    const hasSnap=!!(S.snapshots&&prevDate&&S.snapshots[prevDate]);
+    prevDateLabel.textContent=prevDate?`(전일 기준: ${fmtShort(prevDate)}${hasSnap?' 📌':''})`:'(전일 기준: 없음)';
+  }
+  const snapBadge=document.getElementById('snapBadge');
+  const isSaved=!!(S.snapshots&&S.snapshots[today]);
+  if(snapBadge){
+    snapBadge.innerHTML=isSaved
+      ?`<span style="background:#D4EDDA;color:#155724;padding:3px 10px;border-radius:10px;font-size:12px;">✅ ${fmtShort(today)} 저장됨</span>
+        <button class="btn btn-sm btn-ghost" onclick="deleteSnapshot('${today}')" style="margin-left:4px;font-size:11px;">삭제</button>`
+      :`<span style="background:#FFF3CD;color:#856404;padding:3px 10px;border-radius:10px;font-size:12px;">⚠️ 미저장</span>`;
+  }
+
+  // 납부명단에 실제 존재하는 내역 → 숨김 제외 → 월순 정렬
+  const visibleTerms=[...new Set(S.pays.map(p=>p.내역).filter(Boolean))]
+    .filter(t=>!hidden.includes(t))
+    .sort((a,b)=>{ const d=extractMonth(a)-extractMonth(b); return d!==0?d:a.localeCompare(b); });
+
+  // 미납자 계산
+  const currIds=new Set(active.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)).map(p=>p.수험번호));
+  const prevIds=new Set(active.filter(p=>(S.cfg.prevTerms||[]).includes(p.내역)).map(p=>p.수험번호));
+  const unpaidCnt=[...prevIds].filter(id=>!currIds.has(id)).length;
+  const grandTotal=active.filter(p=>(S.cfg.prevTerms||[]).includes(p.내역)&&p.환불금액===0).length;
+
+  // 내역별 계산
+  function calcTerm(term){
+    const recs=active.filter(p=>p.내역===term);
+    // 금일등록: 업로드한 날짜(uploadedDate) 기준, 없으면 결제일자 fallback
+    const todayIn=recs.filter(p=>(p.uploadedDate||p.결제일자)===today&&p.환불금액===0).length;
+    const todayRefund=recs.filter(p=>(p.uploadedDate||p.결제일자)===today&&p.환불금액>0).length;
+    const todayWithdraw=S.refunds.filter(r=>{
+      const d = r.processedDate || new Date(r.processedAt).toISOString().split('T')[0];
+      return d===today&&r.removedTerms?.includes(term);
+    }).length;
+    const total=recs.filter(p=>p.환불금액===0).length;
+    // 전일등록: 저장된 스냅샷 우선 → 없으면 동적 계산
+    let prevDay;
+    if(prevDate&&S.snapshots&&S.snapshots[prevDate]&&S.snapshots[prevDate][term]!==undefined){
+      prevDay=S.snapshots[prevDate][term];
+    } else {
+      prevDay=prevDate?countAsOf(term,prevDate):(total-todayIn+todayRefund+todayWithdraw);
+    }
+    const isPrev=(S.cfg.prevTerms||[]).includes(term);
+    const isCurr=(S.cfg.currTerms||[]).includes(term);
+    const todayOut=-(todayRefund+todayWithdraw);  // 수강/선납 모두 퇴소 시 -1 표시
+    return{term,prevDay,todayIn,todayOut,total,isPrev,isCurr};
+  }
+
+  // 월별 그룹화
+  const monthMap={};
+  for(const t of visibleTerms){const mo=extractMonth(t);if(!monthMap[mo])monthMap[mo]=[];monthMap[mo].push(t);}
+
+  let html='';
+  const months=Object.keys(monthMap).map(Number).sort((a,b)=>a-b);
+
+  for(const mo of months){
+    const datas=monthMap[mo].map(calcTerm);
+    // 내역별 행
+    for(const d of datas){
+      html+=`<tr class="${d.isCurr?'row-curr':''}">
+        <td style="text-align:left;padding-left:18px;">${h(d.term)}</td>
+        <td>${d.prevDay>0?d.prevDay.toLocaleString():'0'}</td>
+        <td>${d.todayIn>0?`<span class="pos">${d.todayIn.toLocaleString()}</span>`:''}</td>
+        <td>${d.todayOut<0?`<span class="neg">${d.todayOut.toLocaleString()}</span>`:''}</td>
+        <td><strong>${d.total.toLocaleString()}</strong></td>
+        <td>${d.isCurr?`미납인원:${unpaidCnt}명`:''}</td>
+      </tr>`;
+    }
+    // 월별 계 (항상 표시)
+    const sPrev=datas.reduce((a,d)=>a+d.prevDay,0);
+    const sIn=datas.reduce((a,d)=>a+d.todayIn,0);
+    const sOut=datas.reduce((a,d)=>a+d.todayOut,0);
+    const sTotal=datas.reduce((a,d)=>a+d.total,0);
+    html+=`<tr class="row-sub">
+      <td>계</td>
+      <td>${sPrev.toLocaleString()}</td>
+      <td>${sIn>0?sIn.toLocaleString():'0'}</td>
+      <td>${sOut<0?sOut.toLocaleString():''}</td>
+      <td>${sTotal.toLocaleString()}</td>
+      <td>총인원:${grandTotal.toLocaleString()}명</td>
+    </tr>`;
+  }
+
+  if(!html)html=`<tr><td colspan="6" style="text-align:center;color:#bbb;padding:30px;">납부 데이터를 입력하면 자동으로 표시됩니다</td></tr>`;
+  document.getElementById('dashBody').innerHTML=html;
+  document.getElementById('dashStats').innerHTML=`
+    <div class="chip c-grn"><div class="v">${grandTotal}</div><div class="l">총 등록인원</div></div>
+    <div class="chip c-gold"><div class="v">${active.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).length}</div><div class="l">선납 완료</div></div>
+    <div class="chip c-red"><div class="v">${unpaidCnt}</div><div class="l">미납인원</div></div>
+    <div class="chip"><div class="v">${S.refunds.length}</div><div class="l">누적 퇴소</div></div>`;
+}
+
+// ─── 내역 자동 감지: 날짜 기준으로 현재수강/선납 자동 분류 ───
+function autoDetectTerms(refDate){
+  const date = refDate || S.cfg.dashDate || todayStr();
+  const currentMonth = parseInt(date.split('-')[1]);
+  const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
+
+  const allTerms = [...new Set(S.pays.map(p=>p.내역).filter(Boolean))];
+  const prev = allTerms.filter(t => extractMonth(t) === currentMonth);
+  const curr = allTerms.filter(t => extractMonth(t) === nextMonth);
+
+  // 수동 재지정 모드가 아닐 때만 덮어씀
+  if(!S.cfg.manualOverride){
+    S.cfg.prevTerms = prev;
+    S.cfg.currTerms = curr;
+  }
+  return { prev, curr };
+}
+// ─── 현황 저장 (스냅샷) ───
+function saveSnapshot(){
+  const today=S.cfg.dashDate||todayStr();
+  const active=S.pays.filter(p=>p.status==='active');
+  const allTerms=[...new Set(S.pays.map(p=>p.내역).filter(Boolean))];
+  const snap={};
+  allTerms.forEach(term=>{ snap[term]=active.filter(p=>p.내역===term&&p.환불금액===0).length; });
+  if(!S.snapshots) S.snapshots={};
+  if(S.snapshots[today]){
+    openModal('💾 현황 재저장',
+      `<div style="font-size:13px;line-height:1.8;"><strong>${fmtKor(today)}</strong>에 이미 저장된 현황이 있습니다.<br>현재 수치로 <strong>덮어쓰시겠습니까?</strong></div>`,
+      [{label:'덮어쓰기',cls:'btn-red',fn:()=>{doSaveSnap(today,snap);closeModal();}},{label:'취소',cls:'btn-ghost',fn:closeModal}]
+    );
+  } else { doSaveSnap(today,snap); }
+}
+function doSaveSnap(date,snap){
+  S.snapshots[date]=snap; save(); renderDash();
+  toast(`✅ ${fmtKor(date)} 현황 저장 완료`);
+}
+function deleteSnapshot(date){
+  if(!confirm(`${fmtKor(date)} 저장된 현황을 삭제할까요?`)) return;
+  delete S.snapshots[date]; save(); renderDash(); toast('삭제됐습니다');
+}
+
+// ─── 날짜 잠금: 스냅샷이 저장된 날짜만 잠금 ───
+function isDateLocked(date){
+  if(!date || date >= todayStr()) return false; // 오늘 이후는 항상 편집 가능
+  return !!(S.snapshots && S.snapshots[date]);  // 저장된 스냅샷이 있을 때만 잠금
+}
+
+// ─── 일일 등록 명단 ───
+function renderDaily(){
+  const date=document.getElementById('dailyDate').value||todayStr();
+  document.getElementById('dailyKorDate').textContent=fmtKor(date);
+
+  const locked = isDateLocked(date);
+
+  // 퇴소 입력 영역 잠금/해제
+  const refundInput = document.getElementById('refundInput');
+  const refundBtn   = document.getElementById('refundProcessBtn');
+  const lockBadge   = document.getElementById('lockBadge');
+  const lockNotice  = document.getElementById('lockNotice');
+
+  if(locked){
+    refundInput.disabled = true;
+    refundBtn.disabled   = true;
+    refundInput.style.opacity = '0.45';
+    refundBtn.style.opacity   = '0.45';
+    const b2=document.getElementById('refundInputBunho');
+    if(b2){b2.disabled=true;b2.style.opacity='0.45';}
+    lockBadge.innerHTML  = '<span style="background:#F8D7DA;color:#721C24;padding:3px 12px;border-radius:10px;font-size:12px;font-weight:700;">🔒 조회 모드 (과거 데이터 — 수정 불가)</span>';
+    lockNotice.style.display = 'block';
+  } else {
+    refundInput.disabled = false;
+    refundBtn.disabled   = false;
+    refundInput.style.opacity = '1';
+    refundBtn.style.opacity   = '1';
+    const b2=document.getElementById('refundInputBunho');
+    if(b2){b2.disabled=false;b2.style.opacity='1';}
+    lockBadge.innerHTML  = '<span style="background:#D4EDDA;color:#155724;padding:3px 12px;border-radius:10px;font-size:12px;font-weight:700;">✏️ 입력 모드 (수정 가능)</span>';
+    lockNotice.style.display = 'none';
+  }
+
+  const prevIds=new Set(S.pays.filter(p=>p.status==='active'&&(S.cfg.prevTerms||[]).includes(p.내역)).map(p=>p.수험번호));
+  // 금일 등록: 업로드 날짜 기준 (uploadedDate 없으면 결제일자 fallback)
+  const regs=sortByBan(S.pays.filter(p=>(p.uploadedDate||p.결제일자)===date&&p.환불금액===0&&p.status==='active'));
+  const refPayments=sortByBan(S.pays.filter(p=>(p.uploadedDate||p.결제일자)===date&&p.환불금액>0));
+  // 퇴소 환불: processedDate 우선, 없으면 processedAt 날짜 fallback
+  const refWithdrawals = sortByBan(
+    S.refunds
+      .filter(r => (r.processedDate || new Date(r.processedAt).toISOString().split('T')[0]) === date)
+      .flatMap(r => r.removedTerms.map(term => ({
+        반: r.반, 번호: r.번호, 수험번호: r.수험번호,
+        이름: r.이름, 내역: term, 장학: r.장학||''
+      })))
+  );
+  let regHtml='';
+  regs.forEach((r,i)=>{const isNew=!prevIds.has(r.수험번호);regHtml+=`<tr><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td class="copy-cell" onclick="copySuhum('${h(r.수험번호)}')" title="클릭하여 복사">${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td>${h(r.장학)}</td><td class="new-cell">${isNew?'신규':''}</td></tr>`;});
+  if(!regHtml)regHtml=`<tr><td colspan="8" style="text-align:center;color:#bbb;padding:20px;">등록 내역 없음</td></tr>`;
+  document.getElementById('regBody').innerHTML=regHtml;
+  let refHtml='';
+  const refAll=[...refPayments,...refWithdrawals];
+
+  // 같은 수험번호가 환불 목록에 2회 이상(= 여러 내역에서 빠진 경우) → 색칠
+  const refPersonCount={};
+  refAll.forEach(r=>{ if(r.수험번호) refPersonCount[r.수험번호]=(refPersonCount[r.수험번호]||0)+1; });
+  const REF_COLORS=['#FFF3CD','#D4EDDA','#CCE5FF','#F8D7DA','#E2D9F3','#FFDDC1','#D1ECF1'];
+  const refPersonColor={};
+  let refColorIdx=0;
+  refAll.forEach(r=>{
+    if(r.수험번호 && refPersonCount[r.수험번호]>=2 && !refPersonColor[r.수험번호]){
+      refPersonColor[r.수험번호]=REF_COLORS[refColorIdx%REF_COLORS.length];
+      refColorIdx++;
+    }
+  });
+
+  refAll.forEach(r=>{
+    const bg=refPersonColor[r.수험번호]?`style="background:${refPersonColor[r.수험번호]};"`:'';;
+    const dot=refPersonColor[r.수험번호]
+      ?`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${refPersonColor[r.수험번호]};border:1.5px solid #888;margin-right:4px;vertical-align:middle;"></span>`
+      :'';
+    refHtml+=`<tr ${bg}><td>${h(r.반)}</td><td>${h(r.번호||'')}</td><td class="copy-cell" onclick="copySuhum('${h(r.수험번호)}')" title="클릭하여 복사">${h(r.수험번호)}</td><td>${dot}${h(r.이름)}</td><td>${h(r.내역)}</td><td class="ref-date">${fmtShort(date)}</td><td>${h(r.장학||'')}</td></tr>`;
+  });
+  if(!refHtml)refHtml=`<tr><td colspan="7" style="text-align:center;color:#bbb;padding:20px;">환불 내역 없음</td></tr>`;
+  document.getElementById('refBody').innerHTML=refHtml;
+}
+
+// ─── 퇴소 처리 공통: 수험번호 또는 학번으로 매칭 → 같은 수험번호 전체 내역 반환 ───
+function findActiveRecs(val){
+  const v = val.trim();
+  if(!v) return [];
+  // 1차: 직접 매칭
+  const direct = S.pays.filter(p => p.status==='active' && (p.수험번호===v || p.번호===v));
+  if(!direct.length) return [];
+  // 2차: 매칭된 학생의 수험번호로 모든 내역 조회 (학번이 없는 다른 내역도 포함)
+  const suhIds = new Set(direct.map(p => p.수험번호).filter(Boolean));
+  return S.pays.filter(p => p.status==='active' && suhIds.has(p.수험번호));
+}
+
+function processRefundInput(){
+  const date=document.getElementById('dailyDate').value||todayStr();
+  if(isDateLocked(date)){ toast('🔒 과거 데이터는 수정할 수 없습니다'); return; }
+
+  const val1=(document.getElementById('refundInput').value||'').trim();
+  const val2=(document.getElementById('refundInputBunho').value||'').trim();
+  const val = val1 || val2;
+  if(!val){ toast('수험번호 또는 학번을 입력해주세요'); return; }
+
+  const recs = findActiveRecs(val);
+  const hint = document.getElementById('refundHint');
+  hint.textContent='';
+  showRefundModal(val, recs);
+}
+
+// 모달 표시 (개별 처리)
+function showRefundModal(val, recs){
+  const toRemove=recs;
+  const student=recs[0];
+  const prevRecs=recs.filter(p=>(S.cfg.prevTerms||[]).includes(p.내역));
+  const currRecs=recs.filter(p=>(S.cfg.currTerms||[]).includes(p.내역));
+  const otherRecs=recs.filter(p=>!(S.cfg.prevTerms||[]).includes(p.내역)&&!(S.cfg.currTerms||[]).includes(p.내역));
+  const lines=[];
+  if(prevRecs.length) lines.push(`• 수강(${prevRecs.map(r=>r.내역).join(', ')}) → 금일환불 -1`);
+  if(currRecs.length) lines.push(`• 선납(${currRecs.map(r=>r.내역).join(', ')}) → 등록 취소, 미납자 유지`);
+  else lines.push(`• 선납 없음 → 미납자 -1`);
+  if(otherRecs.length) lines.push(`• 기타(${otherRecs.map(r=>r.내역).join(', ')}) → 등록 취소`);
+  openModal('🚪 퇴소 처리 확인',
+    `<div style="background:#FEF0EE;border-radius:6px;padding:12px;margin-bottom:12px;">
+      <div style="font-size:15px;font-weight:700;">${h(student.이름)}</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:3px;">학번: ${h(student.번호||'-')} &nbsp;|&nbsp; 수험번호: ${h(student.수험번호||'-')} &nbsp;|&nbsp; 반: ${h(student.반)}</div>
+    </div>
+    <div style="font-size:13px;line-height:1.9;">
+      <strong>제거 내역:</strong> ${h(toRemove.map(r=>r.내역).join(', '))}<br>
+      ${lines.join('<br>')}<br>
+      <span style="color:var(--danger);font-size:12px;">※ 총인원 1명 감소</span>
+    </div>`,
+    [{label:'퇴소 처리',cls:'btn-red',fn:()=>confirmRefund(val,toRemove)},{label:'취소',cls:'btn-ghost',fn:closeModal}]
+  );
+}
+
+function confirmRefund(val, toRemove){
+  const processedDate = document.getElementById('dailyDate').value || todayStr();
+  const student=toRemove[0];
+  for(const r of toRemove){r.status='퇴소';r.withdrawnAt=Date.now();}
+  S.refunds.push({
+    id:Date.now(), processedAt:Date.now(),
+    processedDate,   // 조회 날짜 기준으로 저장
+    수험번호:student.수험번호, 이름:student.이름, 반:student.반, 번호:student.번호,
+    장학:student.장학||'', removedTerms:toRemove.map(r=>r.내역)
+  });
+  save(); closeModal();
+  document.getElementById('refundInput').value='';
+  document.getElementById('refundInputBunho').value='';
+  renderDaily(); renderDash(); renderPayTable(); renderUnpaid();
+  toast(`✅ ${student.이름} 퇴소 완료 — [${toRemove.map(r=>r.내역).join(', ')}]`);
+}
+
+// ─── 엑셀 일괄 퇴소 처리 ───
+function processRefundExcel(e){
+  const date=document.getElementById('dailyDate').value||todayStr();
+  if(isDateLocked(date)){ toast('🔒 과거 데이터는 수정할 수 없습니다'); e.target.value=''; return; }
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const wb=XLSX.read(ev.target.result,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      if(!rows.length){ toast('데이터가 없습니다'); return; }
+
+      // 헤더 행에서 수험번호/학번 컬럼 위치 찾기
+      const header=rows[0].map(c=>String(c).trim());
+      let suhIdx=-1, bunhoIdx=-1;
+      header.forEach((c,i)=>{
+        if(c.includes('수험번호')) suhIdx=i;
+        if(c==='학번'||c==='번호') bunhoIdx=i;
+      });
+      // 헤더 없으면 첫 번째 컬럼을 수험번호로 가정
+      if(suhIdx<0 && bunhoIdx<0){ suhIdx=0; }
+
+      const dataRows = header.some(c=>c.includes('수험번호')||c==='학번'||c==='번호') ? rows.slice(1) : rows;
+
+      let ok=[], fail=[];
+      for(const row of dataRows){
+        const suh = suhIdx>=0 ? String(row[suhIdx]||'').trim() : '';
+        const bunho = bunhoIdx>=0 ? String(row[bunhoIdx]||'').trim() : '';
+        const val = suh || bunho;
+        if(!val) continue;
+        const recs = findActiveRecs(val);
+        if(!recs.length){ fail.push(val); continue; }
+        const student=recs[0];
+        for(const r of recs){r.status='퇴소';r.withdrawnAt=Date.now();}
+        S.refunds.push({
+          id:Date.now()+Math.random(), processedAt:Date.now(),
+          processedDate: date,   // 조회 날짜 기준으로 저장
+          수험번호:student.수험번호, 이름:student.이름, 반:student.반, 번호:student.번호,
+          장학:student.장학||'', removedTerms:recs.map(r=>r.내역)
+        });
+        ok.push(`${student.이름}(${val})`);
+      }
+
+      save(); e.target.value='';
+      renderDaily(); renderDash(); renderPayTable(); renderUnpaid();
+
+      let msg='';
+      if(ok.length) msg+=`<div style="color:var(--success);font-weight:700;margin-bottom:4px;">✅ 퇴소 처리 ${ok.length}명: ${ok.join(', ')}</div>`;
+      if(fail.length) msg+=`<div style="color:var(--danger);font-weight:700;">❌ 미매칭 ${fail.length}건: ${fail.join(', ')}</div>`;
+      document.getElementById('refundExcelResult').innerHTML = msg
+        ? `<div style="background:#F8F8F8;border-radius:6px;padding:10px;font-size:12px;">${msg}</div>`
+        : '';
+      toast(`일괄 퇴소: ${ok.length}명 완료${fail.length?`, ${fail.length}건 미매칭`:''}`);
+    }catch(err){ alert('파일 읽기 오류: '+err.message); e.target.value=''; }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ─── 엑셀 다운로드 ───
+function exportDailyExcel(){
+  const date=document.getElementById('dailyDate').value||todayStr();
+  const prevIds=new Set(S.pays.filter(p=>p.status==='active'&&(S.cfg.prevTerms||[]).includes(p.내역)).map(p=>p.수험번호));
+  const regs=sortByBan(S.pays.filter(p=>p.결제일자===date&&p.환불금액===0&&p.status==='active'));
+  const refs=sortByBan([...S.pays.filter(p=>p.결제일자===date&&p.환불금액>0),...S.refunds.filter(r=>new Date(r.processedAt).toISOString().split('T')[0]===date).map(r=>({반:r.반,번호:r.번호||'',수험번호:r.수험번호,이름:r.이름,내역:r.removedTerms.join('/'),장학:r.장학||''}))]);
+  const wb=XLSX.utils.book_new();const rows=[];
+  rows.push([date,'','','','재수정규반 일일 등록 명단']);rows.push(['']);
+  rows.push(['no','반','학번','수험번호','성명','등록','장학','신규','','반','학번','수험번호','성명','등록','환불','장학']);
+  const maxLen=Math.max(regs.length,refs.length);
+  for(let i=0;i<maxLen;i++){const reg=regs[i];const ref=refs[i];rows.push([reg?i+1:'',reg?reg.반:'',reg?reg.번호:'',reg?reg.수험번호:'',reg?reg.이름:'',reg?reg.내역:'',reg?reg.장학:'',reg&&!prevIds.has(reg.수험번호)?'신규':'','',ref?ref.반:'',ref?(ref.번호||''):'',ref?ref.수험번호:'',ref?ref.이름:'',ref?ref.내역:'',ref?fmtShort(date):'',ref?(ref.장학||''):'' ]);}
+  const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=Array(16).fill({wch:12});
+  XLSX.utils.book_append_sheet(wb,ws,'일일등록명단');
+  XLSX.writeFile(wb,`QUETTA_일일등록명단_${date}.xlsx`);toast('엑셀 다운로드 완료');
+}
+
+// ─── 설정 ───
+function toggleManualOverride(on){
+  S.cfg.manualOverride = on;
+  document.getElementById('manualTermSection').style.display = on ? 'block' : 'none';
+  if(!on){
+    // 수동 모드 해제 시 자동 감지로 복원
+    autoDetectTerms();
+    save();
+    renderDash(); renderPayTable(); renderUnpaid();
+    renderCfg();
+    toast('자동 감지 모드로 전환됐습니다');
+  }
+}
+
+function renderCfg(){
+  document.getElementById('cfgDashDate').value=S.cfg.dashDate||todayStr();
+
+  // 자동 감지 결과 표시
+  const {prev,curr} = autoDetectTerms();
+  document.getElementById('autoDetectPrev').textContent = prev.length ? prev.join(', ') : '(없음)';
+  document.getElementById('autoDetectCurr').textContent = curr.length ? curr.join(', ') : '(없음)';
+
+  // 수동 재지정 토글 상태
+  const manual = !!S.cfg.manualOverride;
+  document.getElementById('manualOverrideCheck').checked = manual;
+  document.getElementById('manualTermSection').style.display = manual ? 'block' : 'none';
+
+  // 수동 체크박스 목록
+  const cfgTerms=[...new Set([...ALL_TERMS,...S.pays.map(p=>p.내역).filter(Boolean)])].sort((a,b)=>extractMonth(a)-extractMonth(b)||a.localeCompare(b));
+  ['prev','curr'].forEach(side=>{
+    const container=document.getElementById(side+'TermChecks');
+    container.innerHTML=cfgTerms.map(t=>{const checked=(S.cfg[side+'Terms']||[]).includes(t)?'checked':'';return`<label class="term-check"><input type="checkbox" value="${h(t)}" ${checked} data-side="${side}"> ${h(t)}</label>`;}).join('');
+  });
+}
+
+function saveSettings(){
+  S.cfg.dashDate=document.getElementById('cfgDashDate').value;
+  if(S.cfg.manualOverride){
+    S.cfg.prevTerms=[...document.querySelectorAll('[data-side="prev"]:checked')].map(el=>el.value);
+    S.cfg.currTerms=[...document.querySelectorAll('[data-side="curr"]:checked')].map(el=>el.value);
+    if(!S.cfg.prevTerms.length&&!S.cfg.currTerms.length){alert('내역을 최소 하나 이상 선택해주세요.');return;}
+  } else {
+    autoDetectTerms(S.cfg.dashDate);
+  }
+  save();renderDash();renderPayTable();renderUnpaid();updateTermFilter();
+  renderCfg();
+  toast('설정 저장 완료');
+}
+
+function exportData(){const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`QUETTA_data_${todayStr()}.json`;a.click();URL.revokeObjectURL(a.href);toast('내보내기 완료');}
+function importData(e){const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(!confirm('현재 데이터를 덮어씁니다. 계속?'))return;S=d;save();updateTermFilter();renderPayTable();renderUnpaid();renderDash();renderFilterChips();toast('가져오기 완료');}catch(err){alert('파일 오류: '+err.message);}};reader.readAsText(file);e.target.value='';}
+function resetAll(){if(!confirm('모든 데이터를 초기화하시겠습니까?'))return;if(!confirm('정말로 초기화하시겠습니까?'))return;S.pays=[];S.refunds=[];save();updateTermFilter();renderPayTable();renderUnpaid();renderDash();renderFilterChips();toast('초기화 완료');}
+
+// ─── 내역별 삭제 ───
+function deleteByTerm(term){
+  const cnt=S.pays.filter(p=>p.내역===term).length;
+  openModal(`🗑️ "${term}" 전체 삭제`,
+    `<div style="font-size:13px;line-height:1.9;">
+      <strong>${h(term)}</strong> 내역의 납부 데이터 <strong>${cnt}명</strong>을 전부 삭제합니다.<br>
+      <span style="color:var(--danger);font-size:12px;">※ 퇴소 처리된 기록도 함께 삭제됩니다.</span>
+    </div>`,
+    [{label:'삭제',cls:'btn-red',fn:()=>{
+      S.pays=S.pays.filter(p=>p.내역!==term);
+      save(); closeModal();
+      updateTermFilter(); renderPayTable(); renderUnpaid(); renderDash(); renderFilterChips();
+      toast(`✅ "${term}" 삭제 완료`);
+    }},{label:'취소',cls:'btn-ghost',fn:closeModal}]
+  );
+}
+
+function copySuhum(val){
+  navigator.clipboard.writeText(val).then(()=>toast(`📋 ${val} 복사됨`,1500)).catch(()=>{
+    // fallback
+    const t=document.createElement('textarea');
+    t.value=val; document.body.appendChild(t); t.select();
+    document.execCommand('copy'); document.body.removeChild(t);
+    toast(`📋 ${val} 복사됨`,1500);
+  });
+}
+
+function openModal(title,body,buttons){
+  document.getElementById('modalTtl').innerHTML=title;
+  document.getElementById('modalBody').innerHTML=body;
+  document.getElementById('modalFoot').innerHTML=buttons.map((b,i)=>`<button class="btn ${b.cls}" id="mbtn${i}">${b.label}</button>`).join('');
+  buttons.forEach((b,i)=>{document.getElementById('mbtn'+i).onclick=b.fn;});
+  document.getElementById('modalBg').classList.add('open');
+}
+function closeModal(){document.getElementById('modalBg').classList.remove('open');}
+document.getElementById('modalBg').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
+
+function init(){
+  const now=new Date();
+  document.getElementById('hdrDate').textContent=`${now.getFullYear()}년 ${now.getMonth()+1}월 ${now.getDate()}일`;
+  document.getElementById('dailyDate').value=todayStr();
+  const yesterday=new Date(); yesterday.setDate(yesterday.getDate()-1);
+  document.getElementById('uploadDateInput').value=yesterday.toISOString().split('T')[0];
+
+  // 로그인 이벤트 연결
+  document.getElementById('loginBtn').addEventListener('click', doLogin);
+  document.getElementById('loginPw').addEventListener('keydown', function(e){ if(e.key==='Enter') doLogin(); });
+  document.getElementById('loginPw').focus();
+}
+init();
+</script>
+</div><!-- /mainApp -->
+</body>
+</html>
