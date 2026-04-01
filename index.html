@@ -329,6 +329,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
   <!-- 당일등록 -->
   <div id="pay-today" class="sub-tab-pane on">
     <div class="stats-row" id="todayStats"></div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+      <button class="btn btn-red btn-sm" onclick="clearTodayUploads()">🗑️ 당일 전체 삭제</button>
+    </div>
     <div class="tbl-wrap">
       <table class="data-tbl"><thead><tr><th>#</th><th>구분</th><th>반</th><th>학번</th><th>수험번호</th><th>성명</th><th>내역</th><th>결제금액</th><th>장학</th><th>상태</th><th>삭제</th></tr></thead>
       <tbody id="todayBody"></tbody></table>
@@ -998,6 +1001,24 @@ function renderTodayUploads(){
   }
   if(!html)html=`<tr><td colspan="11" style="text-align:center;color:#bbb;padding:24px;">오늘(${today}) 업로드된 데이터 없음</td></tr>`;
   document.getElementById('todayBody').innerHTML=html;
+}
+function clearTodayUploads(){
+  const today=document.getElementById('uploadDateInput').value||todayStr();
+  const regCnt=S.pays.filter(p=>(p.uploadedDate||p.결제일자)===today).length;
+  const danCnt=S.dancha.filter(p=>(p.uploadedDate||p.결제일자)===today).length;
+  const total=regCnt+danCnt;
+  if(total===0){toast('삭제할 데이터가 없습니다');return;}
+  openModal('🗑️ 당일 업로드 전체 삭제',
+    `<div style="font-size:13px;line-height:1.9;"><strong>${fmtKor(today)}</strong> 업로드된 데이터를 모두 삭제합니다.<br>정규 ${regCnt}명 + 단과 ${danCnt}명 = <strong>총 ${total}명</strong><br><span style="color:var(--danger);font-size:11px;">※ 삭제 후 다시 업로드하면 됩니다</span></div>`,
+    [{label:'전체 삭제',cls:'btn-red',fn:()=>{
+      S.pays=S.pays.filter(p=>(p.uploadedDate||p.결제일자)!==today);
+      S.dancha=S.dancha.filter(p=>(p.uploadedDate||p.결제일자)!==today);
+      save();closeModal();
+      updateTermFilter();renderFilterChips();renderFilterChips2();
+      renderTodayUploads();renderPayHistory();renderUnpaid();renderDash();renderDash2();
+      toast(`✅ ${today} 업로드 데이터 ${total}명 삭제 완료`);
+    }},{label:'취소',cls:'btn-ghost',fn:closeModal}]
+  );
 }
 function editTerm(id,type){
   const arr=type==='dancha'?S.dancha:S.pays;
