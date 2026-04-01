@@ -1066,7 +1066,16 @@ function renderDaily2(){
 
 // ════ 당일등록 TAB ════
 function renderTodayUploads(){
-  const today=document.getElementById('uploadDateInput').value||todayStr();
+  let today=document.getElementById('uploadDateInput').value||todayStr();
+
+  // 해당 날짜에 데이터가 없으면 → 가장 최근 업로드 날짜로 자동 전환
+  const allUploadDates=[...new Set([...S.pays,...S.dancha].map(p=>p.uploadedDate||p.결제일자).filter(Boolean))].sort();
+  const todayHasData=[...S.pays,...S.dancha].some(p=>(p.uploadedDate||p.결제일자)===today);
+  if(!todayHasData && allUploadDates.length>0){
+    today=allUploadDates[allUploadDates.length-1];
+    document.getElementById('uploadDateInput').value=today;
+  }
+
   const todayPays=S.pays.filter(p=>(p.uploadedDate||p.결제일자)===today);
   const todayDancha=S.dancha.filter(p=>(p.uploadedDate||p.결제일자)===today);
   const all=[...todayPays,...todayDancha].sort((a,b)=>(a.수험번호||'').localeCompare(b.수험번호||''));
@@ -1155,6 +1164,9 @@ function deleteChecked(){
       S.pays=S.pays.filter(p=>!regIds.has(p.id));
       S.dancha=S.dancha.filter(p=>!danIds.has(p.id));
       save();closeModal();
+      // 필터 초기화 후 재렌더
+      const filterEl=document.getElementById('todayTermFilter');
+      if(filterEl)filterEl.value='';
       updateTermFilter();renderFilterChips();renderFilterChips2();
       renderTodayUploads();renderPayHistory();renderUnpaid();renderDash();renderDash2();
       toast(`✅ ${items.length}건 삭제 완료`);
