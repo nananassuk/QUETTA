@@ -350,7 +350,14 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
       <button class="btn btn-red btn-sm" onclick="clearTodayUploads()">🗑️ 당일 전체 삭제</button>
     </div>
     <div class="tbl-wrap">
-      <table class="data-tbl"><thead><tr><th style="width:32px;"><input type="checkbox" id="checkAllHeader" onchange="toggleAllChecks(this)"></th><th>#</th><th>구분</th><th>반</th><th>학번</th><th>수험번호</th><th>성명</th><th>내역</th><th>결제금액</th><th>장학</th><th>상태</th><th>삭제</th></tr></thead>
+      <table class="data-tbl"><thead><tr><th style="width:32px;"><input type="checkbox" id="checkAllHeader" onchange="toggleAllChecks(this)"></th><th>#</th><th>구분</th><th>반</th><th>학번</th><th>수험번호</th><th>성명</th><th>
+        <div style="display:flex;align-items:center;justify-content:center;gap:4px;">
+          내역
+          <select id="todayTermFilter" onchange="renderTodayUploads()" style="font-size:10px;padding:1px 3px;border:0.5px solid rgba(255,255,255,.4);border-radius:3px;background:rgba(255,255,255,.15);color:#fff;cursor:pointer;max-width:90px;">
+            <option value="">전체 ▼</option>
+          </select>
+        </div>
+      </th><th>결제금액</th><th>장학</th><th>상태</th><th>삭제</th></tr></thead>
       <tbody id="todayBody"></tbody></table>
     </div>
   </div>
@@ -1066,12 +1073,20 @@ function renderTodayUploads(){
   warnEl.style.display=warns?'block':'none';
   warnEl.innerHTML=warns;
 
+  // 내역 필터 드롭다운 업데이트
+  const termFilterEl=document.getElementById('todayTermFilter');
+  const currentFilter=termFilterEl?termFilterEl.value:'';
+  const allTerms=[...new Set(all.map(r=>r.내역).filter(Boolean))].sort((a,b)=>extractMonth(a)-extractMonth(b)||a.localeCompare(b));
+  if(termFilterEl){
+    termFilterEl.innerHTML='<option value="">전체 ▼</option>'+allTerms.map(t=>`<option value="${h(t)}" ${t===currentFilter?'selected':''}>${h(t)}</option>`).join('');
+  }
+  // 필터 적용
+  const filtered=currentFilter?all.filter(r=>r.내역===currentFilter):all;
   document.getElementById('checkedCount').textContent='';
   document.getElementById('checkAll').checked=false;
   if(document.getElementById('checkAllHeader'))document.getElementById('checkAllHeader').checked=false;
-
   let html='';let idx=1;
-  for(const r of all){
+  for(const r of filtered){
     const isDan=r._type==='dancha';
     const isOut=r.status==='퇴소'||r.status==='cancelled';
     const isDup=(keyCount[`${r.내역}||${r.수험번호}`]||0)>1&&r.status==='active';
