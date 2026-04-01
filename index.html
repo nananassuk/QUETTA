@@ -615,7 +615,17 @@ function goTab(id,btn){
   if(id==='dash2')renderDash2();
   if(id==='daily')renderDaily();
   if(id==='daily2')renderDaily2();
-  if(id==='pay'){renderTodayUploads();renderPayHistory();renderUnpaid();}
+  if(id==='pay'){
+    // 당일등록 탭 진입 시 → 데이터 있는 가장 최근 날짜로 자동 감지 (이미 날짜 입력된 경우 유지)
+    const inp=document.getElementById('uploadDateInput');
+    const cur=inp.value;
+    const hasData=[...S.pays,...S.dancha].some(p=>(p.uploadedDate||p.결제일자)===cur);
+    if(!hasData){
+      const dates=[...new Set([...S.pays,...S.dancha].map(p=>p.uploadedDate||p.결제일자).filter(Boolean))].sort();
+      if(dates.length>0) inp.value=dates[dates.length-1];
+    }
+    renderTodayUploads();renderPayHistory();renderUnpaid();
+  }
   if(id==='cfg')renderCfg();
 }
 function goPayTab(id,btn){
@@ -1103,15 +1113,7 @@ function renderDaily2(){
 
 // ════ 당일등록 TAB ════
 function renderTodayUploads(){
-  let today=document.getElementById('uploadDateInput').value||todayStr();
-
-  // 해당 날짜에 데이터가 없으면 → 가장 최근 업로드 날짜로 자동 전환
-  const allUploadDates=[...new Set([...S.pays,...S.dancha].map(p=>p.uploadedDate||p.결제일자).filter(Boolean))].sort();
-  const todayHasData=[...S.pays,...S.dancha].some(p=>(p.uploadedDate||p.결제일자)===today);
-  if(!todayHasData && allUploadDates.length>0){
-    today=allUploadDates[allUploadDates.length-1];
-    document.getElementById('uploadDateInput').value=today;
-  }
+  const today=document.getElementById('uploadDateInput').value||todayStr();
 
   const todayPays=S.pays.filter(p=>(p.uploadedDate||p.결제일자)===today);
   const todayDancha=S.dancha.filter(p=>(p.uploadedDate||p.결제일자)===today);
