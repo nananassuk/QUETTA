@@ -831,7 +831,8 @@ function renderDash(){
     else prevDay=prevDate?countAsOf(term,prevDate,'reg'):(total-todayIn+todayRefund+todayWithdraw);
     const isPrev=(S.cfg.prevTerms||[]).includes(term);
     const isCurr=(S.cfg.currTerms||[]).includes(term);
-    const todayOut=isPrev?-(todayRefund+todayWithdraw):-todayRefund;
+    // 모든 내역에서 퇴소(-) + 환불(-) 반영
+    const todayOut=-(todayRefund+todayWithdraw);
     return{term,prevDay,todayIn,todayOut,total,isPrev,isCurr};
   }
   const monthMap={};
