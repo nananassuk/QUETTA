@@ -726,7 +726,14 @@ function downloadTemplate(){
   toast('양식 다운로드 완료');
 }
 
-// ════ AUTO DETECT TERMS ════
+// ─── 타임스탬프 → 로컬 날짜 문자열 (한국시간 기준) ───
+function msToLocalDate(ms){
+  const d=new Date(ms||Date.now());
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function refDate(r){
+  return r.processedDate || msToLocalDate(r.processedAt);
+}
 function autoDetectTerms(refDate){
   const date=refDate||S.cfg.dashDate||todayStr();
   const cm=parseInt(date.split('-')[1]);
@@ -781,7 +788,7 @@ function getPrevActivityDate(beforeDate,type){
   const refs=type==='dancha'?S.danchaRefunds:S.refunds;
   const allDates=new Set();
   pays.forEach(p=>{const d=p.uploadedDate||p.결제일자;if(d&&d<beforeDate)allDates.add(d);});
-  refs.forEach(r=>{const d=r.processedDate||new Date(r.processedAt||Date.now()).toISOString().split('T')[0];if(d<beforeDate)allDates.add(d);});
+  refs.forEach(r=>{const d=refDate(r);if(d<beforeDate)allDates.add(d);});
   const sorted=[...allDates].sort();
   return sorted.length>0?sorted[sorted.length-1]:null;
 }
@@ -824,7 +831,7 @@ function renderDash(){
     const recs=active.filter(p=>p.내역===term);
     const todayIn=recs.filter(p=>(p.uploadedDate||p.결제일자)===today&&p.환불금액===0).length;
     const todayRefund=recs.filter(p=>(p.uploadedDate||p.결제일자)===today&&p.환불금액>0).length;
-    const todayWithdraw=S.refunds.filter(r=>{const d=r.processedDate||new Date(r.processedAt||Date.now()).toISOString().split('T')[0];return d===today&&r.removedTerms?.includes(term);}).length;
+    const todayWithdraw=S.refunds.filter(r=>{const d=refDate(r);return d===today&&r.removedTerms?.includes(term);}).length;
     const total=recs.filter(p=>p.환불금액===0).length;
     let prevDay;
     if(prevDate&&snaps[prevDate]&&snaps[prevDate][term]!==undefined)prevDay=snaps[prevDate][term];
@@ -877,7 +884,7 @@ function renderDash2(){
   function calcTerm2(term){
     const recs=active.filter(p=>p.내역===term);
     const todayIn=recs.filter(p=>(p.uploadedDate||p.결제일자)===today&&p.환불금액===0).length;
-    const todayCancel=S.danchaRefunds.filter(r=>{const d=r.processedDate||new Date(r.processedAt||Date.now()).toISOString().split('T')[0];return d===today&&r.removedTerms?.includes(term);}).length;
+    const todayCancel=S.danchaRefunds.filter(r=>{const d=refDate(r);return d===today&&r.removedTerms?.includes(term);}).length;
     const total=recs.filter(p=>p.환불금액===0).length;
     let prevDay;
     if(prevDate&&snaps2[prevDate]&&snaps2[prevDate][term]!==undefined)prevDay=snaps2[prevDate][term];
@@ -946,7 +953,7 @@ function renderDaily(){
   const prevIds=new Set(S.pays.filter(p=>p.status==='active'&&(S.cfg.prevTerms||[]).includes(p.내역)).map(p=>p.수험번호));
   const regs=sortByBan(S.pays.filter(p=>(p.uploadedDate||p.결제일자)===date&&p.환불금액===0&&p.status==='active'));
   const refPayments=sortByBan(S.pays.filter(p=>(p.uploadedDate||p.결제일자)===date&&p.환불금액>0));
-  const refWithdrawals=sortByBan(S.refunds.filter(r=>(r.processedDate||new Date(r.processedAt||Date.now()).toISOString().split('T')[0])===date).flatMap(r=>r.removedTerms.map((term,ti)=>({반:r.반,번호:r.번호,수험번호:r.수험번호,이름:r.이름,내역:term,장학:r.장학||'',_refId:r.id,_termIdx:ti}))));
+  const refWithdrawals=sortByBan(S.refunds.filter(r=>(refDate(r))===date).flatMap(r=>r.removedTerms.map((term,ti)=>({반:r.반,번호:r.번호,수험번호:r.수험번호,이름:r.이름,내역:term,장학:r.장학||'',_refId:r.id,_termIdx:ti}))));
   let regHtml='';
   regs.forEach((r,i)=>{const isNew=!prevIds.has(r.수험번호);regHtml+=`<tr><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td>${h(r.장학)}</td><td class="new-cell">${isNew?'신규':''}</td></tr>`;});
   if(!regHtml)regHtml=`<tr><td colspan="8" style="text-align:center;color:#bbb;padding:16px;">등록 내역 없음</td></tr>`;
@@ -1005,7 +1012,7 @@ function renderDaily2(){
   const date=document.getElementById('dailyDate2').value||todayStr();
   document.getElementById('dailyKorDate2').textContent=fmtKor(date);
   const regs=sortByBan(S.dancha.filter(p=>(p.uploadedDate||p.결제일자)===date&&p.status==='active'));
-  const cancels=sortByBan(S.danchaRefunds.filter(r=>(r.processedDate||new Date(r.processedAt||Date.now()).toISOString().split('T')[0])===date).flatMap(r=>r.removedTerms.map(term=>({반:r.반||'',번호:r.번호||'',수험번호:r.수험번호,이름:r.이름,내역:term}))));
+  const cancels=sortByBan(S.danchaRefunds.filter(r=>(refDate(r))===date).flatMap(r=>r.removedTerms.map(term=>({반:r.반||'',번호:r.번호||'',수험번호:r.수험번호,이름:r.이름,내역:term}))));
   let regHtml='';
   regs.forEach((r,i)=>{regHtml+=`<tr><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td>${h(r.장학||'')}</td></tr>`;});
   if(!regHtml)regHtml=`<tr><td colspan="7" style="text-align:center;color:#bbb;padding:16px;">등록 내역 없음</td></tr>`;
@@ -1342,7 +1349,7 @@ function exportDailyExcel(){
   const date=document.getElementById('dailyDate').value||todayStr();
   const prevIds=new Set(S.pays.filter(p=>p.status==='active'&&(S.cfg.prevTerms||[]).includes(p.내역)).map(p=>p.수험번호));
   const regs=sortByBan(S.pays.filter(p=>(p.uploadedDate||p.결제일자)===date&&p.환불금액===0&&p.status==='active'));
-  const refs=sortByBan([...S.pays.filter(p=>(p.uploadedDate||p.결제일자)===date&&p.환불금액>0),...S.refunds.filter(r=>(r.processedDate||new Date(r.processedAt||Date.now()).toISOString().split('T')[0])===date).map(r=>({반:r.반,번호:r.번호||'',수험번호:r.수험번호,이름:r.이름,내역:r.removedTerms.join('/'),장학:r.장학||''}))]);
+  const refs=sortByBan([...S.pays.filter(p=>(p.uploadedDate||p.결제일자)===date&&p.환불금액>0),...S.refunds.filter(r=>(refDate(r))===date).map(r=>({반:r.반,번호:r.번호||'',수험번호:r.수험번호,이름:r.이름,내역:r.removedTerms.join('/'),장학:r.장학||''}))]);
   const wb=XLSX.utils.book_new();const rows=[];
   rows.push([date,'','','','재수정규반 일일 등록 명단']);rows.push(['']);
   rows.push(['no','반','학번','수험번호','성명','등록','장학','신규','','반','학번','수험번호','성명','등록','환불','장학']);
@@ -1354,7 +1361,7 @@ function exportDailyExcel(){
 function exportDailyExcel2(){
   const date=document.getElementById('dailyDate2').value||todayStr();
   const regs=sortByBan(S.dancha.filter(p=>(p.uploadedDate||p.결제일자)===date&&p.status==='active'));
-  const cancels=sortByBan(S.danchaRefunds.filter(r=>(r.processedDate||new Date(r.processedAt||Date.now()).toISOString().split('T')[0])===date).flatMap(r=>r.removedTerms.map(term=>({반:r.반||'',번호:r.번호||'',수험번호:r.수험번호,이름:r.이름,내역:term}))));
+  const cancels=sortByBan(S.danchaRefunds.filter(r=>(refDate(r))===date).flatMap(r=>r.removedTerms.map(term=>({반:r.반||'',번호:r.번호||'',수험번호:r.수험번호,이름:r.이름,내역:term}))));
   const wb=XLSX.utils.book_new();const rows=[];
   rows.push([date,'','단과 일일 등록 명단']);rows.push(['']);
   rows.push(['no','반','학번','수험번호','성명','내역','장학','','반','학번','수험번호','성명','내역','취소']);
