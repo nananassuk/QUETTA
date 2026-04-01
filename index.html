@@ -898,7 +898,12 @@ function renderDash(){
   const currIds=new Set(active.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)).map(p=>p.수험번호));
   const prevIds=new Set(active.filter(p=>(S.cfg.prevTerms||[]).includes(p.내역)).map(p=>p.수험번호));
   const unpaidCnt=[...prevIds].filter(id=>!currIds.has(id)).length;
-  const grandTotal=active.filter(p=>(S.cfg.prevTerms||[]).includes(p.내역)&&p.환불금액===0).length;
+  // 총인원 = 수강(3월) + 선납(4월) 중복 없이 수험번호 기준
+  const allEnrolledIds=new Set([
+    ...active.filter(p=>(S.cfg.prevTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호),
+    ...active.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호)
+  ]);
+  const grandTotal=allEnrolledIds.size;
   function calcTerm(term){
     const recs=active.filter(p=>p.내역===term);
     const todayIn=recs.filter(p=>(p.uploadedDate||p.결제일자)===today&&p.환불금액===0).length;
