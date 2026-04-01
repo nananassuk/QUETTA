@@ -666,11 +666,21 @@ function parseRows(rows,uploadDate){
     if(amt<0){neg.push({이름,수험번호});continue;}
     let 결제일자raw=colIdx?raw[colIdx['결제일자']]:raw[0];
     let 결제일자='';
-    if(결제일자raw instanceof Date)결제일자=결제일자raw.toISOString().split('T')[0];
-    else 결제일자=parseDate(String(결제일자raw||''));
+    if(결제일자raw instanceof Date){
+      결제일자=msToLocalDate(결제일자raw.getTime());
+    } else if(typeof 결제일자raw==='number'){
+      // Excel serial date → JS Date
+      const d=XLSX.SSF.parse_date_code(결제일자raw);
+      if(d) 결제일자=`${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
+      else 결제일자=parseDate(String(결제일자raw));
+    } else {
+      결제일자=parseDate(String(결제일자raw||''));
+    }
     const 비고raw=get('비고',17);const 장학raw=get('장학',18);
     const 장학=장학raw&&/Q/.test(장학raw)?장학raw.trim():extractScholarship(비고raw)||extractScholarship(장학raw);
-    const 내역raw=get('내역',8);
+    // 내역은 원본에서 직접 가져와 줄바꿈 보존
+    const 내역rawVal=colIdx?raw[colIdx['내역']]:raw[8];
+    const 내역raw=String(내역rawVal||'').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
 
     // 내역 셀 줄바꿈 분리 → 키워드 여러 개면 각각 별도 레코드
     const 내역lines=내역raw.split(/\n|\r\n|\r/).map(s=>s.trim()).filter(Boolean);
@@ -701,7 +711,7 @@ function importPayExcel(e){
     try{
       const wb=XLSX.read(ev.target.result,{type:'array',cellDates:true});
       const ws=wb.Sheets[wb.SheetNames[0]];
-      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false});
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true});
       const{records,neg,unmatched}=parseRows(rows,uploadDate);
       applyImport(records,neg,unmatched);
     }catch(err){alert('파일 읽기 오류: '+err.message);}
