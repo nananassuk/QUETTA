@@ -676,28 +676,59 @@ function parseRows(rows,uploadDate){
     } else {
       결제일자=parseDate(String(결제일자raw||''));
     }
-    const 비고raw=get('비고',17);const 장학raw=get('장학',18);
+    const 비고raw=get('비고',17);
+    const 장학raw=get('장학',18);
     const 장학=장학raw&&/Q/.test(장학raw)?장학raw.trim():extractScholarship(비고raw)||extractScholarship(장학raw);
-    // 내역은 원본에서 직접 가져와 줄바꿈 보존
+    // 내역 셀 줄바꿈 분리
     const 내역rawVal=colIdx?raw[colIdx['내역']]:raw[8];
     const 내역raw=String(내역rawVal||'').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+    const 내역lines=내역raw.split('\n').map(s=>s.trim()).filter(Boolean);
+    const linesOrFull=내역lines.length>1?내역lines:[내역raw];
 
-    // 내역 셀 줄바꿈 분리 → 키워드 여러 개면 각각 별도 레코드
-    const 내역lines=내역raw.split(/\n|\r\n|\r/).map(s=>s.trim()).filter(Boolean);
-    const linesToProcess=내역lines.length>1?내역lines:[내역raw];
+    const dkws=S.cfg.danchaKeywords||[];
+    const rkws=S.cfg.keywords||[];
 
-    for(const line of linesToProcess){
-      const matched=applyKeywords(line);
+    // 단과 키워드 매칭 → 각 줄마다 별도 레코드
+    const danchaMatches=[];
+    for(const line of linesOrFull){
+      const dm=dkws.find(kw=>line.includes(kw.kw));
+      if(dm) danchaMatches.push({term:dm.term,line});
+    }
+
+    // 정규 키워드 매칭 → 전체 셀에서 첫 번째 매칭 1개만
+    let regMatch=null;
+    for(const line of linesOrFull){
+      const rm=rkws.find(kw=>line.includes(kw.kw));
+      if(rm){regMatch={term:rm.term,line};break;}
+    }
+
+    // 단과 레코드 생성
+    for(const m of danchaMatches){
+      out.push({
+        id:`${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
+        결제일자,반:get('반',4),번호:get('번호',5),수험번호,이름,
+        내역:m.term,내역원본:m.line,구분:get('구분',9),
+        결제금액:amt,환불금액:0,장학,비고:비고raw,
+        status:'active',addedAt:Date.now(),uploadedDate:useDate,
+        _type:'dancha',_unmatched:false
+      });
+    }
+
+    // 정규 레코드 생성 (1개)
+    // 단과 매칭이 하나도 없거나, 정규 키워드가 있으면 생성
+    if(danchaMatches.length===0||regMatch){
+      const term=regMatch?regMatch.term:내역raw.split('\n')[0].trim()||내역raw;
+      const isUnmatched=!regMatch;
       const rec={
         id:`${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
         결제일자,반:get('반',4),번호:get('번호',5),수험번호,이름,
-        내역:matched.term,내역원본:line,구분:get('구분',9),
+        내역:term,내역원본:내역raw,구분:get('구분',9),
         결제금액:amt,환불금액:0,장학,비고:비고raw,
         status:'active',addedAt:Date.now(),uploadedDate:useDate,
-        _type:matched.type,_unmatched:matched.type==='unknown'
+        _type:isUnmatched?'unknown':'regular',_unmatched:isUnmatched
       };
       out.push(rec);
-      if(matched.type==='unknown')unmatched.push(rec);
+      if(isUnmatched)unmatched.push(rec);
     }
   }
   return{records:out,neg,unmatched};
