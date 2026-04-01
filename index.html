@@ -177,9 +177,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
 </div>
 <div class="tab-bar">
   <button class="tab-btn on" onclick="goTab('dash',this)">📊 대시보드</button>
+  <button class="tab-btn" onclick="goTab('daily',this)">📄 일일명단</button>
   <button class="tab-btn dancha" onclick="goTab('dash2',this)">📊 대시보드(단과)</button>
-  <button class="tab-btn" onclick="goTab('daily',this)">📄 일일 등록 명단</button>
-  <button class="tab-btn dancha" onclick="goTab('daily2',this)">📄 일일 등록(단과)</button>
+  <button class="tab-btn dancha" onclick="goTab('daily2',this)">📄 일일명단(단과)</button>
   <button class="tab-btn" onclick="goTab('pay',this)">📋 납부명단 입력</button>
   <button class="tab-btn" onclick="goTab('cfg',this)">⚙️ 설정</button>
 </div>
@@ -730,8 +730,12 @@ function autoDetectTerms(refDate){
   const nm=cm===12?1:cm+1;
   const allTerms=[...new Set(S.pays.map(p=>p.내역).filter(Boolean))];
   if(!S.cfg.manualOverride){
-    S.cfg.prevTerms=allTerms.filter(t=>extractMonth(t)===cm);
-    S.cfg.currTerms=allTerms.filter(t=>extractMonth(t)===nm);
+    // 현재 달 기준 자동 감지
+    const prevCandidates=allTerms.filter(t=>extractMonth(t)===cm);
+    const currCandidates=allTerms.filter(t=>extractMonth(t)===nm);
+    // 데이터 없으면 키워드에서 추론
+    S.cfg.prevTerms=prevCandidates.length>0?prevCandidates:allTerms.filter(t=>extractMonth(t)===cm-1>0?cm-1:12);
+    S.cfg.currTerms=currCandidates.length>0?currCandidates:[];
   }
   const danchaTerms=[...new Set(S.dancha.map(p=>p.내역).filter(Boolean))];
   S.cfg.danchaTerms=danchaTerms;
@@ -844,6 +848,11 @@ function renderDash(){
 }
 
 // ════ DASHBOARD (단과) ════
+function extractGisu(term){
+  // "1기특강(빌드업특강)" → "1기", "단과2기(4월)" → "2기"
+  const m=term.match(/(\d+)기/);
+  return m?m[1]+'기':'기타';
+}
 function renderDash2(){
   const today=S.cfg.dashDate2||todayStr();
   document.getElementById('dashKorDate2').textContent=fmtKor(today);
@@ -855,7 +864,11 @@ function renderDash2(){
   const snapBadge2=document.getElementById('snapBadge2');
   const isSaved=!!snaps2[today];
   if(snapBadge2)snapBadge2.innerHTML=isSaved?`<span style="background:#D4EDFF;color:var(--d1);padding:2px 9px;border-radius:9px;font-size:11px;">✅ ${fmtShort(today)} 저장됨</span>`:`<span style="background:#FFF3CD;color:#856404;padding:2px 9px;border-radius:9px;font-size:11px;">⚠️ 미저장</span>`;
-  const visibleTerms=[...new Set(S.dancha.map(p=>p.내역).filter(Boolean))].filter(t=>!hidden.includes(t)).sort((a,b)=>{const d=extractMonth(a)-extractMonth(b);return d!==0?d:a.localeCompare(b);});
+  const visibleTerms=[...new Set(S.dancha.map(p=>p.내역).filter(Boolean))].filter(t=>!hidden.includes(t)).sort((a,b)=>{
+    const ga=extractGisu(a),gb=extractGisu(b);
+    if(ga!==gb)return ga.localeCompare(gb);
+    return a.localeCompare(b);
+  });
   const grandTotal=active.filter(p=>p.환불금액===0).length;
   function calcTerm2(term){
     const recs=active.filter(p=>p.내역===term);
@@ -867,18 +880,32 @@ function renderDash2(){
     else prevDay=prevDate?countAsOf(term,prevDate,'dancha'):(total-todayIn+todayCancel);
     return{term,prevDay,todayIn,todayOut:-todayCancel,total};
   }
-  const monthMap={};
-  for(const t of visibleTerms){const mo=extractMonth(t);if(!monthMap[mo])monthMap[mo]=[];monthMap[mo].push(t);}
+  // 기수별 그룹핑
+  const gisuMap={};
+  for(const t of visibleTerms){
+    const g=extractGisu(t);
+    if(!gisuMap[g])gisuMap[g]=[];
+    gisuMap[g].push(t);
+  }
   let html='';
-  for(const mo of Object.keys(monthMap).map(Number).sort((a,b)=>a-b)){
-    const datas=monthMap[mo].map(calcTerm2);
-    for(const d of datas)html+=`<tr><td style="text-align:left;padding-left:16px;">${h(d.term)}</td><td>${d.prevDay>0?d.prevDay.toLocaleString():'0'}</td><td>${d.todayIn>0?`<span class="pos">${d.todayIn.toLocaleString()}</span>`:''}</td><td>${d.todayOut<0?`<span class="neg">${d.todayOut.toLocaleString()}</span>`:''}</td><td><strong>${d.total.toLocaleString()}</strong></td><td></td></tr>`;
+  const gisuOrder=Object.keys(gisuMap).sort((a,b)=>{
+    const na=parseInt(a)||999,nb=parseInt(b)||999;
+    return na-nb;
+  });
+  for(const gisu of gisuOrder){
+    const terms=gisuMap[gisu];
+    const datas=terms.map(calcTerm2);
+    // 개별 내역 행
+    for(const d of datas){
+      html+=`<tr><td style="text-align:left;padding-left:20px;font-size:12px;">${h(d.term)}</td><td>${d.prevDay>0?d.prevDay.toLocaleString():'0'}</td><td>${d.todayIn>0?`<span class="pos">${d.todayIn.toLocaleString()}</span>`:''}</td><td>${d.todayOut<0?`<span class="neg">${d.todayOut.toLocaleString()}</span>`:''}</td><td><strong>${d.total.toLocaleString()}</strong></td><td></td></tr>`;
+    }
+    // 기수 합계 행
     const sPrev=datas.reduce((a,d)=>a+d.prevDay,0),sIn=datas.reduce((a,d)=>a+d.todayIn,0),sOut=datas.reduce((a,d)=>a+d.todayOut,0),sTotal=datas.reduce((a,d)=>a+d.total,0);
-    html+=`<tr class="row-sub-d"><td>계</td><td>${sPrev.toLocaleString()}</td><td>${sIn>0?sIn.toLocaleString():'0'}</td><td>${sOut<0?sOut.toLocaleString():''}</td><td>${sTotal.toLocaleString()}</td><td>총:${grandTotal}명</td></tr>`;
+    html+=`<tr class="row-sub-d"><td style="text-align:left;padding-left:10px;font-size:13px;">📘 ${h(gisu)} 합계</td><td>${sPrev.toLocaleString()}</td><td>${sIn>0?`<span style="color:#90EE90;font-weight:700;">${sIn.toLocaleString()}</span>`:''}</td><td>${sOut<0?`<span style="color:#FFB3B3;font-weight:700;">${sOut.toLocaleString()}</span>`:''}</td><td><strong>${sTotal.toLocaleString()}</strong></td><td>총:${sTotal}명</td></tr>`;
   }
   if(!html)html=`<tr><td colspan="6" style="text-align:center;color:#bbb;padding:24px;">단과 데이터를 입력하면 표시됩니다</td></tr>`;
   document.getElementById('dashBody2').innerHTML=html;
-  document.getElementById('dashStats2').innerHTML=`<div class="chip c-blue"><div class="v">${grandTotal}</div><div class="l">단과 등록</div></div><div class="chip"><div class="v">${S.danchaRefunds.length}</div><div class="l">누적 취소</div></div>`;
+  document.getElementById('dashStats2').innerHTML=`<div class="chip c-blue"><div class="v">${grandTotal}</div><div class="l">단과 총 등록</div></div><div class="chip"><div class="v">${S.danchaRefunds.length}</div><div class="l">누적 취소</div></div>`;
 }
 
 // ════ SNAPSHOT ════
@@ -1057,22 +1084,92 @@ function showRefundModal(val,recs){
   const student=recs[0];
   const prevRecs=recs.filter(p=>(S.cfg.prevTerms||[]).includes(p.내역));
   const currRecs=recs.filter(p=>(S.cfg.currTerms||[]).includes(p.내역));
+
+  // 현재 수강 내역이 없으면 → 마지막 납부 기수 자동 선택
+  let displayRecs=recs;
+  let autoFallback=false;
+  if(prevRecs.length===0 && recs.length>0){
+    // addedAt 기준 가장 최근 기수
+    const sorted=[...recs].sort((a,b)=>(b.addedAt||0)-(a.addedAt||0));
+    displayRecs=[sorted[0]];
+    autoFallback=true;
+  }
+
+  // 선택 가능한 기수 목록 (설정된 변환 기수명 + 현재 보유 내역)
+  const kwTerms=[...(S.cfg.keywords||[]).map(k=>k.term),...(S.cfg.danchaKeywords||[]).map(k=>k.term),...ALL_TERMS];
+  const existTerms=recs.map(r=>r.내역);
+  const termOptions=[...new Set([...existTerms,...kwTerms])].filter(Boolean);
+
+  const selectedTermIds=displayRecs.map(r=>r.id);
+  const opts=termOptions.map(t=>`<option value="${h(t)}">${h(t)}</option>`).join('');
+  const checkboxes=recs.map(r=>{
+    const checked=selectedTermIds.includes(r.id)?'checked':'';
+    return`<label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:12px;cursor:pointer;"><input type="checkbox" class="refund-term-check" value="${r.id}" ${checked}> ${h(r.내역)}</label>`;
+  }).join('');
+
+  const fallbackNote=autoFallback?`<div style="background:#FFF3CD;border-radius:5px;padding:6px 10px;font-size:11px;color:#856404;margin-bottom:8px;">⚠️ 현재 수강 내역 없음 → 마지막 납부 기수 자동 선택됨</div>`:'';
   const lines=[];
   if(prevRecs.length)lines.push(`• 수강(${prevRecs.map(r=>r.내역).join(', ')}) → 금일환불 -1`);
-  if(currRecs.length)lines.push(`• 선납(${currRecs.map(r=>r.내역).join(', ')}) → 등록 취소, 미납자 유지`);
-  else lines.push(`• 선납 없음 → 미납자 -1`);
-  openModal('🚪 퇴소 처리 확인',`<div style="background:#FEF0EE;border-radius:5px;padding:10px;margin-bottom:10px;"><div style="font-size:14px;font-weight:700;">${h(student.이름)}</div><div style="font-size:12px;color:var(--muted);">학번:${h(student.번호||'-')} 수험번호:${h(student.수험번호||'-')} 반:${h(student.반)}</div></div><div style="font-size:12px;line-height:1.9;"><strong>제거 내역:</strong> ${h(recs.map(r=>r.내역).join(', '))}<br>${lines.join('<br>')}<br><span style="color:var(--danger);font-size:11px;">※ 총인원 1명 감소</span></div>`,
-    [{label:'퇴소',cls:'btn-red',fn:()=>confirmRefund(val,recs)},{label:'취소',cls:'btn-ghost',fn:closeModal}]);
+  if(currRecs.length)lines.push(`• 선납(${currRecs.map(r=>r.내역).join(', ')}) → 등록 취소`);
+
+  openModal('🚪 퇴소 처리 확인',
+    `<div style="background:#FEF0EE;border-radius:5px;padding:10px;margin-bottom:10px;">
+      <div style="font-size:14px;font-weight:700;">${h(student.이름)}</div>
+      <div style="font-size:12px;color:var(--muted);">학번:${h(student.번호||'-')} 수험번호:${h(student.수험번호||'-')} 반:${h(student.반)}</div>
+    </div>
+    ${fallbackNote}
+    <div style="font-size:12px;font-weight:700;margin-bottom:6px;">✏️ 퇴소 처리할 내역 선택 (복수 선택 가능)</div>
+    <div style="background:#F8F8F8;border-radius:5px;padding:8px 12px;margin-bottom:10px;">${checkboxes}</div>
+    <div style="font-size:12px;font-weight:700;margin-bottom:5px;">➕ 수기 추가 (목록에 없을 경우)</div>
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;">
+      <select class="inp" id="manualTermSel" style="flex:1;">${opts}</select>
+      <button class="btn btn-ghost btn-sm" onclick="addManualRefundTerm()">+ 추가</button>
+    </div>
+    <div id="manualTermList" style="font-size:11px;color:var(--muted);"></div>
+    <div style="font-size:11px;color:var(--danger);margin-top:6px;">※ 선택된 내역 기준으로 대시보드 인원 차감</div>`,
+    [{label:'퇴소 처리',cls:'btn-red',fn:()=>confirmRefundFromModal(val,recs)},{label:'취소',cls:'btn-ghost',fn:closeModal}]
+  );
 }
-function confirmRefund(val,toRemove){
+
+// 수기 내역 추가
+let _manualTerms=[];
+function addManualRefundTerm(){
+  const sel=document.getElementById('manualTermSel');
+  const term=sel.value;
+  if(!term||_manualTerms.includes(term)){return;}
+  _manualTerms.push(term);
+  document.getElementById('manualTermList').innerHTML=
+    `추가된 수기 내역: <strong>${_manualTerms.map(t=>h(t)).join(', ')}</strong>`;
+}
+
+function confirmRefundFromModal(val,recs){
   const date=document.getElementById('dailyDate').value||todayStr();
-  const student=toRemove[0];
+  // 체크된 기존 내역
+  const checkedIds=[...document.querySelectorAll('.refund-term-check:checked')].map(el=>el.value);
+  const toRemove=recs.filter(r=>checkedIds.includes(r.id));
+  // 수기 추가 내역
+  const manualTerms=[..._manualTerms];
+  _manualTerms=[];
+
+  if(toRemove.length===0&&manualTerms.length===0){toast('처리할 내역을 선택해주세요');return;}
+
+  const student=recs[0];
+  // 기존 레코드 퇴소 처리
+  const removedTerms=toRemove.map(r=>r.내역);
   for(const r of toRemove){r.status='퇴소';r.withdrawnAt=Date.now();}
-  S.refunds.push({id:Date.now(),processedAt:Date.now(),processedDate:date,수험번호:student.수험번호,이름:student.이름,반:student.반,번호:student.번호,장학:student.장학||'',removedTerms:toRemove.map(r=>r.내역)});
+  // 수기 내역은 removedTerms에만 추가 (실제 레코드 없음)
+  const allRemovedTerms=[...removedTerms,...manualTerms];
+
+  S.refunds.push({
+    id:Date.now(),processedAt:Date.now(),processedDate:date,
+    수험번호:student.수험번호,이름:student.이름,반:student.반,번호:student.번호,
+    장학:student.장학||'',removedTerms:allRemovedTerms
+  });
   save();closeModal();
-  document.getElementById('refundInput').value='';document.getElementById('refundInputBunho').value='';
+  document.getElementById('refundInput').value='';
+  document.getElementById('refundInputBunho').value='';
   renderDaily();renderDash();renderPayHistory();renderUnpaid();
-  toast(`✅ ${student.이름} 퇴소 완료`);
+  toast(`✅ ${student.이름} 퇴소 완료 — [${allRemovedTerms.join(', ')}]`);
 }
 function processRefundExcel(e){
   const date=document.getElementById('dailyDate').value||todayStr();
