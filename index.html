@@ -309,7 +309,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;padding:9px 12px;background:#F8F5EE;border-radius:7px;border:1px solid var(--border);">
       <label style="font-size:12px;font-weight:700;color:var(--g1);">📅 업로드 날짜</label>
       <input type="date" class="inp" id="uploadDateInput" style="width:155px;" onchange="showPrevUploadPreview()">
-      <span style="font-size:11px;color:var(--muted);">← 비우면 오늘 날짜 자동 적용</span>
+      <button class="btn btn-g btn-sm" onclick="renderTodayUploads()">🔍 조회</button>
+      <span style="font-size:11px;color:var(--muted);">← 날짜 변경 후 조회 버튼 클릭</span>
     </div>
     <!-- 이전 업로드 마지막 확인 -->
     <div id="prevUploadPreview" style="display:none;margin-bottom:10px;padding:9px 12px;background:#EEF4FF;border-radius:7px;border:1px solid #93B8E0;">
@@ -1240,6 +1241,14 @@ function showPrevUploadPreview(){
 }
 function clearTodayUploads(){
   const today=document.getElementById('uploadDateInput').value||todayStr();
+  // 스냅샷 저장된 날짜면 삭제 불가
+  if(S.snapshots&&S.snapshots[today]){
+    openModal('🔒 삭제 불가',
+      `<div style="font-size:13px;line-height:1.9;"><strong>${fmtKor(today)}</strong>은 대시보드에 현황이 저장된 날짜입니다.<br>저장된 현황이 있으면 해당 일자 데이터를 삭제할 수 없습니다.<br><span style="font-size:11px;color:var(--muted);">삭제하려면 먼저 대시보드에서 해당 날짜의 저장을 삭제해주세요.</span></div>`,
+      [{label:'확인',cls:'btn-g',fn:closeModal}]
+    );
+    return;
+  }
   const regCnt=S.pays.filter(p=>(p.uploadedDate||p.결제일자)===today).length;
   const danCnt=S.dancha.filter(p=>(p.uploadedDate||p.결제일자)===today).length;
   const total=regCnt+danCnt;
