@@ -308,8 +308,18 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
     <div class="info-box">엑셀 A~S열 자동 인식 | Q열(결제금액) 마이너스는 자동 제외 | 키워드 매칭으로 내역 자동 변환</div>
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;padding:9px 12px;background:#F8F5EE;border-radius:7px;border:1px solid var(--border);">
       <label style="font-size:12px;font-weight:700;color:var(--g1);">📅 업로드 날짜</label>
-      <input type="date" class="inp" id="uploadDateInput" style="width:155px;">
+      <input type="date" class="inp" id="uploadDateInput" style="width:155px;" onchange="showPrevUploadPreview()">
       <span style="font-size:11px;color:var(--muted);">← 비우면 오늘 날짜 자동 적용</span>
+    </div>
+    <!-- 이전 업로드 마지막 확인 -->
+    <div id="prevUploadPreview" style="display:none;margin-bottom:10px;padding:9px 12px;background:#EEF4FF;border-radius:7px;border:1px solid #93B8E0;">
+      <div style="font-size:11px;font-weight:700;color:var(--d1);margin-bottom:6px;">📋 직전 업로드 마지막 목록 (여기 다음부터 업로드하세요)</div>
+      <div style="overflow-x:auto;max-height:160px;overflow-y:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:11px;" id="prevUploadTable">
+          <thead><tr style="background:var(--d1);color:#fff;"><th style="padding:4px 8px;">결제일자</th><th style="padding:4px 8px;">학번</th><th style="padding:4px 8px;">수험번호</th><th style="padding:4px 8px;">이름</th></tr></thead>
+          <tbody id="prevUploadBody"></tbody>
+        </table>
+      </div>
     </div>
     <div class="btn-row" style="margin-bottom:10px;">
       <button class="btn btn-g" onclick="document.getElementById('payExcelInput').click()">📂 엑셀 업로드</button>
@@ -329,11 +339,18 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
   <!-- 당일등록 -->
   <div id="pay-today" class="sub-tab-pane on">
     <div class="stats-row" id="todayStats"></div>
-    <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <div style="display:flex;gap:6px;align-items:center;">
+        <label style="font-size:11px;display:flex;align-items:center;gap:4px;cursor:pointer;">
+          <input type="checkbox" id="checkAll" onchange="toggleAllChecks(this)"> 전체선택
+        </label>
+        <button class="btn btn-red btn-sm" onclick="deleteChecked()">🗑️ 선택 삭제</button>
+        <span id="checkedCount" style="font-size:11px;color:var(--muted);"></span>
+      </div>
       <button class="btn btn-red btn-sm" onclick="clearTodayUploads()">🗑️ 당일 전체 삭제</button>
     </div>
     <div class="tbl-wrap">
-      <table class="data-tbl"><thead><tr><th>#</th><th>구분</th><th>반</th><th>학번</th><th>수험번호</th><th>성명</th><th>내역</th><th>결제금액</th><th>장학</th><th>상태</th><th>삭제</th></tr></thead>
+      <table class="data-tbl"><thead><tr><th style="width:32px;"><input type="checkbox" id="checkAllHeader" onchange="toggleAllChecks(this)"></th><th>#</th><th>구분</th><th>반</th><th>학번</th><th>수험번호</th><th>성명</th><th>내역</th><th>결제금액</th><th>장학</th><th>상태</th><th>삭제</th></tr></thead>
       <tbody id="todayBody"></tbody></table>
     </div>
   </div>
@@ -1028,13 +1045,18 @@ function renderTodayUploads(){
   const today=document.getElementById('uploadDateInput').value||todayStr();
   const todayPays=S.pays.filter(p=>(p.uploadedDate||p.결제일자)===today);
   const todayDancha=S.dancha.filter(p=>(p.uploadedDate||p.결제일자)===today);
-  const all=[...sortByBan(todayPays),...sortByBan(todayDancha)];
+  // 수험번호 순 정렬
+  const all=[...todayPays,...todayDancha].sort((a,b)=>(a.수험번호||'').localeCompare(b.수험번호||''));
   const isSaved=!!(S.snapshots&&S.snapshots[today]);
   document.getElementById('todayStats').innerHTML=`<div class="chip c-grn"><div class="v">${todayPays.filter(p=>p.status==='active').length}</div><div class="l">정규 등록</div></div><div class="chip c-blue"><div class="v">${todayDancha.filter(p=>p.status==='active').length}</div><div class="l">단과 등록</div></div><div class="chip ${isSaved?'c-gold':''}"><div class="v">${isSaved?'📌':'⚠️'}</div><div class="l">${isSaved?'저장됨':'미저장'}</div></div>`;
   const unmatchedCount=all.filter(r=>r._unmatched).length;
   const warnEl=document.getElementById('unmatchedWarn');
   if(unmatchedCount>0){warnEl.style.display='block';warnEl.innerHTML=`<div class="warn-box err">⚠️ 키워드 매칭 실패 ${unmatchedCount}건 — 설정→키워드 매핑에서 해당 내역을 추가해주세요</div>`;}
   else warnEl.style.display='none';
+  // 체크 카운트 초기화
+  document.getElementById('checkedCount').textContent='';
+  document.getElementById('checkAll').checked=false;
+  if(document.getElementById('checkAllHeader'))document.getElementById('checkAllHeader').checked=false;
   let html='';let idx=1;
   for(const r of all){
     const isDan=r._type==='dancha';
@@ -1042,10 +1064,84 @@ function renderTodayUploads(){
     const rc=r._unmatched?'row-unmatched':isOut?'row-out':'';
     const typeBdg=isDan?'<span class="bdg" style="background:#CCE5FF;color:var(--d1);">단과</span>':'<span class="bdg bdg-ok">정규</span>';
     const unmBdg=r._unmatched?'<span class="bdg bdg-unmatched">매칭실패</span>':'';
-    html+=`<tr class="${rc}"><td>${idx++}</td><td>${typeBdg}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td><span class="edit-cell" onclick="editTerm('${r.id}','${isDan?'dancha':'reg'}')" title="클릭하여 내역 수정">${h(r.내역)}</span>${unmBdg}</td><td style="text-align:right;">${r.결제금액.toLocaleString()}</td><td>${h(r.장학)}</td><td>${isOut?'<span class="bdg bdg-out">퇴소</span>':'<span class="bdg bdg-ok">등록</span>'}</td><td><button onclick="deleteRecord('${r.id}','${isDan?'dancha':'reg'}')" style="background:none;border:none;cursor:pointer;">🗑️</button></td></tr>`;
+    html+=`<tr class="${rc}">
+      <td><input type="checkbox" class="row-check" data-id="${r.id}" data-type="${isDan?'dancha':'reg'}" onchange="updateCheckedCount()"></td>
+      <td>${idx++}</td><td>${typeBdg}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td>
+      <td><span class="edit-cell" onclick="editTerm('${r.id}','${isDan?'dancha':'reg'}')">${h(r.내역)}</span>${unmBdg}</td>
+      <td style="text-align:right;">${r.결제금액.toLocaleString()}</td><td>${h(r.장학)}</td>
+      <td>${isOut?'<span class="bdg bdg-out">퇴소</span>':'<span class="bdg bdg-ok">등록</span>'}</td>
+      <td><button onclick="deleteRecord('${r.id}','${isDan?'dancha':'reg'}')" style="background:none;border:none;cursor:pointer;">🗑️</button></td>
+    </tr>`;
   }
-  if(!html)html=`<tr><td colspan="11" style="text-align:center;color:#bbb;padding:24px;">오늘(${today}) 업로드된 데이터 없음</td></tr>`;
+  if(!html)html=`<tr><td colspan="12" style="text-align:center;color:#bbb;padding:24px;">오늘(${today}) 업로드된 데이터 없음</td></tr>`;
   document.getElementById('todayBody').innerHTML=html;
+}
+
+function toggleAllChecks(el){
+  const checked=el.checked;
+  document.querySelectorAll('.row-check').forEach(cb=>{cb.checked=checked;});
+  // 두 체크박스 동기화
+  const all=document.getElementById('checkAll');
+  const hdr=document.getElementById('checkAllHeader');
+  if(all)all.checked=checked;
+  if(hdr)hdr.checked=checked;
+  updateCheckedCount();
+}
+function updateCheckedCount(){
+  const cnt=document.querySelectorAll('.row-check:checked').length;
+  const total=document.querySelectorAll('.row-check').length;
+  document.getElementById('checkedCount').textContent=cnt>0?`${cnt}개 선택됨`:'';
+  const all=document.getElementById('checkAll');
+  const hdr=document.getElementById('checkAllHeader');
+  if(all)all.checked=cnt===total&&total>0;
+  if(hdr)hdr.checked=cnt===total&&total>0;
+}
+function deleteChecked(){
+  const checks=[...document.querySelectorAll('.row-check:checked')];
+  if(!checks.length){toast('선택된 항목이 없습니다');return;}
+  const items=checks.map(cb=>({id:cb.dataset.id,type:cb.dataset.type}));
+  openModal(`🗑️ 선택 항목 삭제`,
+    `<div style="font-size:13px;">선택된 <strong>${items.length}건</strong>을 삭제합니다.<br><span style="font-size:11px;color:var(--danger);">매칭실패 항목만 체크해서 삭제 후 재업로드하세요</span></div>`,
+    [{label:'삭제',cls:'btn-red',fn:()=>{
+      const regIds=new Set(items.filter(i=>i.type==='reg').map(i=>i.id));
+      const danIds=new Set(items.filter(i=>i.type==='dancha').map(i=>i.id));
+      S.pays=S.pays.filter(p=>!regIds.has(p.id));
+      S.dancha=S.dancha.filter(p=>!danIds.has(p.id));
+      save();closeModal();
+      updateTermFilter();renderFilterChips();renderFilterChips2();
+      renderTodayUploads();renderPayHistory();renderUnpaid();renderDash();renderDash2();
+      toast(`✅ ${items.length}건 삭제 완료`);
+    }},{label:'취소',cls:'btn-ghost',fn:closeModal}]
+  );
+}
+
+// 이전 업로드 마지막 목록 미리보기
+function showPrevUploadPreview(){
+  const selectedDate=document.getElementById('uploadDateInput').value;
+  if(!selectedDate){document.getElementById('prevUploadPreview').style.display='none';return;}
+  const allDates=[...new Set([...S.pays,...S.dancha].map(p=>p.uploadedDate||p.결제일자).filter(d=>d&&d<selectedDate))].sort();
+  if(!allDates.length){document.getElementById('prevUploadPreview').style.display='none';return;}
+  const prevDate=allDates[allDates.length-1];
+  const prevRecs=[...S.pays,...S.dancha].filter(p=>(p.uploadedDate||p.결제일자)===prevDate)
+    .sort((a,b)=>(a.결제일자||'').localeCompare(b.결제일자||'')); // 결제일자(시간 포함) 기준 정렬
+  if(!prevRecs.length){document.getElementById('prevUploadPreview').style.display='none';return;}
+  const el=document.getElementById('prevUploadPreview');
+  el.querySelector('div').innerHTML=`📋 직전 업로드 마지막 내용 — <strong>${fmtKor(prevDate)}</strong> (여기 다음부터 업로드하세요)`;
+  const tbody=document.getElementById('prevUploadBody');
+  const last=prevRecs.slice(-3); // 마지막 3명만
+  tbody.innerHTML=last.map((r,i)=>{
+    const dt=r.결제일자||'';
+    // 시간 포함 여부 확인 (공백이나 T 포함이면 시간 있음)
+    const hasTime=dt.length>10;
+    const displayDt=hasTime?dt:fmtShort(dt.substring(0,10));
+    return`<tr style="background:${i%2===0?'var(--color-background-primary)':'var(--color-background-secondary)'};">
+      <td style="padding:3px 8px;white-space:nowrap;">${h(displayDt)}</td>
+      <td style="padding:3px 8px;">${h(r.번호||'')}</td>
+      <td style="padding:3px 8px;">${h(r.수험번호||'')}</td>
+      <td style="padding:3px 8px;">${h(r.이름||'')}</td>
+    </tr>`;
+  }).join('');
+  el.style.display='block';
 }
 function clearTodayUploads(){
   const today=document.getElementById('uploadDateInput').value||todayStr();
