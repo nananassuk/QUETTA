@@ -671,17 +671,24 @@ function parseRows(rows,uploadDate){
     const 비고raw=get('비고',17);const 장학raw=get('장학',18);
     const 장학=장학raw&&/Q/.test(장학raw)?장학raw.trim():extractScholarship(비고raw)||extractScholarship(장학raw);
     const 내역raw=get('내역',8);
-    const matched=applyKeywords(내역raw);
-    const rec={
-      id:`${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
-      결제일자,반:get('반',4),번호:get('번호',5),수험번호,이름,
-      내역:matched.term,내역원본:내역raw,구분:get('구분',9),
-      결제금액:amt,환불금액:0,장학,비고:비고raw,
-      status:'active',addedAt:Date.now(),uploadedDate:useDate,
-      _type:matched.type,_unmatched:matched.type==='unknown'
-    };
-    out.push(rec);
-    if(matched.type==='unknown')unmatched.push(rec);
+
+    // 내역 셀 줄바꿈 분리 → 키워드 여러 개면 각각 별도 레코드
+    const 내역lines=내역raw.split(/\n|\r\n|\r/).map(s=>s.trim()).filter(Boolean);
+    const linesToProcess=내역lines.length>1?내역lines:[내역raw];
+
+    for(const line of linesToProcess){
+      const matched=applyKeywords(line);
+      const rec={
+        id:`${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
+        결제일자,반:get('반',4),번호:get('번호',5),수험번호,이름,
+        내역:matched.term,내역원본:line,구분:get('구분',9),
+        결제금액:amt,환불금액:0,장학,비고:비고raw,
+        status:'active',addedAt:Date.now(),uploadedDate:useDate,
+        _type:matched.type,_unmatched:matched.type==='unknown'
+      };
+      out.push(rec);
+      if(matched.type==='unknown')unmatched.push(rec);
+    }
   }
   return{records:out,neg,unmatched};
 }
