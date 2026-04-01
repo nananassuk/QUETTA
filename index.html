@@ -1045,31 +1045,46 @@ function renderTodayUploads(){
   const today=document.getElementById('uploadDateInput').value||todayStr();
   const todayPays=S.pays.filter(p=>(p.uploadedDate||p.결제일자)===today);
   const todayDancha=S.dancha.filter(p=>(p.uploadedDate||p.결제일자)===today);
-  // 수험번호 순 정렬
   const all=[...todayPays,...todayDancha].sort((a,b)=>(a.수험번호||'').localeCompare(b.수험번호||''));
   const isSaved=!!(S.snapshots&&S.snapshots[today]);
+
+  // 전체 데이터 기준 중복 체크 (당일 포함 전체에서 같은 수험번호+내역이 2개 이상이면 중복)
+  const keyCount={};
+  [...S.pays,...S.dancha].forEach(p=>{
+    const k=`${p.내역}||${p.수험번호}`;
+    keyCount[k]=(keyCount[k]||0)+1;
+  });
+
   document.getElementById('todayStats').innerHTML=`<div class="chip c-grn"><div class="v">${todayPays.filter(p=>p.status==='active').length}</div><div class="l">정규 등록</div></div><div class="chip c-blue"><div class="v">${todayDancha.filter(p=>p.status==='active').length}</div><div class="l">단과 등록</div></div><div class="chip ${isSaved?'c-gold':''}"><div class="v">${isSaved?'📌':'⚠️'}</div><div class="l">${isSaved?'저장됨':'미저장'}</div></div>`;
+
   const unmatchedCount=all.filter(r=>r._unmatched).length;
+  const dupCount=all.filter(r=>(keyCount[`${r.내역}||${r.수험번호}`]||0)>1&&r.status==='active').length;
   const warnEl=document.getElementById('unmatchedWarn');
-  if(unmatchedCount>0){warnEl.style.display='block';warnEl.innerHTML=`<div class="warn-box err">⚠️ 키워드 매칭 실패 ${unmatchedCount}건 — 설정→키워드 매핑에서 해당 내역을 추가해주세요</div>`;}
-  else warnEl.style.display='none';
-  // 체크 카운트 초기화
+  let warns='';
+  if(unmatchedCount>0) warns+=`<div class="warn-box err">⚠️ 키워드 매칭 실패 ${unmatchedCount}건 — 설정→키워드 매핑에서 해당 내역을 추가해주세요</div>`;
+  if(dupCount>0) warns+=`<div class="warn-box err" style="margin-top:6px;">🔴 중복 ${dupCount}건 — 이미 등록된 내역입니다. 삭제 후 재확인하세요</div>`;
+  warnEl.style.display=warns?'block':'none';
+  warnEl.innerHTML=warns;
+
   document.getElementById('checkedCount').textContent='';
   document.getElementById('checkAll').checked=false;
   if(document.getElementById('checkAllHeader'))document.getElementById('checkAllHeader').checked=false;
+
   let html='';let idx=1;
   for(const r of all){
     const isDan=r._type==='dancha';
     const isOut=r.status==='퇴소'||r.status==='cancelled';
-    const rc=r._unmatched?'row-unmatched':isOut?'row-out':'';
+    const isDup=(keyCount[`${r.내역}||${r.수험번호}`]||0)>1&&r.status==='active';
+    const rc=isDup?'row-dup':r._unmatched?'row-unmatched':isOut?'row-out':'';
     const typeBdg=isDan?'<span class="bdg" style="background:#CCE5FF;color:var(--d1);">단과</span>':'<span class="bdg bdg-ok">정규</span>';
+    const statusBdg=isDup?'<span class="bdg bdg-dup">중복</span>':isOut?'<span class="bdg bdg-out">퇴소</span>':'<span class="bdg bdg-ok">등록</span>';
     const unmBdg=r._unmatched?'<span class="bdg bdg-unmatched">매칭실패</span>':'';
     html+=`<tr class="${rc}">
       <td><input type="checkbox" class="row-check" data-id="${r.id}" data-type="${isDan?'dancha':'reg'}" onchange="updateCheckedCount()"></td>
       <td>${idx++}</td><td>${typeBdg}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td>
       <td><span class="edit-cell" onclick="editTerm('${r.id}','${isDan?'dancha':'reg'}')">${h(r.내역)}</span>${unmBdg}</td>
       <td style="text-align:right;">${r.결제금액.toLocaleString()}</td><td>${h(r.장학)}</td>
-      <td>${isOut?'<span class="bdg bdg-out">퇴소</span>':'<span class="bdg bdg-ok">등록</span>'}</td>
+      <td>${statusBdg}</td>
       <td><button onclick="deleteRecord('${r.id}','${isDan?'dancha':'reg'}')" style="background:none;border:none;cursor:pointer;">🗑️</button></td>
     </tr>`;
   }
@@ -1167,7 +1182,7 @@ function editTerm(id,type){
   const kwOptions=[...(type==='dancha'?S.cfg.danchaKeywords:S.cfg.keywords).map(k=>k.term),...(type==='dancha'?ALL_TERMS:[...ALL_TERMS])].filter((v,i,a)=>a.indexOf(v)===i);
   const opts=kwOptions.map(t=>`<option value="${h(t)}" ${t===r.내역?'selected':''}>${h(t)}</option>`).join('');
   openModal('✏️ 내역 수정',`<div style="font-size:13px;margin-bottom:10px;"><strong>${h(r.이름)}</strong> (${h(r.수험번호)})</div><select class="inp" id="editTermSel" style="width:100%;">${opts}</select><div style="margin-top:8px;"><input class="inp" id="editTermCustom" placeholder="직접 입력 (없을 경우)" style="width:100%;"></div>`,
-    [{label:'저장',cls:'btn-g',fn:()=>{const v=document.getElementById('editTermCustom').value.trim()||document.getElementById('editTermSel').value;if(v){r.내역=v;r._unmatched=false;save();renderTodayUploads();toast('내역 수정 완료');}closeModal();}},{label:'취소',cls:'btn-ghost',fn:closeModal}]);
+    [{label:'저장',cls:'btn-g',fn:()=>{const v=document.getElementById('editTermCustom').value.trim()||document.getElementById('editTermSel').value;if(v){r.내역=v;r._unmatched=false;save();renderTodayUploads();renderPayHistory();renderDash();toast('내역 수정 완료 — 중복 여부 재확인됨');}closeModal();}},{label:'취소',cls:'btn-ghost',fn:closeModal}]);
 }
 
 // ════ 납부현황 TAB ════
