@@ -945,7 +945,7 @@ function renderDaily(){
   const prevIds=new Set(S.pays.filter(p=>p.status==='active'&&(S.cfg.prevTerms||[]).includes(p.내역)).map(p=>p.수험번호));
   const regs=sortByBan(S.pays.filter(p=>(p.uploadedDate||p.결제일자)===date&&p.환불금액===0&&p.status==='active'));
   const refPayments=sortByBan(S.pays.filter(p=>(p.uploadedDate||p.결제일자)===date&&p.환불금액>0));
-  const refWithdrawals=sortByBan(S.refunds.filter(r=>(r.processedDate||new Date(r.processedAt||Date.now()).toISOString().split('T')[0])===date).flatMap(r=>r.removedTerms.map(term=>({반:r.반,번호:r.번호,수험번호:r.수험번호,이름:r.이름,내역:term,장학:r.장학||''}))));
+  const refWithdrawals=sortByBan(S.refunds.filter(r=>(r.processedDate||new Date(r.processedAt||Date.now()).toISOString().split('T')[0])===date).flatMap(r=>r.removedTerms.map((term,ti)=>({반:r.반,번호:r.번호,수험번호:r.수험번호,이름:r.이름,내역:term,장학:r.장학||'',_refId:r.id,_termIdx:ti}))));
   let regHtml='';
   regs.forEach((r,i)=>{const isNew=!prevIds.has(r.수험번호);regHtml+=`<tr><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td>${h(r.장학)}</td><td class="new-cell">${isNew?'신규':''}</td></tr>`;});
   if(!regHtml)regHtml=`<tr><td colspan="8" style="text-align:center;color:#bbb;padding:16px;">등록 내역 없음</td></tr>`;
@@ -957,9 +957,46 @@ function renderDaily(){
   const refPersonColor={};let rci=0;
   refAll.forEach(r=>{if(r.수험번호&&refPersonCount[r.수험번호]>=2&&!refPersonColor[r.수험번호]){refPersonColor[r.수험번호]=REF_COLORS[rci%REF_COLORS.length];rci++;}});
   let refHtml='';
-  refAll.forEach(r=>{const bg=refPersonColor[r.수험번호]?`style="background:${refPersonColor[r.수험번호]};"`:'' ;const dot=refPersonColor[r.수험번호]?`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${refPersonColor[r.수험번호]};border:1.5px solid #888;margin-right:3px;vertical-align:middle;"></span>`:'';refHtml+=`<tr ${bg}><td>${h(r.반)}</td><td>${h(r.번호||'')}</td><td>${h(r.수험번호)}</td><td>${dot}${h(r.이름)}</td><td>${h(r.내역)}</td><td style="color:var(--danger);font-weight:700;">${fmtShort(date)}</td><td>${h(r.장학||'')}</td></tr>`;});
+  refAll.forEach(r=>{
+    const bg=refPersonColor[r.수험번호]?`style="background:${refPersonColor[r.수험번호]};"`:'' ;
+    const dot=refPersonColor[r.수험번호]?`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${refPersonColor[r.수험번호]};border:1.5px solid #888;margin-right:3px;vertical-align:middle;"></span>`:'';
+    // 내역 셀: 퇴소 레코드(_refId 있음)면 클릭해서 수정 가능
+    const termCell = r._refId
+      ? `<td class="edit-cell" onclick="editRefundTerm('${r._refId}',${r._termIdx})" title="클릭하여 내역 수정">${h(r.내역)} ✏️</td>`
+      : `<td>${h(r.내역)}</td>`;
+    refHtml+=`<tr ${bg}><td>${h(r.반)}</td><td>${h(r.번호||'')}</td><td>${h(r.수험번호)}</td><td>${dot}${h(r.이름)}</td>${termCell}<td style="color:var(--danger);font-weight:700;">${fmtShort(date)}</td><td>${h(r.장학||'')}</td></tr>`;
+  });
   if(!refHtml)refHtml=`<tr><td colspan="7" style="text-align:center;color:#bbb;padding:16px;">환불 내역 없음</td></tr>`;
   document.getElementById('refBody').innerHTML=refHtml;
+}
+
+// ─── 환불 내역 수기 수정 ───
+function editRefundTerm(refId, termIdx){
+  const rec = S.refunds.find(r => r.id == refId);
+  if(!rec) return;
+  const currentTerm = rec.removedTerms[termIdx];
+  // 선택 가능한 기수 목록
+  const kwTerms = [...(S.cfg.keywords||[]).map(k=>k.term), ...(S.cfg.danchaKeywords||[]).map(k=>k.term), ...ALL_TERMS];
+  const allTerms = [...new Set([...S.pays.map(p=>p.내역).filter(Boolean), ...kwTerms])];
+  const opts = allTerms.map(t=>`<option value="${h(t)}" ${t===currentTerm?'selected':''}>${h(t)}</option>`).join('');
+  openModal('✏️ 환불 내역 수정',
+    `<div style="font-size:13px;margin-bottom:10px;">
+      <strong>${h(rec.이름)}</strong> (${h(rec.수험번호||'')})의 환불 내역을 수정합니다.<br>
+      <span style="font-size:11px;color:var(--muted);">현재: <strong>${h(currentTerm)}</strong></span>
+    </div>
+    <select class="inp" id="editRefTermSel" style="width:100%;margin-bottom:8px;">${opts}</select>
+    <input class="inp" id="editRefTermCustom" placeholder="직접 입력 (위 목록에 없는 경우)" style="width:100%;">
+    <div style="font-size:11px;color:var(--muted);margin-top:6px;">수정하면 대시보드 인원에 즉시 반영됩니다</div>`,
+    [{label:'저장',cls:'btn-g',fn:()=>{
+      const custom = document.getElementById('editRefTermCustom').value.trim();
+      const newTerm = custom || document.getElementById('editRefTermSel').value;
+      if(!newTerm){toast('내역을 선택해주세요');return;}
+      rec.removedTerms[termIdx] = newTerm;
+      save();closeModal();
+      renderDaily();renderDash();
+      toast(`✅ 내역 수정 완료: "${currentTerm}" → "${newTerm}"`);
+    }},{label:'취소',cls:'btn-ghost',fn:closeModal}]
+  );
 }
 
 // ════ DAILY LIST (단과) ════
