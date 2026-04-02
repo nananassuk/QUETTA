@@ -977,25 +977,22 @@ function renderDash(){
   const prevIds=new Set(active.filter(p=>(S.cfg.prevTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
   // 미납 = 수강 내역 있는데 선납 없는 사람 (항상 표시)
   const unpaidCnt=[...prevIds].filter(id=>!currIds.has(id)).length;
-  // 총인원 = 수강+선납 중복 없이
-  const allEnrolledIds=new Set([
-    ...active.filter(p=>(S.cfg.prevTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호),
-    ...active.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호)
-  ]);
-  const grandTotal=allEnrolledIds.size;
+  // 총인원은 calcTerm 결과의 합산으로 대체 (아래 루프에서 계산)
+  let grandTotal=0;
   function calcTerm(term){
     const recs=active.filter(p=>p.내역===term);
     const todayIn=recs.filter(p=>(p.uploadedDate||p.결제일자)===today&&p.환불금액===0).length;
     const todayRefund=recs.filter(p=>(p.uploadedDate||p.결제일자)===today&&p.환불금액>0).length;
     const todayWithdraw=S.refunds.filter(r=>{const d=refDate(r);return d===today&&r.removedTerms?.includes(term);}).length;
-    // 등록인원 = 실제 active 건수 (DB 기준)
-    const total=recs.filter(p=>p.환불금액===0).length;
-    let prevDay;
-    if(prevDate&&snaps[prevDate]&&snaps[prevDate][term]!==undefined)prevDay=snaps[prevDate][term];
-    else prevDay=prevDate?countAsOf(term,prevDate,'reg'):(total-todayIn+todayWithdraw);
     const isPrev=(S.cfg.prevTerms||[]).includes(term);
     const isCurr=(S.cfg.currTerms||[]).includes(term);
     const todayOut=-(todayRefund+todayWithdraw);
+    let prevDay;
+    if(prevDate&&snaps[prevDate]&&snaps[prevDate][term]!==undefined) prevDay=snaps[prevDate][term];
+    else if(prevDate) prevDay=countAsOf(term,prevDate,'reg');
+    else prevDay=0;
+    // 등록인원 = 전일 + 금일등록 + 금일환불 (스냅샷 기준으로 누적)
+    const total=prevDay+todayIn+todayOut;
     return{term,prevDay,todayIn,todayOut,total,isPrev,isCurr};
   }
   const monthMap={};
@@ -1004,9 +1001,12 @@ function renderDash(){
   for(const mo of Object.keys(monthMap).map(Number).sort((a,b)=>a-b)){
     const datas=monthMap[mo].map(calcTerm);
     for(const d of datas){
-      html+=`<tr class="${d.isCurr?'row-curr':''}"><td style="text-align:left;padding-left:16px;">${h(d.term)}</td><td>${d.prevDay>0?d.prevDay.toLocaleString():'0'}</td><td>${d.todayIn>0?`<span class="pos">${d.todayIn.toLocaleString()}</span>`:''}</td><td>${d.todayOut<0?`<span class="neg">${d.todayOut.toLocaleString()}</span>`:''}</td><td><strong>${d.total.toLocaleString()}</strong></td><td>${d.isCurr&&unpaidCnt>0?`미납인원:${unpaidCnt}명`:(d.isPrev?'':'')} </td></tr>`;
+      html+=`<tr class="${d.isCurr?'row-curr':''}"><td style="text-align:left;padding-left:16px;">${h(d.term)}</td><td>${d.prevDay>0?d.prevDay.toLocaleString():'0'}</td><td>${d.todayIn>0?`<span class="pos">${d.todayIn.toLocaleString()}</span>`:''}</td><td>${d.todayOut<0?`<span class="neg">${d.todayOut.toLocaleString()}</span>`:''}</td><td><strong>${d.total>0?d.total.toLocaleString():'0'}</strong></td><td>${d.isCurr&&unpaidCnt>0?`미납인원:${unpaidCnt}명`:''} </td></tr>`;
     }
     const sPrev=datas.reduce((a,d)=>a+d.prevDay,0),sIn=datas.reduce((a,d)=>a+d.todayIn,0),sOut=datas.reduce((a,d)=>a+d.todayOut,0),sTotal=datas.reduce((a,d)=>a+d.total,0);
+    // 계 행의 총인원은 해당 월의 prevTerms 기준 최대값 사용
+    const moTotal=datas.filter(d=>d.isPrev||d.isCurr).reduce((a,d)=>a+d.total,0)||sTotal;
+    grandTotal=Math.max(grandTotal,moTotal);
     html+=`<tr class="row-sub"><td>계</td><td>${sPrev.toLocaleString()}</td><td>${sIn>0?sIn.toLocaleString():'0'}</td><td>${sOut<0?sOut.toLocaleString():''}</td><td>${sTotal.toLocaleString()}</td><td>총인원:${grandTotal.toLocaleString()}명</td></tr>`;
   }
   if(!html)html=`<tr><td colspan="6" style="text-align:center;color:#bbb;padding:24px;">납부 데이터를 입력하면 표시됩니다</td></tr>`;
