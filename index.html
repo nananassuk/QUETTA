@@ -6,7 +6,7 @@
 <title>QUETTA 등록 관리 시스템</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
 <style>
 :root{--g1:#1B4332;--g2:#2D6A4F;--g3:#40916C;--d1:#1A3A5C;--d2:#2E5D8E;--d3:#4A7DB5;--gold:#C9A84C;--gold2:#E8C97A;--bg:#F4F1EB;--card:#FFFFFF;--danger:#C0392B;--danger2:#E74C3C;--success:#27AE60;--border:#D8CEB8;--muted:#888;--shadow:0 2px 16px rgba(27,67,50,0.13);}
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -545,8 +545,13 @@ function doLogin(){
 }
 
 function setupSupabase(){
+  if(typeof supabase === 'undefined'){
+    setSyncStatus('err','SDK 로드 실패');
+    toast('❌ Supabase SDK 로드 실패 — 페이지를 새로고침해주세요', 6000);
+    return;
+  }
   try{_SB=supabase.createClient(SUPABASE_URL,SUPABASE_ANON);}
-  catch(e){setSyncStatus('err','연결 실패');return;}
+  catch(e){setSyncStatus('err','연결 실패');toast('❌ 연결 실패: '+e.message,5000);return;}
   setSyncStatus('wait','연결 중...');
   loadFromServer(true);
   _pollTimer=setInterval(()=>loadFromServer(false),10000);
