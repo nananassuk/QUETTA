@@ -267,7 +267,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
     <div style="font-size:12px;color:var(--muted);margin-bottom:12px;" id="dailyKorDate"></div>
     <div class="daily-grid">
       <div><div class="daily-side-ttl reg">✅ 등록</div><div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th>no</th><th>반</th><th>학번</th><th class="copy-hdr" onclick="copyAllSuhum('reg')" title="클릭=전체복사">수험번호 📋</th><th>성명</th><th>등록</th><th>장학</th><th>신규</th></tr></thead><tbody id="regBody"></tbody></table></div></div>
-      <div><div class="daily-side-ttl ref">🔄 환불</div><div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th>반</th><th>학번</th><th class="copy-hdr" onclick="copyAllSuhum('ref')" title="클릭=전체복사">수험번호 📋</th><th>성명</th><th>내역</th><th>환불</th><th>장학</th></tr></thead><tbody id="refBody"></tbody></table></div></div>
+      <div><div class="daily-side-ttl ref">🔄 환불</div><div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th>반</th><th>학번</th><th class="copy-hdr" onclick="copyAllSuhum('ref')" title="클릭=전체복사">수험번호 📋</th><th>성명</th><th>내역</th><th>환불</th><th>장학</th><th>삭제</th></tr></thead><tbody id="refBody"></tbody></table></div></div>
     </div>
   </div>
 </div>
@@ -296,7 +296,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
     <div style="font-size:12px;color:var(--muted);margin-bottom:12px;" id="dailyKorDate2"></div>
     <div class="daily-grid">
       <div><div class="daily-side-ttl dancha-reg">✅ 등록 (단과)</div><div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th>no</th><th>반</th><th>학번</th><th class="copy-hdr" onclick="copyAllSuhum('reg2')" title="클릭=전체복사">수험번호 📋</th><th>성명</th><th>내역</th><th>장학</th></tr></thead><tbody id="regBody2"></tbody></table></div></div>
-      <div><div class="daily-side-ttl dancha-cancel">❌ 취소 (단과)</div><div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th>반</th><th>학번</th><th>수험번호</th><th>성명</th><th>내역</th><th>취소</th></tr></thead><tbody id="cancelBody"></tbody></table></div></div>
+      <div><div class="daily-side-ttl dancha-cancel">❌ 취소 (단과)</div><div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th>반</th><th>학번</th><th>수험번호</th><th>성명</th><th>내역</th><th>취소</th><th>삭제</th></tr></thead><tbody id="cancelBody"></tbody></table></div></div>
     </div>
   </div>
 </div>
@@ -1118,10 +1118,45 @@ function renderDaily(){
     const termCell = r._refId
       ? `<td class="edit-cell" onclick="editRefundTerm('${r._refId}',${r._termIdx})" title="클릭하여 내역 수정">${h(r.내역)} ✏️</td>`
       : `<td>${h(r.내역)}</td>`;
-    refHtml+=`<tr ${bg}><td>${h(r.반)}</td><td>${h(r.번호||'')}</td><td>${h(r.수험번호)}</td><td>${dot}${h(r.이름)}</td>${termCell}<td style="color:var(--danger);font-weight:700;">${fmtShort(date)}</td><td>${h(r.장학||'')}</td></tr>`;
+    const delBtn = r._refId
+      ? `<td><button onclick="deleteRefundRecord('${r._refId}',${r._termIdx},'reg')" style="background:none;border:none;cursor:pointer;color:var(--danger);" title="삭제">🗑️</button></td>`
+      : `<td></td>`;
+    refHtml+=`<tr ${bg}><td>${h(r.반)}</td><td>${h(r.번호||'')}</td><td>${h(r.수험번호)}</td><td>${dot}${h(r.이름)}</td>${termCell}<td style="color:var(--danger);font-weight:700;">${fmtShort(date)}</td><td>${h(r.장학||'')}</td>${delBtn}</tr>`;
   });
   if(!refHtml)refHtml=`<tr><td colspan="7" style="text-align:center;color:#bbb;padding:16px;">환불 내역 없음</td></tr>`;
   document.getElementById('refBody').innerHTML=refHtml;
+}
+
+// ─── 환불/취소 개별 삭제 ───
+function deleteRefundRecord(refId, termIdx, type){
+  const arr = type==='dancha' ? S.danchaRefunds : S.refunds;
+  const rec = arr.find(r=>String(r.id)===String(refId));
+  if(!rec) return;
+  const term = rec.removedTerms[termIdx];
+  openModal('🗑️ 환불 내역 삭제',
+    `<div style="font-size:13px;line-height:1.9;">
+      <strong>${h(rec.이름)}</strong> (${h(rec.수험번호||'')})의<br>
+      <strong>${h(term)}</strong> 환불 기록을 삭제합니다.<br>
+      <span style="color:var(--danger);font-size:11px;">※ 삭제 시 해당 학생의 납부 상태가 활성으로 복원됩니다.</span>
+    </div>`,
+    [{label:'삭제',cls:'btn-red',fn:()=>{
+      // removedTerms에서 해당 항목 제거
+      rec.removedTerms.splice(termIdx, 1);
+      // 연결된 pays/dancha 레코드 퇴소 상태 복원
+      const pays = type==='dancha' ? S.dancha : S.pays;
+      const restored = pays.filter(p=>p.수험번호===rec.수험번호&&p.내역===term&&p.status==='퇴소'||p.status==='cancelled');
+      restored.forEach(p=>{p.status='active';delete p.withdrawnAt;});
+      // removedTerms 비어있으면 환불 레코드 전체 삭제
+      if(rec.removedTerms.length===0){
+        if(type==='dancha') S.danchaRefunds=S.danchaRefunds.filter(r=>String(r.id)!==String(refId));
+        else S.refunds=S.refunds.filter(r=>String(r.id)!==String(refId));
+      }
+      save(); closeModal();
+      renderDaily(); renderDaily2(); renderDash(); renderDash2();
+      renderPayHistory(); renderPayHistory2(); renderUnpaid();
+      toast(`✅ ${rec.이름}(${term}) 환불 기록 삭제 완료`);
+    }},{label:'취소',cls:'btn-ghost',fn:closeModal}]
+  );
 }
 
 // ─── 환불 내역 수기 수정 ───
@@ -1158,13 +1193,13 @@ function renderDaily2(){
   const date=document.getElementById('dailyDate2').value||todayStr();
   document.getElementById('dailyKorDate2').textContent=fmtKor(date);
   const regs=sortByBan(S.dancha.filter(p=>(p.uploadedDate||p.결제일자)===date&&p.status==='active'));
-  const cancels=sortByBan(S.danchaRefunds.filter(r=>(refDate(r))===date).flatMap(r=>r.removedTerms.map(term=>({반:r.반||'',번호:r.번호||'',수험번호:r.수험번호,이름:r.이름,내역:term}))));
+  const cancels=sortByBan(S.danchaRefunds.filter(r=>(refDate(r))===date).flatMap(r=>r.removedTerms.map((term,ti)=>({반:r.반||'',번호:r.번호||'',수험번호:r.수험번호,이름:r.이름,내역:term,_refId:r.id,_termIdx:ti}))));
   let regHtml='';
   regs.forEach((r,i)=>{regHtml+=`<tr><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td>${h(r.장학||'')}</td></tr>`;});
   if(!regHtml)regHtml=`<tr><td colspan="7" style="text-align:center;color:#bbb;padding:16px;">등록 내역 없음</td></tr>`;
   document.getElementById('regBody2').innerHTML=regHtml;
   let canHtml='';
-  cancels.forEach(r=>{canHtml+=`<tr><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td style="color:#8E44AD;font-weight:700;">${fmtShort(date)}</td></tr>`;});
+  cancels.forEach(r=>{canHtml+=`<tr><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td style="color:#8E44AD;font-weight:700;">${fmtShort(date)}</td><td><button onclick="deleteRefundRecord('${r._refId}',${r._termIdx},'dancha')" style="background:none;border:none;cursor:pointer;color:var(--danger);" title="삭제">🗑️</button></td></tr>`;});
   if(!canHtml)canHtml=`<tr><td colspan="6" style="text-align:center;color:#bbb;padding:16px;">취소 내역 없음</td></tr>`;
   document.getElementById('cancelBody').innerHTML=canHtml;
 }
