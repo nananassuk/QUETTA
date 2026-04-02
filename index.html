@@ -334,6 +334,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
   <div class="sub-tab-bar">
     <button class="sub-tab-btn on" onclick="goPayTab('today',this)">📥 당일등록</button>
     <button class="sub-tab-btn" onclick="goPayTab('history',this)">📋 납부현황</button>
+    <button class="sub-tab-btn" onclick="goPayTab('history2',this)">📋 납부현황(단과)</button>
     <button class="sub-tab-btn" onclick="goPayTab('unpaid',this)">⚠️ 미납자</button>
   </div>
 
@@ -383,6 +384,25 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
     <div class="tbl-wrap">
       <table class="data-tbl"><thead><tr><th>#</th><th>구분</th><th>업로드일</th><th>반</th><th>학번</th><th>수험번호</th><th>성명</th><th>내역</th><th>결제금액</th><th>장학</th><th>상태</th><th>삭제</th></tr></thead>
       <tbody id="payBody"></tbody></table>
+    </div>
+  </div>
+
+  <!-- 납부현황 단과 -->
+  <div id="pay-history2" class="sub-tab-pane">
+    <div class="toolbar">
+      <input class="inp" id="paySearch2" placeholder="이름·수험번호 검색..." style="width:190px;" oninput="renderPayHistory2()">
+      <select class="inp" id="payTermFilter2" onchange="renderPayHistory2()"><option value="">전체 내역</option></select>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:9px 12px;background:#EEF4FF;border-radius:7px;border:1px solid #93B8E0;margin-bottom:10px;">
+      <label style="font-size:12px;font-weight:700;color:var(--d1);">📅 날짜별 엑셀 다운로드 (단과)</label>
+      <input type="date" class="inp" id="historyExcelDate2" style="width:155px;">
+      <button class="btn btn-d" onclick="exportPayHistoryExcel2()">⬇️ 엑셀 다운로드</button>
+      <span style="font-size:11px;color:var(--muted);">비우면 전체 다운로드</span>
+    </div>
+    <div class="stats-row" id="payStats2"></div>
+    <div class="tbl-wrap">
+      <table class="data-tbl"><thead><tr><th>#</th><th>구분</th><th>업로드일</th><th>반</th><th>학번</th><th>수험번호</th><th>성명</th><th>내역</th><th>결제금액</th><th>장학</th><th>상태</th><th>삭제</th></tr></thead>
+      <tbody id="payBody2"></tbody></table>
     </div>
   </div>
 
@@ -634,7 +654,8 @@ function goPayTab(id,btn){
   document.getElementById('pay-'+id).classList.add('on');
   btn.classList.add('on');
   if(id==='today')renderTodayUploads();
-  if(id==='history')renderPayHistory();
+  if(id==='history'){renderPayHistory();updateTermFilter();}
+  if(id==='history2')renderPayHistory2();
   if(id==='unpaid')renderUnpaid();
 }
 
@@ -1317,7 +1338,62 @@ function renderPayHistory(){
   document.getElementById('payStats').innerHTML=`<div class="chip c-grn"><div class="v">${active.length}</div><div class="l">활성</div></div><div class="chip c-red"><div class="v">${outCnt}</div><div class="l">퇴소</div></div><div class="chip c-gold"><div class="v">${dupCnt}</div><div class="l">중복오류</div></div>`;
 }
 
-// ════ 미납자 TAB ════
+// ════ 납부현황 (단과) ════
+function renderPayHistory2(){
+  const search=(document.getElementById('paySearch2')?.value||'').toLowerCase();
+  const termF=document.getElementById('payTermFilter2')?.value||'';
+  // 단과 내역 필터 드롭다운 업데이트
+  const sel=document.getElementById('payTermFilter2');
+  const cur=sel?.value||'';
+  const terms=[...new Set(S.dancha.map(p=>p.내역).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  if(sel) sel.innerHTML='<option value="">전체 내역</option>'+terms.map(t=>`<option value="${h(t)}" ${t===cur?'selected':''}>${h(t)}</option>`).join('');
+
+  let rows=S.dancha.filter(p=>{
+    if(search&&!p.이름.toLowerCase().includes(search)&&!p.수험번호.toLowerCase().includes(search)&&!(p.번호||'').toLowerCase().includes(search))return false;
+    if(termF&&p.내역!==termF)return false;
+    return true;
+  });
+  rows=[...rows].sort((a,b)=>a.내역.localeCompare(b.내역)||a.반?.localeCompare(b.반||'')||0);
+  let html='';let idx=1;let lastTerm='';
+  for(const r of rows){
+    const isOut=r.status==='cancelled';
+    const rc=isOut?'row-out':'';
+    const typeBdg=isOut?'<span class="bdg bdg-ref">취소</span>':'<span class="bdg bdg-reg">등록</span>';
+    const statusBdg=isOut?'<span class="bdg bdg-out">취소</span>':'<span class="bdg bdg-ok">정상</span>';
+    if(r.내역!==lastTerm){
+      const tc=rows.filter(x=>x.내역===r.내역).length;
+      const te=r.내역.replace(/'/g,"\\'");
+      html+=`<tr><td colspan="12" style="background:var(--d1);color:#fff;font-weight:700;font-size:11px;padding:4px 12px;"><span style="display:flex;align-items:center;justify-content:space-between;"><span>📘 ${h(r.내역)} (${tc}명)</span><button onclick="deleteByTermDancha('${te}')" style="background:var(--danger);color:#fff;border:none;border-radius:3px;padding:1px 8px;font-size:10px;cursor:pointer;">🗑️ 삭제</button></span></td></tr>`;
+      lastTerm=r.내역;idx=1;
+    }
+    html+=`<tr class="${rc}"><td>${idx++}</td><td>${typeBdg}</td><td>${h(r.uploadedDate||r.결제일자)}</td><td>${h(r.반||'')}</td><td>${h(r.번호||'')}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td style="text-align:right;">${r.결제금액.toLocaleString()}</td><td>${h(r.장학||'')}</td><td>${statusBdg}</td><td><button onclick="deleteRecord('${r.id}','dancha')" style="background:none;border:none;cursor:pointer;">🗑️</button></td></tr>`;
+  }
+  if(!html)html=`<tr><td colspan="12" style="text-align:center;color:#bbb;padding:24px;">단과 데이터 없음</td></tr>`;
+  document.getElementById('payBody2').innerHTML=html;
+  const active=S.dancha.filter(p=>p.status==='active');
+  const cancelCnt=S.dancha.filter(p=>p.status==='cancelled').length;
+  document.getElementById('payStats2').innerHTML=`<div class="chip c-blue"><div class="v">${active.length}</div><div class="l">활성</div></div><div class="chip c-red"><div class="v">${cancelCnt}</div><div class="l">취소</div></div>`;
+}
+
+function deleteByTermDancha(term){
+  const cnt=S.dancha.filter(p=>p.내역===term).length;
+  openModal(`🗑️ "${term}" 단과 전체 삭제`,`<strong>${h(term)}</strong> 단과 ${cnt}명을 전부 삭제합니다.<br><span style="color:var(--danger);font-size:11px;">취소 기록도 함께 삭제됩니다.</span>`,
+    [{label:'삭제',cls:'btn-red',fn:()=>{S.dancha=S.dancha.filter(p=>p.내역!==term);save();closeModal();renderPayHistory2();renderDash2();renderFilterChips2();toast(`✅ "${term}" 단과 삭제 완료`);}},{label:'취소',cls:'btn-ghost',fn:closeModal}]);
+}
+
+function exportPayHistoryExcel2(){
+  const date=document.getElementById('historyExcelDate2').value;
+  let rows=S.dancha;
+  if(date)rows=rows.filter(p=>(p.uploadedDate||p.결제일자)===date);
+  rows=[...rows].sort((a,b)=>a.내역.localeCompare(b.내역));
+  const wb=XLSX.utils.book_new();
+  const headers=['업로드일','반','학번','수험번호','성명','내역','결제금액','장학','상태'];
+  const data=[headers,...rows.map(r=>[(r.uploadedDate||r.결제일자),r.반||'',r.번호||'',r.수험번호,r.이름,r.내역,r.결제금액,r.장학||'',r.status==='cancelled'?'취소':'등록'])];
+  const ws=XLSX.utils.aoa_to_sheet(data);ws['!cols']=headers.map(()=>({wch:13}));
+  XLSX.utils.book_append_sheet(wb,ws,'단과납부현황');
+  XLSX.writeFile(wb,`QUETTA_단과납부현황${date?'_'+date:''}.xlsx`);
+  toast('단과 납부현황 엑셀 다운로드 완료');
+}
 function renderUnpaid(){
   const currIds=new Set(S.pays.filter(p=>p.status==='active'&&(S.cfg.currTerms||[]).includes(p.내역)).map(p=>p.수험번호));
   const unpaid=sortByBan(S.pays.filter(p=>p.status==='active'&&(S.cfg.prevTerms||[]).includes(p.내역)&&!currIds.has(p.수험번호)));
