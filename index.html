@@ -6,7 +6,7 @@
 <title>QUETTA 등록 관리 시스템</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
 :root{--g1:#1B4332;--g2:#2D6A4F;--g3:#40916C;--d1:#1A3A5C;--d2:#2E5D8E;--d3:#4A7DB5;--gold:#C9A84C;--gold2:#E8C97A;--bg:#F4F1EB;--card:#FFFFFF;--danger:#C0392B;--danger2:#E74C3C;--success:#27AE60;--border:#D8CEB8;--muted:#888;--shadow:0 2px 16px rgba(27,67,50,0.13);}
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -556,22 +556,26 @@ function loadFromServer(initial){
   if(!_SB)return;
   _SB.from('quetta_state').select('data').eq('id',1).single()
     .then(({data:row,error})=>{
-      if(error){setSyncStatus('err','로드 실패');console.error(error);return;}
+      if(error){
+        setSyncStatus('err','로드 실패');
+        if(initial) toast(`❌ 서버 연결 실패: ${error.message}`, 5000);
+        console.error('Load error:', error);
+        return;
+      }
       if(row?.data){
         applyServerData(row.data);
-        if(initial){
-          setSyncStatus('ok','연결됨');
-          autoDetectTerms();
-          refreshAll();
-        } else {
-          setSyncStatus('ok','동기화됨');
-          refreshAll();
-        }
+        setSyncStatus('ok', initial?'연결됨':'동기화됨');
+        autoDetectTerms();
+        refreshAll();
       } else if(initial){
         setSyncStatus('ok','연결됨 (데이터 없음)');
         refreshAll();
       }
-    }).catch(e=>{setSyncStatus('err','오류');console.error(e);});
+    }).catch(e=>{
+      setSyncStatus('err','오류');
+      if(initial) toast(`❌ 연결 오류: ${e.message}`, 5000);
+      console.error(e);
+    });
 }
 
 function manualSync(){loadFromServer(false);setSyncStatus('wait','동기화 중...');}
@@ -595,14 +599,22 @@ function applyServerData(d){
 }
 
 function save(){
-  if(!_SB){return;}
-  if(_isSyncing)return;
+  if(!_SB){ toast('⚠️ 서버 미연결 — 데이터가 저장되지 않습니다!', 4000); return; }
+  if(_isSyncing) return;
   setSyncStatus('wait','저장 중...');
-  const payload=JSON.parse(JSON.stringify(S));
-  _SB.from('quetta_state').upsert({id:1,data:payload,updated_at:new Date().toISOString()})
+  const payload = JSON.parse(JSON.stringify(S));
+  _SB.from('quetta_state').upsert({id:1, data:payload, updated_at:new Date().toISOString()})
     .then(({error})=>{
-      if(error){setSyncStatus('err','저장 실패');console.error(error);}
-      else setSyncStatus('ok','저장됨');
+      if(error){
+        setSyncStatus('err','저장 실패');
+        toast(`❌ 저장 실패: ${error.message}`, 5000);
+        console.error('Save error:', error);
+      } else {
+        setSyncStatus('ok','저장됨');
+      }
+    }).catch(e=>{
+      setSyncStatus('err','저장 실패');
+      toast(`❌ 저장 오류: ${e.message}`, 5000);
     });
 }
 
