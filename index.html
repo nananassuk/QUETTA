@@ -1601,10 +1601,31 @@ function processCancelExcel(e){
       const wb=XLSX.read(ev.target.result,{type:'array'});
       const ws=wb.Sheets[wb.SheetNames[0]];
       const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-      const header=rows[0].map(c=>String(c).trim());
+      if(!rows.length){toast('데이터가 없습니다');return;}
+
+      const firstRow=rows[0].map(c=>String(c||'').trim());
+      const hasHeader=firstRow.some(c=>['수험번호','학번','번호','내역','과목'].includes(c));
       let suhIdx=-1,bunhoIdx=-1,termIdx=-1;
-      header.forEach((c,i)=>{if(c.includes('수험번호'))suhIdx=i;if(c==='학번'||c==='번호')bunhoIdx=i;if(c==='내역'||c==='과목')termIdx=i;});
-      const dataRows=header.some(c=>c.includes('수험번호')||c==='학번'||c.includes('내역'))?rows.slice(1):rows;
+
+      if(hasHeader){
+        firstRow.forEach((c,i)=>{
+          if(c.includes('수험번호'))suhIdx=i;
+          if(c==='학번'||c==='번호')bunhoIdx=i;
+          if(c==='내역'||c==='과목')termIdx=i;
+        });
+      } else {
+        // 헤더 없는 경우: 첫 행 값으로 컬럼 추측
+        firstRow.forEach((c,i)=>{
+          const v=String(c||'').trim();
+          if(/^\d{4,5}$/.test(v)&&bunhoIdx<0)bunhoIdx=i;  // 4~5자리 숫자 = 학번
+          else if(/^\d{6}$/.test(v)&&suhIdx<0)suhIdx=i;   // 6자리 숫자 = 수험번호
+          else if(v.length>3&&termIdx<0)termIdx=i;          // 텍스트 = 내역
+        });
+        // 그래도 못 찾으면 위치 기반 기본값
+        if(bunhoIdx<0&&suhIdx<0){bunhoIdx=0;suhIdx=1;termIdx=2;}
+      }
+
+      const dataRows=hasHeader?rows.slice(1):rows;
       let ok=[],fail=[];
       for(const row of dataRows){
         const suh=suhIdx>=0?String(row[suhIdx]||'').trim():'';
@@ -1613,7 +1634,10 @@ function processCancelExcel(e){
         const val=suh||bunho;if(!val)continue;
         const matched=applyKeywords(termRaw);
         const term=matched.term;
-        const recs=S.dancha.filter(p=>p.status==='active'&&(p.수험번호===val||p.번호===val)&&(term?p.내역===term:true));
+        // 내역 포함 매칭 시도
+        let recs=S.dancha.filter(p=>p.status==='active'&&(p.수험번호===val||p.번호===val)&&p.내역===term);
+        // 내역 매칭 실패 시 수험번호/학번만으로 매칭
+        if(!recs.length) recs=S.dancha.filter(p=>p.status==='active'&&(p.수험번호===val||p.번호===val));
         if(!recs.length){fail.push(`${val}(${termRaw})`);continue;}
         const student=recs[0];
         for(const r of recs){r.status='cancelled';r.withdrawnAt=Date.now();}
@@ -1626,7 +1650,7 @@ function processCancelExcel(e){
       if(ok.length)msg+=`<div style="color:var(--d2);font-weight:700;">✅ ${ok.length}명 취소: ${ok.join(', ')}</div>`;
       if(fail.length)msg+=`<div style="color:var(--danger);">❌ 미매칭 ${fail.length}건: ${fail.join(', ')}</div>`;
       document.getElementById('cancelExcelResult').innerHTML=msg?`<div style="background:#F8F8F8;border-radius:5px;padding:8px;font-size:11px;">${msg}</div>`:'';
-      toast(`단과 취소: ${ok.length}명 완료`);
+      toast(`단과 취소: ${ok.length}명 완료${fail.length?`, ${fail.length}건 미매칭`:''}`);
     }catch(err){alert('오류: '+err.message);e.target.value='';}
   };
   reader.readAsArrayBuffer(file);
