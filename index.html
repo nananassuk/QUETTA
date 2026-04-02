@@ -571,7 +571,27 @@ function loadFromServer(initial){
         applyServerData(row.data);
         setSyncStatus('ok', initial?'연결됨':'동기화됨');
         autoDetectTerms();
-        refreshAll();
+        if(initial){
+          // 최초 로드 시만 전체 새로고침
+          refreshAll();
+        } else {
+          // 폴링 시: 대시보드/필터칩만 조용히 갱신, 현재 작업 중인 탭은 건드리지 않음
+          updateTermFilter();
+          renderFilterChips();
+          renderFilterChips2();
+          renderDash();
+          renderDash2();
+          // 납부명단(pay) 탭은 폴링 새로고침 안 함 (작업 중 방해 방지)
+          const onTab=document.querySelector('.tab-btn.on');
+          if(onTab){
+            const m=onTab.getAttribute('onclick')?.match(/goTab\('(\w+)'/);
+            if(m && m[1]!=='pay'){
+              if(m[1]==='daily')renderDaily();
+              if(m[1]==='daily2')renderDaily2();
+              if(m[1]==='cfg')renderCfg();
+            }
+          }
+        }
       } else if(initial){
         setSyncStatus('ok','연결됨 (데이터 없음)');
         refreshAll();
