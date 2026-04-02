@@ -736,9 +736,13 @@ function parseRows(rows,uploadDate){
     let 결제일자raw=colIdx?raw[colIdx['결제일자']]:raw[0];
     let 결제일자='';
     if(결제일자raw instanceof Date){
-      결제일자=msToLocalDate(결제일자raw.getTime());
+      // 시간 포함 여부 확인 (00:00:00이 아니면 시간 보존)
+      const d=결제일자raw;
+      const dateStr=msToLocalDate(d.getTime());
+      const h2=d.getHours(),m2=d.getMinutes(),s2=d.getSeconds();
+      if(h2===0&&m2===0&&s2===0) 결제일자=dateStr;
+      else 결제일자=`${dateStr} ${String(h2).padStart(2,'0')}:${String(m2).padStart(2,'0')}:${String(s2).padStart(2,'0')}`;
     } else if(typeof 결제일자raw==='number'){
-      // Excel serial date → JS Date
       const d=XLSX.SSF.parse_date_code(결제일자raw);
       if(d) 결제일자=`${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
       else 결제일자=parseDate(String(결제일자raw));
@@ -1328,12 +1332,10 @@ function showPrevUploadPreview(){
   const el=document.getElementById('prevUploadPreview');
   el.querySelector('div').innerHTML=`📋 직전 업로드 마지막 내용 — <strong>${fmtKor(prevDate)}</strong> (여기 다음부터 업로드하세요)`;
   const tbody=document.getElementById('prevUploadBody');
-  const last=prevRecs.slice(-3); // 마지막 3명만
+  const last=prevRecs.slice(-3);
   tbody.innerHTML=last.map((r,i)=>{
-    const dt=r.결제일자||'';
-    // 시간 포함 여부 확인 (공백이나 T 포함이면 시간 있음)
-    const hasTime=dt.length>10;
-    const displayDt=hasTime?dt:fmtShort(dt.substring(0,10));
+    // 결제일자 원본 그대로 표시 (시간 포함이면 시간까지)
+    const displayDt=r.결제일자||fmtShort((r.uploadedDate||''));
     return`<tr style="background:${i%2===0?'var(--color-background-primary)':'var(--color-background-secondary)'};">
       <td style="padding:3px 8px;white-space:nowrap;">${h(displayDt)}</td>
       <td style="padding:3px 8px;">${h(r.번호||'')}</td>
