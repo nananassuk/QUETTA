@@ -977,7 +977,16 @@ function renderDash(){
   const prevIds=new Set(active.filter(p=>(S.cfg.prevTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
   // 미납 = 수강 내역 있는데 선납 없는 사람 (항상 표시)
   const unpaidCnt=[...prevIds].filter(id=>!currIds.has(id)).length;
-  // 총인원은 calcTerm 결과의 합산으로 대체 (아래 루프에서 계산)
+  // 총인원: prevTerms 수험번호 + currTerms에만 있는 신규 수험번호 (중복제거)
+  function calcGrandTotal(){
+    const prevTermSet=new Set(S.cfg.prevTerms||[]);
+    const currTermSet=new Set(S.cfg.currTerms||[]);
+    const prevSuhIds=new Set(active.filter(p=>prevTermSet.has(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
+    const currSuhIds=new Set(active.filter(p=>currTermSet.has(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
+    // prev에 없고 curr에만 있는 신규 학생
+    const newOnly=[...currSuhIds].filter(id=>!prevSuhIds.has(id));
+    return prevSuhIds.size + newOnly.length;
+  }
   let grandTotal=0;
   function calcTerm(term){
     const recs=active.filter(p=>p.내역===term);
@@ -1004,9 +1013,7 @@ function renderDash(){
       html+=`<tr class="${d.isCurr?'row-curr':''}"><td style="text-align:left;padding-left:16px;">${h(d.term)}</td><td>${d.prevDay>0?d.prevDay.toLocaleString():'0'}</td><td>${d.todayIn>0?`<span class="pos">${d.todayIn.toLocaleString()}</span>`:''}</td><td>${d.todayOut<0?`<span class="neg">${d.todayOut.toLocaleString()}</span>`:''}</td><td><strong>${d.total>0?d.total.toLocaleString():'0'}</strong></td><td>${d.isCurr&&unpaidCnt>0?`미납인원:${unpaidCnt}명`:''} </td></tr>`;
     }
     const sPrev=datas.reduce((a,d)=>a+d.prevDay,0),sIn=datas.reduce((a,d)=>a+d.todayIn,0),sOut=datas.reduce((a,d)=>a+d.todayOut,0),sTotal=datas.reduce((a,d)=>a+d.total,0);
-    // 계 행의 총인원은 해당 월의 prevTerms 기준 최대값 사용
-    const moTotal=datas.filter(d=>d.isPrev||d.isCurr).reduce((a,d)=>a+d.total,0)||sTotal;
-    grandTotal=Math.max(grandTotal,moTotal);
+    grandTotal=calcGrandTotal();
     html+=`<tr class="row-sub"><td>계</td><td>${sPrev.toLocaleString()}</td><td>${sIn>0?sIn.toLocaleString():'0'}</td><td>${sOut<0?sOut.toLocaleString():''}</td><td>${sTotal.toLocaleString()}</td><td>총인원:${grandTotal.toLocaleString()}명</td></tr>`;
   }
   if(!html)html=`<tr><td colspan="6" style="text-align:center;color:#bbb;padding:24px;">납부 데이터를 입력하면 표시됩니다</td></tr>`;
