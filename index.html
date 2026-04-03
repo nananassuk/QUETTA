@@ -494,7 +494,7 @@ const BAN_ORDER = ['X','A','K','N','I','O','M','D','S'];
 const ALL_TERMS = ['윈터','시즌제로(1월)','시즌제로(2월)','정규(2,3월)','정규1기(3월)','정규2기(4월)','정규3기(5월)','정규4기(6월)','정규5기(7월)','정규6기(8월)','정규7기(9월)','정규8기(10월)','정규9기(11월)'];
 const DEFAULT_PW = '1234';
 let _appPw = DEFAULT_PW;
-let _SB = null, _isSyncing = false, _pollTimer = null;
+let _SB = null, _isSyncing = false, _pollTimer = null, _lastSaveAt = 0;
 
 // ════ STATE ════
 function mkState(){
@@ -561,6 +561,9 @@ function setupSupabase(){
 
 function loadFromServer(initial){
   if(!_SB)return;
+  // 저장 직후 3초간 폴링 덮어쓰기 방지
+  if(!initial && _isSyncing) return;
+  if(!initial && Date.now()-_lastSaveAt < 3000) return;
   _SB.from('quetta_state').select('data').eq('id',1).single()
     .then(({data:row,error})=>{
       if(error){
@@ -627,11 +630,13 @@ function applyServerData(d){
 
 function save(){
   if(!_SB){ toast('⚠️ 서버 미연결 — 데이터가 저장되지 않습니다!', 4000); return; }
-  if(_isSyncing) return;
+  _isSyncing=true;
+  _lastSaveAt=Date.now();
   setSyncStatus('wait','저장 중...');
   const payload = JSON.parse(JSON.stringify(S));
   _SB.from('quetta_state').upsert({id:1, data:payload, updated_at:new Date().toISOString()})
     .then(({error})=>{
+      _isSyncing=false;
       if(error){
         setSyncStatus('err','저장 실패');
         toast(`❌ 저장 실패: ${error.message}`, 5000);
@@ -640,6 +645,7 @@ function save(){
         setSyncStatus('ok','저장됨');
       }
     }).catch(e=>{
+      _isSyncing=false;
       setSyncStatus('err','저장 실패');
       toast(`❌ 저장 오류: ${e.message}`, 5000);
     });
