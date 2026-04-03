@@ -1007,14 +1007,19 @@ function renderDash(){
   const monthMap={};
   for(const t of visibleTerms){const mo=extractMonth(t);if(!monthMap[mo])monthMap[mo]=[];monthMap[mo].push(t);}
   let html='';
-  for(const mo of Object.keys(monthMap).map(Number).sort((a,b)=>a-b)){
+  const moKeys=Object.keys(monthMap).map(Number).sort((a,b)=>a-b);
+  for(let mi=0;mi<moKeys.length;mi++){
+    const mo=moKeys[mi];
+    const isLastMonth=mi===moKeys.length-1;
     const datas=monthMap[mo].map(calcTerm);
     for(const d of datas){
-      html+=`<tr class="${d.isCurr?'row-curr':''}"><td style="text-align:left;padding-left:16px;">${h(d.term)}</td><td>${d.prevDay>0?d.prevDay.toLocaleString():'0'}</td><td>${d.todayIn>0?`<span class="pos">${d.todayIn.toLocaleString()}</span>`:''}</td><td>${d.todayOut<0?`<span class="neg">${d.todayOut.toLocaleString()}</span>`:''}</td><td><strong>${d.total>0?d.total.toLocaleString():'0'}</strong></td><td>${d.isCurr&&unpaidCnt>0?`미납인원:${unpaidCnt}명`:''} </td></tr>`;
+      html+=`<tr class="${d.isCurr?'row-curr':''}"><td style="text-align:left;padding-left:16px;">${h(d.term)}</td><td>${d.prevDay>0?d.prevDay.toLocaleString():'0'}</td><td>${d.todayIn>0?`<span class="pos">${d.todayIn.toLocaleString()}</span>`:''}</td><td>${d.todayOut<0?`<span class="neg">${d.todayOut.toLocaleString()}</span>`:''}</td><td><strong>${d.total>0?d.total.toLocaleString():'0'}</strong></td><td>${d.isCurr&&unpaidCnt>0?`미납인원:${unpaidCnt}명`:''}</td></tr>`;
     }
     const sPrev=datas.reduce((a,d)=>a+d.prevDay,0),sIn=datas.reduce((a,d)=>a+d.todayIn,0),sOut=datas.reduce((a,d)=>a+d.todayOut,0),sTotal=datas.reduce((a,d)=>a+d.total,0);
-    grandTotal=calcGrandTotal();
-    html+=`<tr class="row-sub"><td>계</td><td>${sPrev.toLocaleString()}</td><td>${sIn>0?sIn.toLocaleString():'0'}</td><td>${sOut<0?sOut.toLocaleString():''}</td><td>${sTotal.toLocaleString()}</td><td>총인원:${grandTotal.toLocaleString()}명</td></tr>`;
+    if(isLastMonth) grandTotal=calcGrandTotal();
+    // 계 행: 마지막 달만 전체 총인원 표시, 그 외는 해당 달 소계
+    const 비고셀=isLastMonth?`총인원:${grandTotal.toLocaleString()}명`:`소계:${sTotal.toLocaleString()}명`;
+    html+=`<tr class="row-sub"><td>계</td><td>${sPrev.toLocaleString()}</td><td>${sIn>0?sIn.toLocaleString():'0'}</td><td>${sOut<0?sOut.toLocaleString():''}</td><td>${sTotal.toLocaleString()}</td><td>${비고셀}</td></tr>`;
   }
   if(!html)html=`<tr><td colspan="6" style="text-align:center;color:#bbb;padding:24px;">납부 데이터를 입력하면 표시됩니다</td></tr>`;
   document.getElementById('dashBody').innerHTML=html;
@@ -1384,7 +1389,26 @@ function editTerm(id,type){
   const kwOptions=[...(type==='dancha'?S.cfg.danchaKeywords:S.cfg.keywords).map(k=>k.term),...(type==='dancha'?ALL_TERMS:[...ALL_TERMS])].filter((v,i,a)=>a.indexOf(v)===i);
   const opts=kwOptions.map(t=>`<option value="${h(t)}" ${t===r.내역?'selected':''}>${h(t)}</option>`).join('');
   openModal('✏️ 내역 수정',`<div style="font-size:13px;margin-bottom:10px;"><strong>${h(r.이름)}</strong> (${h(r.수험번호)})</div><select class="inp" id="editTermSel" style="width:100%;">${opts}</select><div style="margin-top:8px;"><input class="inp" id="editTermCustom" placeholder="직접 입력 (없을 경우)" style="width:100%;"></div>`,
-    [{label:'저장',cls:'btn-g',fn:()=>{const v=document.getElementById('editTermCustom').value.trim()||document.getElementById('editTermSel').value;if(v){r.내역=v;r._unmatched=false;save();renderTodayUploads();renderPayHistory();renderDash();toast('내역 수정 완료 — 중복 여부 재확인됨');}closeModal();}},{label:'취소',cls:'btn-ghost',fn:closeModal}]);
+    [{label:'저장',cls:'btn-g',fn:()=>{
+      const v=document.getElementById('editTermCustom').value.trim()||document.getElementById('editTermSel').value;
+      if(v){
+        r.내역=v;
+        r._unmatched=false;
+        closeModal();
+        save();
+        // 약간 딜레이 후 렌더링 (연속 수정 시에도 반영 보장)
+        setTimeout(()=>{
+          updateTermFilter();
+          renderFilterChips();renderFilterChips2();
+          renderTodayUploads();
+          renderPayHistory();renderPayHistory2();
+          renderDash();renderDash2();
+          toast('내역 수정 완료 — 중복 여부 재확인됨');
+        },50);
+      } else {
+        closeModal();
+      }
+    }},{label:'취소',cls:'btn-ghost',fn:closeModal}]);
 }
 
 // ════ 납부현황 TAB ════
