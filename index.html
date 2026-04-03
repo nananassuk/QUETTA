@@ -889,15 +889,14 @@ function refDate(r){
 }
 function autoDetectTerms(refDate){
   const date=refDate||S.cfg.dashDate||todayStr();
-  const cm=parseInt(date.split('-')[1]);
-  const nm=cm===12?1:cm+1;
+  const cm=parseInt(date.split('-')[1]); // 대시보드 기준 월
+  const pm=cm===1?12:cm-1;              // 전월
   const allTerms=[...new Set(S.pays.map(p=>p.내역).filter(Boolean))];
   if(!S.cfg.manualOverride){
-    // 현재 달 기준 자동 감지
-    const prevCandidates=allTerms.filter(t=>extractMonth(t)===cm);
-    const currCandidates=allTerms.filter(t=>extractMonth(t)===nm);
-    // 데이터 없으면 키워드에서 추론
-    S.cfg.prevTerms=prevCandidates.length>0?prevCandidates:allTerms.filter(t=>extractMonth(t)===cm-1>0?cm-1:12);
+    // prevTerms = 전월 내역 (현재 수강), currTerms = 당월 내역 (선납)
+    const prevCandidates=allTerms.filter(t=>extractMonth(t)===pm);
+    const currCandidates=allTerms.filter(t=>extractMonth(t)===cm);
+    S.cfg.prevTerms=prevCandidates.length>0?prevCandidates:[];
     S.cfg.currTerms=currCandidates.length>0?currCandidates:[];
   }
   const danchaTerms=[...new Set(S.dancha.map(p=>p.내역).filter(Boolean))];
