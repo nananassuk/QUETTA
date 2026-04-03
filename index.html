@@ -983,8 +983,11 @@ function renderDash(){
   const visibleTerms=[...new Set(S.pays.map(p=>p.내역).filter(Boolean))].filter(t=>!hidden.includes(t)).sort((a,b)=>{const d=extractMonth(a)-extractMonth(b);return d!==0?d:a.localeCompare(b);});
   const currIds=new Set(active.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
   const prevIds=new Set(active.filter(p=>(S.cfg.prevTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
-  // 미납 = 수강 내역 있는데 선납 없는 사람 (항상 표시)
-  const unpaidCnt=[...prevIds].filter(id=>!currIds.has(id)).length;
+  // 미납 = prevTerms 수강자 중 currTerms 선납 없는 사람
+  // currTerms가 아예 없을 경우엔 prevTerms 전체가 미납
+  const unpaidCnt=(S.cfg.currTerms||[]).length>0
+    ? [...prevIds].filter(id=>!currIds.has(id)).length
+    : prevIds.size;
   // 총인원: prevTerms 수험번호 + currTerms에만 있는 신규 수험번호 (중복제거)
   function calcGrandTotal(){
     const prevTermSet=new Set(S.cfg.prevTerms||[]);
@@ -1061,10 +1064,12 @@ function renderDash2(){
     const recs=active.filter(p=>p.내역===term);
     const todayIn=recs.filter(p=>(p.uploadedDate||p.결제일자)===today&&p.환불금액===0).length;
     const todayCancel=S.danchaRefunds.filter(r=>{const d=refDate(r);return d===today&&r.removedTerms?.includes(term);}).length;
-    const total=recs.filter(p=>p.환불금액===0).length;
     let prevDay;
     if(prevDate&&snaps2[prevDate]&&snaps2[prevDate][term]!==undefined)prevDay=snaps2[prevDate][term];
-    else prevDay=prevDate?countAsOf(term,prevDate,'dancha'):(total-todayIn+todayCancel);
+    else if(prevDate)prevDay=countAsOf(term,prevDate,'dancha');
+    else prevDay=0;
+    // 등록인원 = 전일 + 금일등록 - 금일취소 (스냅샷 기준)
+    const total=prevDay+todayIn-todayCancel;
     return{term,prevDay,todayIn,todayOut:-todayCancel,total};
   }
   // 기수별 그룹핑
