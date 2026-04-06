@@ -492,7 +492,7 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const BAN_ORDER = ['X','A','K','N','I','O','M','D','S'];
 const ALL_TERMS = ['윈터','시즌제로(1월)','시즌제로(2월)','정규(2,3월)','정규1기(3월)','정규2기(4월)','정규3기(5월)','정규4기(6월)','정규5기(7월)','정규6기(8월)','정규7기(9월)','정규8기(10월)','정규9기(11월)'];
 const DEFAULT_PW = '1234';
-let _appPw = DEFAULT_PW;
+let _appPw = localStorage.getItem('quetta_pw') || DEFAULT_PW;
 let _SB = null, _isSyncing = false, _pollTimer = null, _lastSaveAt = 0;
 
 // ════ STATE ════
@@ -533,26 +533,56 @@ function setSyncStatus(state,msg){const el=document.getElementById('syncStatus')
 function doLogin(){
   const pw=(document.getElementById('loginPw').value||'').trim();
   if(pw===_appPw){
-    document.getElementById('loginScreen').style.display='none';
-    document.getElementById('mainApp').style.display='block';
-    try{setupSupabase();}catch(e){console.error(e);}
+    _loginSuccess();
   } else {
+    // 로컬 비번 불일치 → Supabase에서 최신 비번 확인
     const err=document.getElementById('loginErr');
-    err.textContent='비밀번호가 틀렸습니다';
-    document.getElementById('loginPw').value='';
-    document.getElementById('loginPw').focus();
-    setTimeout(()=>{err.textContent='';},2500);
+    err.textContent='확인 중...';
+    if(_SB){
+      _SB.from('quetta_state').select('data').eq('id',1).single()
+        .then(({data:row})=>{
+          const serverPw=row?.data?.cfg?.password;
+          if(serverPw&&pw===serverPw){
+            _appPw=serverPw;
+            localStorage.setItem('quetta_pw',serverPw);
+            _loginSuccess();
+          } else {
+            err.textContent='비밀번호가 틀렸습니다';
+            document.getElementById('loginPw').value='';
+            document.getElementById('loginPw').focus();
+            setTimeout(()=>{err.textContent='';},2500);
+          }
+        }).catch(()=>{
+          err.textContent='비밀번호가 틀렸습니다';
+          document.getElementById('loginPw').value='';
+          document.getElementById('loginPw').focus();
+          setTimeout(()=>{err.textContent='';},2500);
+        });
+    } else {
+      // Supabase 미연결 → 그냥 실패
+      err.textContent='비밀번호가 틀렸습니다';
+      document.getElementById('loginPw').value='';
+      document.getElementById('loginPw').focus();
+      setTimeout(()=>{err.textContent='';},2500);
+    }
   }
 }
 
+function _loginSuccess(){
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('mainApp').style.display='block';
+  try{setupSupabase();}catch(e){console.error(e);}
+}
+
 function setupSupabase(){
-  if(typeof supabase === 'undefined'){
+  if(typeof supabase==='undefined'){
     setSyncStatus('err','SDK 로드 실패');
     toast('❌ Supabase SDK 로드 실패 — 페이지를 새로고침해주세요', 6000);
     return;
   }
-  try{_SB=supabase.createClient(SUPABASE_URL,SUPABASE_ANON);}
-  catch(e){setSyncStatus('err','연결 실패');toast('❌ 연결 실패: '+e.message,5000);return;}
+  try{
+    if(!_SB) _SB=supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
+  }catch(e){setSyncStatus('err','연결 실패');toast('❌ 연결 실패: '+e.message,5000);return;}
   setSyncStatus('wait','연결 중...');
   loadFromServer(true);
   _pollTimer=setInterval(()=>loadFromServer(false),10000);
@@ -623,7 +653,10 @@ function applyServerData(d){
     if(!S.cfg.danchaHiddenTerms)S.cfg.danchaHiddenTerms=[];
     if(!S.cfg.keywords)S.cfg.keywords=[];
     if(!S.cfg.danchaKeywords)S.cfg.danchaKeywords=[];
-    if(S.cfg.password)_appPw=S.cfg.password;
+    if(S.cfg.password){
+      _appPw=S.cfg.password;
+      localStorage.setItem('quetta_pw', S.cfg.password);
+    }
   }
 }
 
@@ -1886,7 +1919,9 @@ function changePassword(){
   if(!p1){toast('새 비밀번호를 입력해주세요');return;}
   if(p1.length<4){toast('4자 이상 입력해주세요');return;}
   if(p1!==p2){toast('비밀번호가 일치하지 않습니다');return;}
-  _appPw=p1;S.cfg.password=p1;save();
+  _appPw=p1; S.cfg.password=p1;
+  localStorage.setItem('quetta_pw', p1);
+  save();
   document.getElementById('newPw1').value='';document.getElementById('newPw2').value='';
   toast('✅ 비밀번호 변경 완료');
 }
@@ -1910,6 +1945,10 @@ document.getElementById('modalBg').addEventListener('click',e=>{if(e.target===e.
 
 // ════ INIT ════
 function init(){
+  // Supabase 클라이언트 미리 초기화 (로그인 전 비번 확인용)
+  if(typeof supabase!=='undefined'){
+    try{_SB=supabase.createClient(SUPABASE_URL,SUPABASE_ANON);}catch(e){console.error(e);}
+  }
   const now=new Date();
   document.getElementById('hdrDate').textContent=`${now.getFullYear()}년 ${now.getMonth()+1}월 ${now.getDate()}일`;
   document.getElementById('dailyDate').value=todayStr();
