@@ -245,15 +245,14 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:7px;margin-bottom:8px;">
         <label style="margin:0;">🚪 퇴소 처리</label><span id="lockBadge"></span>
       </div>
-      <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px;">개별 — 수험번호 또는 학번 입력 후 Enter</div>
+      <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px;">개별 — 수험번호 입력 후 Enter</div>
       <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:9px;">
-        <input class="inp" id="refundInput" placeholder="수험번호..." maxlength="10" style="width:150px;">
-        <span style="font-size:11px;color:var(--muted);">또는</span>
-        <input class="inp" id="refundInputBunho" placeholder="학번..." maxlength="10" style="width:150px;">
+        <input class="inp" id="refundInput" placeholder="수험번호..." maxlength="10" style="width:180px;">
+        <input class="inp" id="refundInputBunho" style="display:none;">
         <button class="btn btn-red" id="refundProcessBtn">처리</button>
         <span id="refundHint" style="font-size:11px;color:var(--muted);"></span>
       </div>
-      <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px;">일괄 — 엑셀 업로드 (수험번호 또는 학번 컬럼)</div>
+      <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px;">일괄 — 엑셀 업로드 (수험번호 컬럼)</div>
       <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center;">
         <button class="btn btn-ghost btn-sm" onclick="document.getElementById('refundExcelInput').click()">📂 파일 선택</button>
         <input type="file" id="refundExcelInput" accept=".xlsx,.xls" style="display:none">
@@ -282,11 +281,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
       <button class="btn btn-d" onclick="exportDailyExcel2()">⬇️ 엑셀</button>
     </div>
     <div class="refund-input-area dancha-area">
-      <label>❌ 취소 처리 (단과) — 엑셀 업로드 (학번/수험번호/내역)</label>
+      <label>❌ 취소 처리 (단과) — 엑셀 업로드 (수험번호/내역)</label>
       <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center;">
         <button class="btn btn-d btn-sm" onclick="document.getElementById('cancelExcelInput').click()">📂 취소 파일 선택</button>
         <input type="file" id="cancelExcelInput" accept=".xlsx,.xls" style="display:none">
-        <span style="font-size:11px;color:var(--muted);">학번·수험번호·내역(키워드) 컬럼 포함 엑셀</span>
+        <span style="font-size:11px;color:var(--muted);">수험번호·내역(키워드) 컬럼 포함 엑셀</span>
       </div>
       <div id="cancelExcelResult" style="margin-top:7px;"></div>
     </div>
@@ -1571,7 +1570,7 @@ function renderUnpaid(){
 // ════ REFUND/WITHDRAWAL (정규) ════
 function findActiveRecs(val){
   const v=val.trim();if(!v)return[];
-  const direct=S.pays.filter(p=>p.status==='active'&&(p.수험번호===v||p.번호===v));
+  const direct=S.pays.filter(p=>p.status==='active'&&p.수험번호===v);
   if(!direct.length)return[];
   const suhIds=new Set(direct.map(p=>p.수험번호).filter(Boolean));
   return S.pays.filter(p=>p.status==='active'&&suhIds.has(p.수험번호));
@@ -1579,13 +1578,15 @@ function findActiveRecs(val){
 function processRefundInput(){
   const date=document.getElementById('dailyDate').value||todayStr();
   if(isDateLocked(date)){toast('🔒 스냅샷이 저장된 날짜입니다');return;}
-  const val1=(document.getElementById('refundInput').value||'').trim();
-  const val2=(document.getElementById('refundInputBunho').value||'').trim();
-  const val=val1||val2;
-  if(!val){toast('수험번호 또는 학번을 입력해주세요');return;}
+  const val=(document.getElementById('refundInput').value||'').trim();
+  if(!val){toast('수험번호를 입력해주세요');return;}
   const recs=findActiveRecs(val);
   document.getElementById('refundHint').textContent='';
-  if(!recs.length){document.getElementById('refundHint').textContent=`"${val}" 미매칭`;document.getElementById('refundHint').style.color='var(--danger)';return;}
+  if(!recs.length){
+    document.getElementById('refundHint').textContent=`"${val}" 미매칭`;
+    document.getElementById('refundHint').style.color='var(--danger)';
+    return;
+  }
   showRefundModal(val,recs);
 }
 function showRefundModal(val,recs){
@@ -1675,7 +1676,6 @@ function confirmRefundFromModal(val,recs){
   });
   save();closeModal();
   document.getElementById('refundInput').value='';
-  document.getElementById('refundInputBunho').value='';
   renderDaily();renderDash();renderPayHistory();renderUnpaid();
   toast(`✅ ${student.이름} 퇴소 완료 — [${allRemovedTerms.join(', ')}]`);
 }
@@ -1690,15 +1690,14 @@ function processRefundExcel(e){
       const ws=wb.Sheets[wb.SheetNames[0]];
       const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
       const header=rows[0].map(c=>String(c).trim());
-      let suhIdx=-1,bunhoIdx=-1;
-      header.forEach((c,i)=>{if(c.includes('수험번호'))suhIdx=i;if(c==='학번'||c==='번호')bunhoIdx=i;});
-      if(suhIdx<0&&bunhoIdx<0)suhIdx=0;
-      const dataRows=header.some(c=>c.includes('수험번호')||c==='학번'||c==='번호')?rows.slice(1):rows;
+      let suhIdx=-1;
+      header.forEach((c,i)=>{if(c.includes('수험번호'))suhIdx=i;});
+      if(suhIdx<0)suhIdx=0; // 헤더 없으면 첫 번째 컬럼
+      const dataRows=header.some(c=>c.includes('수험번호'))?rows.slice(1):rows;
       let ok=[],fail=[];
       for(const row of dataRows){
-        const suh=suhIdx>=0?String(row[suhIdx]||'').trim():'';
-        const bunho=bunhoIdx>=0?String(row[bunhoIdx]||'').trim():'';
-        const val=suh||bunho;if(!val)continue;
+        const val=String(row[suhIdx]||'').trim();
+        if(!val)continue;
         const recs=findActiveRecs(val);
         if(!recs.length){fail.push(val);continue;}
         const student=recs[0];
@@ -1731,40 +1730,36 @@ function processCancelExcel(e){
       if(!rows.length){toast('데이터가 없습니다');return;}
 
       const firstRow=rows[0].map(c=>String(c||'').trim());
-      const hasHeader=firstRow.some(c=>['수험번호','학번','번호','내역','과목'].includes(c));
-      let suhIdx=-1,bunhoIdx=-1,termIdx=-1;
+      const hasHeader=firstRow.some(c=>['수험번호','내역','과목'].includes(c));
+      let suhIdx=-1,termIdx=-1;
 
       if(hasHeader){
         firstRow.forEach((c,i)=>{
           if(c.includes('수험번호'))suhIdx=i;
-          if(c==='학번'||c==='번호')bunhoIdx=i;
           if(c==='내역'||c==='과목')termIdx=i;
         });
       } else {
-        // 헤더 없는 경우: 첫 행 값으로 컬럼 추측
+        // 헤더 없는 경우: 6자리 숫자=수험번호, 텍스트=내역
         firstRow.forEach((c,i)=>{
           const v=String(c||'').trim();
-          if(/^\d{4,5}$/.test(v)&&bunhoIdx<0)bunhoIdx=i;  // 4~5자리 숫자 = 학번
-          else if(/^\d{6}$/.test(v)&&suhIdx<0)suhIdx=i;   // 6자리 숫자 = 수험번호
-          else if(v.length>3&&termIdx<0)termIdx=i;          // 텍스트 = 내역
+          if(/^\d{6}$/.test(v)&&suhIdx<0)suhIdx=i;  // 6자리 = 수험번호
+          else if(v.length>3&&termIdx<0)termIdx=i;    // 텍스트 = 내역
         });
-        // 그래도 못 찾으면 위치 기반 기본값
-        if(bunhoIdx<0&&suhIdx<0){bunhoIdx=0;suhIdx=1;termIdx=2;}
+        if(suhIdx<0){suhIdx=0;termIdx=1;}
       }
 
       const dataRows=hasHeader?rows.slice(1):rows;
       let ok=[],fail=[];
       for(const row of dataRows){
-        const suh=suhIdx>=0?String(row[suhIdx]||'').trim():'';
-        const bunho=bunhoIdx>=0?String(row[bunhoIdx]||'').trim():'';
+        const val=suhIdx>=0?String(row[suhIdx]||'').trim():'';
         const termRaw=termIdx>=0?String(row[termIdx]||'').trim():'';
-        const val=suh||bunho;if(!val)continue;
+        if(!val)continue;
         const matched=applyKeywords(termRaw);
         const term=matched.term;
-        // 내역 포함 매칭 시도
-        let recs=S.dancha.filter(p=>p.status==='active'&&(p.수험번호===val||p.번호===val)&&p.내역===term);
-        // 내역 매칭 실패 시 수험번호/학번만으로 매칭
-        if(!recs.length) recs=S.dancha.filter(p=>p.status==='active'&&(p.수험번호===val||p.번호===val));
+        // 수험번호 + 내역 매칭
+        let recs=S.dancha.filter(p=>p.status==='active'&&p.수험번호===val&&p.내역===term);
+        // 내역 매칭 실패 시 수험번호만으로
+        if(!recs.length) recs=S.dancha.filter(p=>p.status==='active'&&p.수험번호===val);
         if(!recs.length){fail.push(`${val}(${termRaw})`);continue;}
         const student=recs[0];
         for(const r of recs){r.status='cancelled';r.withdrawnAt=Date.now();}
