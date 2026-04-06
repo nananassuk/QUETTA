@@ -1052,7 +1052,9 @@ function renderDash2(){
   const prevDate=getPrevActivityDate(today,'dancha');
   const snapBadge2=document.getElementById('snapBadge2');
   const isSaved=!!snaps2[today];
-  if(snapBadge2)snapBadge2.innerHTML=isSaved?`<span style="background:#D4EDFF;color:var(--d1);padding:2px 9px;border-radius:9px;font-size:11px;">✅ ${fmtShort(today)} 저장됨</span>`:`<span style="background:#FFF3CD;color:#856404;padding:2px 9px;border-radius:9px;font-size:11px;">⚠️ 미저장</span>`;
+  if(snapBadge2)snapBadge2.innerHTML=isSaved
+    ?`<span style="background:#D4EDFF;color:var(--d1);padding:2px 9px;border-radius:9px;font-size:11px;">✅ ${fmtShort(today)} 저장됨</span><button class="btn btn-sm btn-ghost" onclick="deleteSnapshot2('${today}')" style="margin-left:3px;font-size:10px;">삭제</button>`
+    :`<span style="background:#FFF3CD;color:#856404;padding:2px 9px;border-radius:9px;font-size:11px;">⚠️ 미저장</span>`;
   const visibleTerms=[...new Set(S.dancha.map(p=>p.내역).filter(Boolean))].filter(t=>!hidden.includes(t)).sort((a,b)=>{
     const ga=extractGisu(a),gb=extractGisu(b);
     if(ga!==gb)return ga.localeCompare(gb);
@@ -1102,22 +1104,58 @@ function renderDash2(){
 // ════ SNAPSHOT ════
 function saveSnapshot(){
   const today=S.cfg.dashDate||todayStr();
+  const snaps=S.snapshots||{};
+  const prevDate=getPrevActivityDate(today,'reg');
   const active=S.pays.filter(p=>p.status==='active');
   const snap={};
-  [...new Set(S.pays.map(p=>p.내역).filter(Boolean))].forEach(term=>{snap[term]=active.filter(p=>p.내역===term&&p.환불금액===0).length;});
+  [...new Set(S.pays.map(p=>p.내역).filter(Boolean))].forEach(term=>{
+    const recs=active.filter(p=>p.내역===term);
+    const todayIn=recs.filter(p=>(p.uploadedDate||p.결제일자)===today&&p.환불금액===0).length;
+    const todayRefund=recs.filter(p=>(p.uploadedDate||p.결제일자)===today&&p.환불금액>0).length;
+    const todayWithdraw=S.refunds.filter(r=>{const d=refDate(r);return d===today&&r.removedTerms?.includes(term);}).length;
+    let prevDay;
+    if(prevDate&&snaps[prevDate]&&snaps[prevDate][term]!==undefined)prevDay=snaps[prevDate][term];
+    else if(prevDate)prevDay=countAsOf(term,prevDate,'reg');
+    else prevDay=0;
+    snap[term]=prevDay+todayIn-(todayRefund+todayWithdraw);
+  });
   if(!S.snapshots)S.snapshots={};
-  if(S.snapshots[today]){openModal('💾 재저장',`<strong>${fmtKor(today)}</strong>에 이미 저장된 현황이 있습니다.<br>덮어쓰시겠습니까?`,[{label:'덮어쓰기',cls:'btn-red',fn:()=>{S.snapshots[today]=snap;save();closeModal();renderDash();toast(`✅ ${fmtKor(today)} 저장 완료`);}},{label:'취소',cls:'btn-ghost',fn:closeModal}]);}
-  else{S.snapshots[today]=snap;save();renderDash();toast(`✅ ${fmtKor(today)} 현황 저장 완료`);}
+  if(S.snapshots[today]){
+    openModal('💾 재저장',`<strong>${fmtKor(today)}</strong>에 이미 저장된 현황이 있습니다.<br>덮어쓰시겠습니까?`,
+      [{label:'덮어쓰기',cls:'btn-red',fn:()=>{S.snapshots[today]=snap;save();closeModal();renderDash();toast(`✅ ${fmtKor(today)} 저장 완료`);}},{label:'취소',cls:'btn-ghost',fn:closeModal}]);
+  } else {
+    S.snapshots[today]=snap;save();renderDash();toast(`✅ ${fmtKor(today)} 현황 저장 완료`);
+  }
 }
 function saveSnapshot2(){
   const today=S.cfg.dashDate2||todayStr();
+  if(!S.danchaSnapshots)S.danchaSnapshots={};
+  // calcTerm2 방식으로 저장 (전일+금일-취소 기준)
+  const snaps2=S.danchaSnapshots;
+  const prevDate=getPrevActivityDate(today,'dancha');
   const active=S.dancha.filter(p=>p.status==='active');
   const snap={};
-  [...new Set(S.dancha.map(p=>p.내역).filter(Boolean))].forEach(term=>{snap[term]=active.filter(p=>p.내역===term&&p.환불금액===0).length;});
-  if(!S.danchaSnapshots)S.danchaSnapshots={};
-  S.danchaSnapshots[today]=snap;save();renderDash2();toast(`✅ 단과 ${fmtKor(today)} 저장 완료`);
+  [...new Set(S.dancha.map(p=>p.내역).filter(Boolean))].forEach(term=>{
+    const recs=active.filter(p=>p.내역===term);
+    const todayIn=recs.filter(p=>(p.uploadedDate||p.결제일자)===today&&p.환불금액===0).length;
+    const todayCancel=S.danchaRefunds.filter(r=>{const d=refDate(r);return d===today&&r.removedTerms?.includes(term);}).length;
+    let prevDay;
+    if(prevDate&&snaps2[prevDate]&&snaps2[prevDate][term]!==undefined)prevDay=snaps2[prevDate][term];
+    else if(prevDate)prevDay=countAsOf(term,prevDate,'dancha');
+    else prevDay=0;
+    snap[term]=prevDay+todayIn-todayCancel;
+  });
+  S.danchaSnapshots[today]=snap;
+  save();renderDash2();toast(`✅ 단과 ${fmtKor(today)} 저장 완료`);
 }
-function deleteSnapshot(date){if(!confirm(`${fmtKor(date)} 저장된 현황을 삭제할까요?`))return;delete S.snapshots[date];save();renderDash();toast('삭제됐습니다');}
+function deleteSnapshot(date){
+  openModal('🗑️ 스냅샷 삭제',`<strong>${fmtKor(date)}</strong> 저장된 현황을 삭제할까요?`,
+    [{label:'삭제',cls:'btn-red',fn:()=>{delete S.snapshots[date];save();closeModal();renderDash();toast('삭제됐습니다');}},{label:'취소',cls:'btn-ghost',fn:closeModal}]);
+}
+function deleteSnapshot2(date){
+  openModal('🗑️ 단과 스냅샷 삭제',`<strong>${fmtKor(date)}</strong> 단과 저장된 현황을 삭제할까요?`,
+    [{label:'삭제',cls:'btn-red',fn:()=>{delete S.danchaSnapshots[date];save();closeModal();renderDash2();toast('삭제됐습니다');}},{label:'취소',cls:'btn-ghost',fn:closeModal}]);
+}
 
 // ════ DAILY LIST (정규) ════
 function isDateLocked(date){if(!date||date>=todayStr())return false;return !!(S.snapshots&&S.snapshots[date]);}
