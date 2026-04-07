@@ -260,6 +260,16 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
       <div id="refundExcelResult" style="margin-top:7px;"></div>
       <div id="lockNotice" style="display:none;margin-top:7px;padding:7px 10px;background:#FFF3CD;border-radius:5px;font-size:11px;color:#856404;">⚠️ 스냅샷이 저장된 날짜입니다. 조회 전용입니다.</div>
     </div>
+    <!-- 재입소 처리 -->
+    <div class="refund-input-area" style="background:#EEF9EE;border-color:#A9DDB8;margin-top:8px;">
+      <label style="color:var(--success);margin-bottom:7px;display:block;font-size:12px;font-weight:700;">🔄 재입소 처리 — 퇴소 학생을 재입소 허용 목록에 추가</label>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center;">
+        <input class="inp" id="readmitInput" placeholder="수험번호..." maxlength="10" style="width:180px;">
+        <button class="btn btn-sm" style="background:var(--success);color:#fff;" onclick="processReadmit()">재입소 처리</button>
+        <span id="readmitHint" style="font-size:11px;color:var(--muted);"></span>
+      </div>
+      <div id="readmitList" style="margin-top:8px;font-size:11px;"></div>
+    </div>
   </div>
   <div class="card">
     <div style="font-size:16px;font-weight:800;color:var(--g1);margin-bottom:3px;">재수정규반 일일 등록 명단</div>
@@ -499,7 +509,8 @@ let _SB = null, _isSyncing = false, _pollTimer = null, _lastSaveAt = 0;
 function mkState(){
   return {
     cfg:{prevTerms:['정규(2,3월)','정규1기(3월)'],currTerms:['정규2기(4월)'],danchaTerms:[],dashDate:todayStr(),dashDate2:todayStr(),hiddenTerms:[],danchaHiddenTerms:[],manualOverride:false,keywords:[],danchaKeywords:[],password:'1234'},
-    pays:[],refunds:[],dancha:[],danchaRefunds:[],snapshots:{},danchaSnapshots:{}
+    pays:[],refunds:[],dancha:[],danchaRefunds:[],snapshots:{},danchaSnapshots:{},
+    재입소:[] // [{수험번호, date}] - 재입소 허용 목록
   };
 }
 let S = mkState();
@@ -647,6 +658,7 @@ function applyServerData(d){
   S.danchaRefunds=Array.isArray(d.danchaRefunds)?d.danchaRefunds:[];
   S.snapshots=d.snapshots||{};
   S.danchaSnapshots=d.danchaSnapshots||{};
+  S.재입소=Array.isArray(d.재입소)?d.재입소:[];
   if(d.cfg){
     S.cfg={...S.cfg,...d.cfg};
     if(!S.cfg.hiddenTerms)S.cfg.hiddenTerms=[];
@@ -867,12 +879,15 @@ function importPayExcel(e){
 function applyImport(records,neg,unmatched){
   if(!records.length){toast('파싱된 데이터가 없습니다');return;}
   const withdrawnIds=new Set(S.pays.filter(p=>p.status==='퇴소').map(p=>p.수험번호).filter(Boolean));
+  // 재입소 허용 목록: 업로드 날짜 >= 재입소 날짜인 경우 허용
+  const 재입소허용=new Set((S.재입소||[]).filter(r=>r.date<=useDate).map(r=>r.수험번호));
+  const effectiveWithdrawnIds=new Set([...withdrawnIds].filter(id=>!재입소허용.has(id)));
   const existKeyReg=new Set(S.pays.filter(p=>p.status==='active').map(p=>`${p.내역}||${p.수험번호}`));
   const existKeyDan=new Set(S.dancha.filter(p=>p.status==='active').map(p=>`${p.내역}||${p.수험번호}`));
   let addedReg=0,addedDan=0,dups=[],withdrawn=[];
   const newKeys=new Set();
   for(const r of records){
-    if(withdrawnIds.has(r.수험번호)){withdrawn.push(r);continue;}
+    if(effectiveWithdrawnIds.has(r.수험번호)){withdrawn.push(r);continue;}
     const key=`${r.내역}||${r.수험번호}`;
     if(r._type==='dancha'){
       if(existKeyDan.has(key)||newKeys.has('d'+key)){r._dup=true;dups.push(r);}
@@ -1189,6 +1204,62 @@ function deleteSnapshot2(date){
     [{label:'삭제',cls:'btn-red',fn:()=>{delete S.danchaSnapshots[date];save();closeModal();renderDash2();toast('삭제됐습니다');}},{label:'취소',cls:'btn-ghost',fn:closeModal}]);
 }
 
+// ════ 재입소 처리 ════
+function processReadmit(){
+  const val=(document.getElementById('readmitInput').value||'').trim();
+  const hint=document.getElementById('readmitHint');
+  if(!val){toast('수험번호를 입력해주세요');return;}
+  // 퇴소된 학생인지 확인
+  const withdrawn=S.pays.find(p=>p.수험번호===val&&p.status==='퇴소');
+  if(!withdrawn){
+    hint.textContent=`"${val}" — 퇴소 학생이 아닙니다`;
+    hint.style.color='var(--danger)';
+    return;
+  }
+  // 이미 재입소 목록에 있는지 확인
+  if(!S.재입소)S.재입소=[];
+  const already=S.재입소.find(r=>r.수험번호===val);
+  if(already){
+    hint.textContent=`이미 재입소 처리됨 (${already.date})`;
+    hint.style.color='var(--muted)';
+    return;
+  }
+  const date=document.getElementById('dailyDate').value||todayStr();
+  openModal('🔄 재입소 처리 확인',
+    `<div style="font-size:13px;line-height:1.9;">
+      <strong>${h(withdrawn.이름)}</strong> (수험번호: ${h(val)})<br>
+      재입소 날짜: <strong>${fmtKor(date)}</strong><br><br>
+      <span style="font-size:11px;color:var(--muted);">
+      ✅ 이 날짜 이후 업로드되는 명단에서 신규로 인식됩니다<br>
+      ✅ 이전 퇴소 데이터는 그대로 보존됩니다<br>
+      ✅ 재입소 후 업로드하면 대시보드에 신규로 반영됩니다
+      </span>
+    </div>`,
+    [{label:'재입소 처리',cls:'btn-g',fn:()=>{
+      S.재입소.push({수험번호:val,이름:withdrawn.이름,date});
+      save();closeModal();
+      document.getElementById('readmitInput').value='';
+      hint.textContent=`✅ ${withdrawn.이름} 재입소 처리 완료 (${fmtShort(date)}부터 적용)`;
+      hint.style.color='var(--success)';
+      renderReadmitList();
+      toast(`✅ ${withdrawn.이름} 재입소 처리 완료`);
+    }},{label:'취소',cls:'btn-ghost',fn:closeModal}]
+  );
+}
+function renderReadmitList(){
+  const list=S.재입소||[];
+  const el=document.getElementById('readmitList');
+  if(!el)return;
+  if(!list.length){el.innerHTML='';return;}
+  el.innerHTML=`<div style="font-weight:700;color:var(--success);margin-bottom:4px;">재입소 목록 (${list.length}명):</div>`+
+    list.map((r,i)=>`<span style="display:inline-flex;align-items:center;gap:4px;background:#D4EDDA;border-radius:12px;padding:2px 9px;margin:2px;font-size:11px;">${h(r.이름)} (${h(r.수험번호)}) ${fmtShort(r.date)}<button onclick="removeReadmit(${i})" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:11px;padding:0 2px;">✕</button></span>`).join('');
+}
+function removeReadmit(idx){
+  if(!confirm('재입소 처리를 취소하시겠습니까? 해당 학생은 다시 퇴소제외로 처리됩니다.'))return;
+  S.재입소.splice(idx,1);
+  save();renderReadmitList();toast('재입소 취소됨');
+}
+
 // ════ DAILY LIST (정규) ════
 function isDateLocked(date){if(!date||date>=todayStr())return false;return !!(S.snapshots&&S.snapshots[date]);}
 
@@ -1200,6 +1271,7 @@ function renderDaily(){
   const b2=document.getElementById('refundInputBunho');
   if(locked){ri.disabled=true;rb.disabled=true;b2.disabled=true;[ri,rb,b2].forEach(el=>el.style.opacity='.4');lb.innerHTML='<span style="background:#F8D7DA;color:#721C24;padding:2px 10px;border-radius:9px;font-size:11px;">🔒 조회 모드</span>';ln.style.display='block';}
   else{ri.disabled=false;rb.disabled=false;b2.disabled=false;[ri,rb,b2].forEach(el=>el.style.opacity='1');lb.innerHTML='<span style="background:#D4EDDA;color:#155724;padding:2px 10px;border-radius:9px;font-size:11px;">✏️ 입력 모드</span>';ln.style.display='none';}
+  renderReadmitList();
   const prevIds=new Set(S.pays.filter(p=>p.status==='active'&&(S.cfg.prevTerms||[]).includes(p.내역)).map(p=>p.수험번호));
   const dateMonth=parseInt(date.split('-')[1]);
   const regs=sortByBan(S.pays.filter(p=>(p.uploadedDate||p.결제일자)===date&&p.환불금액===0&&p.status==='active'));
