@@ -1756,25 +1756,28 @@ function addManualRefundTerm(){
 
 function confirmRefundFromModal(val,recs){
   const date=document.getElementById('dailyDate').value||todayStr();
-  // 체크된 기존 내역
   const checkedIds=[...document.querySelectorAll('.refund-term-check:checked')].map(el=>el.value);
   const toRemove=recs.filter(r=>checkedIds.includes(r.id));
-  // 수기 추가 내역
   const manualTerms=[..._manualTerms];
   _manualTerms=[];
 
   if(toRemove.length===0&&manualTerms.length===0){toast('처리할 내역을 선택해주세요');return;}
 
   const student=recs[0];
-  // 기존 레코드 퇴소 처리
+  const 수험번호=student.수험번호;
+
+  // 해당 학생의 모든 active pays 레코드를 퇴소로 변경 (미납 방지)
+  S.pays.filter(p=>p.수험번호===수험번호&&p.status==='active').forEach(r=>{
+    r.status='퇴소';r.withdrawnAt=Date.now();
+  });
+
+  // 환불 기록: 체크된 내역 + 수기 내역
   const removedTerms=toRemove.map(r=>r.내역);
-  for(const r of toRemove){r.status='퇴소';r.withdrawnAt=Date.now();}
-  // 수기 내역은 removedTerms에만 추가 (실제 레코드 없음)
   const allRemovedTerms=[...removedTerms,...manualTerms];
 
   S.refunds.push({
     id:Date.now(),processedAt:Date.now(),processedDate:date,
-    수험번호:student.수험번호,이름:student.이름,반:student.반,번호:student.번호,
+    수험번호,이름:student.이름,반:student.반,번호:student.번호,
     장학:student.장학||'',removedTerms:allRemovedTerms
   });
   save();closeModal();
@@ -1804,7 +1807,8 @@ function processRefundExcel(e){
         const recs=findActiveRecs(val);
         if(!recs.length){fail.push(val);continue;}
         const student=recs[0];
-        for(const r of recs){r.status='퇴소';r.withdrawnAt=Date.now();}
+        // 해당 학생의 모든 active 레코드 퇴소 처리
+        S.pays.filter(p=>p.수험번호===student.수험번호&&p.status==='active').forEach(r=>{r.status='퇴소';r.withdrawnAt=Date.now();});
         S.refunds.push({id:Date.now()+Math.random(),processedAt:Date.now(),processedDate:date,수험번호:student.수험번호,이름:student.이름,반:student.반,번호:student.번호,장학:student.장학||'',removedTerms:recs.map(r=>r.내역)});
         ok.push(`${student.이름}(${val})`);
       }
