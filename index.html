@@ -1039,15 +1039,9 @@ function renderDash(){
     : ((S.cfg.currTerms||[]).length>0
         ? [...prevIds].filter(id=>!currIds.has(id)&&!미납퇴소Set.has(id)).length
         : [...prevIds].filter(id=>!미납퇴소Set.has(id)).length);
-  // 총인원: prevTerms 수험번호 + currTerms에만 있는 신규 수험번호 (중복제거)
+  // 총인원: currTerms 등록인원 + 미납인원 (선납완료 + 아직 미납이지만 재원 중인 학생)
   function calcGrandTotal(){
-    const prevTermSet=new Set(S.cfg.prevTerms||[]);
-    const currTermSet=new Set(S.cfg.currTerms||[]);
-    const prevSuhIds=new Set(active.filter(p=>prevTermSet.has(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
-    const currSuhIds=new Set(active.filter(p=>currTermSet.has(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
-    // prev에 없고 curr에만 있는 신규 학생
-    const newOnly=[...currSuhIds].filter(id=>!prevSuhIds.has(id));
-    return prevSuhIds.size + newOnly.length;
+    return currIds.size + unpaidCnt;
   }
   let grandTotal=0;
   function calcTerm(term){
