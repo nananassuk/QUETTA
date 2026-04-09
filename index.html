@@ -1029,11 +1029,12 @@ function renderDash(){
   const visibleTerms=[...new Set(S.pays.map(p=>p.내역).filter(Boolean))].filter(t=>!hidden.includes(t)).sort((a,b)=>{const d=extractMonth(a)-extractMonth(b);return d!==0?d:a.localeCompare(b);});
   const currIds=new Set(active.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
   const prevIds=new Set(active.filter(p=>(S.cfg.prevTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
-  // 미납 = prevTerms 수강자 중 currTerms 선납 없는 사람
-  // currTerms가 아예 없을 경우엔 prevTerms 전체가 미납
-  const unpaidCnt=(S.cfg.currTerms||[]).length>0
-    ? [...prevIds].filter(id=>!currIds.has(id)).length
-    : prevIds.size;
+  // 미납인원: 스냅샷이 있는 과거 날짜면 스냅샷 값 사용, 오늘이면 실시간 계산
+  const unpaidCnt = (snaps[today]&&snaps[today]._unpaidCnt!==undefined)
+    ? snaps[today]._unpaidCnt
+    : ((S.cfg.currTerms||[]).length>0
+        ? [...prevIds].filter(id=>!currIds.has(id)).length
+        : prevIds.size);
   // 총인원: prevTerms 수험번호 + currTerms에만 있는 신규 수험번호 (중복제거)
   function calcGrandTotal(){
     const prevTermSet=new Set(S.cfg.prevTerms||[]);
@@ -1166,6 +1167,10 @@ function saveSnapshot(){
     else prevDay=0;
     snap[term]=prevDay+todayIn-(todayRefund+todayWithdraw);
   });
+  // 미납인원도 스냅샷에 저장
+  const snapCurrIds=new Set(S.pays.filter(p=>p.status==='active'&&(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
+  const snapPrevIds=new Set(S.pays.filter(p=>p.status==='active'&&(S.cfg.prevTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
+  snap._unpaidCnt=(S.cfg.currTerms||[]).length>0?[...snapPrevIds].filter(id=>!snapCurrIds.has(id)).length:snapPrevIds.size;
   if(!S.snapshots)S.snapshots={};
   if(S.snapshots[today]){
     openModal('💾 재저장',`<strong>${fmtKor(today)}</strong>에 이미 저장된 현황이 있습니다.<br>덮어쓰시겠습니까?`,
