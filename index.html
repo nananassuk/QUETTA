@@ -483,6 +483,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
         <button class="btn btn-gold" onclick="exportData()">📤 내보내기</button>
         <button class="btn btn-ghost" onclick="document.getElementById('importFileInput').click()">📥 가져오기</button>
         <button class="btn btn-ghost" onclick="migrateFromLocal()">🔄 로컬→클라우드</button>
+        <button class="btn btn-ghost" style="border-color:orange;color:orange;" onclick="findBadWithdrawn()">🔍 오늘 잘못변경된 레코드 확인</button>
         <button class="btn btn-red" onclick="resetAll()">⚠️ 초기화</button>
         <input type="file" id="importFileInput" accept=".json" style="display:none" onchange="importData(event)">
       </div>
@@ -2031,6 +2032,43 @@ function changePassword(){
 // ════ DATA MANAGEMENT ════
 function exportData(){const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`QUETTA_data_${todayStr()}.json`;a.click();URL.revokeObjectURL(a.href);toast('내보내기 완료');}
 function importData(e){const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(!confirm('현재 데이터를 덮어씁니다. 계속?'))return;applyServerData(d);save();refreshAll();toast('가져오기 완료');}catch(err){alert('파일 오류: '+err.message);}};reader.readAsText(file);e.target.value='';}
+function findBadWithdrawn(){
+  const todayMs1=new Date(todayStr()+'T23:59:59').getTime();
+  // 오늘 퇴소 처리된 정상 학생 수험번호 (refunds.processedDate = 오늘)
+  const legitimateToday=new Set(S.refunds.filter(r=>r.processedDate===todayStr()).map(r=>r.수험번호));
+  // pays에서 status=퇴소 && withdrawnAt이 오늘 && refund processedDate가 오늘이 아닌 학생
+  const bad=S.pays.filter(p=>{
+    if(p.status!=='퇴소')return false;
+    if(!p.withdrawnAt)return false;
+    if(p.withdrawnAt<todayMs0||p.withdrawnAt>todayMs1)return false; // 오늘 변경된 것만
+    if(legitimateToday.has(p.수험번호))return false; // 오늘 정상 퇴소된 학생 제외
+    return true;
+  });
+  const uniqueStudents=[...new Set(bad.map(p=>p.수험번호))].map(suh=>{
+    const recs=bad.filter(p=>p.수험번호===suh);
+    return{수험번호:suh,이름:recs[0].이름,terms:recs.map(r=>r.내역).join(', '),count:recs.length};
+  });
+  if(!uniqueStudents.length){
+    toast('잘못 변경된 레코드가 없습니다');return;
+  }
+  const rows=uniqueStudents.map(s=>`<tr><td style="padding:4px 8px;">${h(s.수험번호)}</td><td style="padding:4px 8px;">${h(s.이름)}</td><td style="padding:4px 8px;font-size:11px;">${h(s.terms)}</td><td style="padding:4px 8px;">${s.count}건</td></tr>`).join('');
+  openModal('🔍 잘못 변경된 레코드',
+    `<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">오늘 데이터정합성 수정으로 잘못 퇴소된 학생 <strong>${uniqueStudents.length}명</strong></div>
+     <div style="max-height:250px;overflow-y:auto;"><table style="width:100%;font-size:12px;border-collapse:collapse;"><thead><tr style="background:#eee;"><th style="padding:4px 8px;">수험번호</th><th style="padding:4px 8px;">이름</th><th style="padding:4px 8px;">내역</th><th style="padding:4px 8px;">건수</th></tr></thead><tbody>${rows}</tbody></table></div>
+     <div style="margin-top:10px;font-size:11px;color:var(--danger);">아래 복원 버튼을 누르면 이 학생들의 레코드가 active로 복원됩니다.</div>`,
+    [{label:`✅ ${uniqueStudents.length}명 복원`,cls:'btn-g',fn:()=>{
+      const badIds=new Set(bad.map(p=>p.id));
+      S.pays.forEach(p=>{
+        if(badIds.has(p.id)){
+          p.status='active';
+          delete p.withdrawnAt;
+        }
+      });
+      save();closeModal();refreshAll();
+      toast(`✅ ${bad.length}건 복원 완료 — 스냅샷을 다시 저장해주세요`);
+    }},{label:'취소',cls:'btn-ghost',fn:closeModal}]
+  );
+}
 function resetAll(){if(!confirm('모든 데이터를 초기화하시겠습니까?'))return;if(!confirm('정말로 초기화하시겠습니까?'))return;S=mkState();save();refreshAll();toast('초기화 완료');}
 function migrateFromLocal(){const SKEY='quetta_v4';try{const d=localStorage.getItem(SKEY);if(!d){alert('로컬 데이터가 없습니다.');return;}if(!confirm('기존 로컬 데이터를 클라우드로 업로드하시겠습니까?'))return;const p=JSON.parse(d);_SB.from('quetta_state').upsert({id:1,data:p,updated_at:new Date().toISOString()}).then(({error})=>{if(error)alert('오류: '+error.message);else{applyServerData(p);refreshAll();toast('✅ 마이그레이션 완료!');}});}catch(e){alert('오류: '+e.message);}}
 
