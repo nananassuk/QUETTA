@@ -196,7 +196,6 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
       <input type="date" class="inp" id="dashDatePicker" onchange="onDashDateChange()">
       <button class="btn btn-gold" onclick="renderDash()">🔄</button>
       <button class="btn btn-g" id="saveSnapBtn" onclick="saveSnapshot()">💾 현황 저장</button>
-      <button class="btn btn-ghost btn-sm" onclick="editSnapshot()" title="스냅샷 값 수동 편집">✏️ 수동편집</button>
       <button class="btn btn-ghost" onclick="window.print()">🖨️</button>
       <span id="snapBadge" style="font-size:11px;font-weight:600;"></span>
       <span id="prevDateLabel" style="font-size:11px;color:var(--muted);"></span>
@@ -483,7 +482,6 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
         <button class="btn btn-gold" onclick="exportData()">📤 내보내기</button>
         <button class="btn btn-ghost" onclick="document.getElementById('importFileInput').click()">📥 가져오기</button>
         <button class="btn btn-ghost" onclick="migrateFromLocal()">🔄 로컬→클라우드</button>
-        <button class="btn btn-ghost" style="border-color:orange;color:orange;" onclick="findBadWithdrawn()">🔍 오늘 잘못변경된 레코드 확인</button>
         <button class="btn btn-red" onclick="resetAll()">⚠️ 초기화</button>
         <input type="file" id="importFileInput" accept=".json" style="display:none" onchange="importData(event)">
       </div>
@@ -760,7 +758,7 @@ function applyKeywords(내역str){
 }
 
 // ════ IMPORT ════
-const HEADER_ALIASES={결제일자:['결제일자','날짜'],반:['반'],번호:['번호','학번'],수험번호:['수험번호'],이름:['이름','성명'],내역:['내역','과목'],결제금액:['결제금액','금액'],비고:['비고','메모'],장학:['장학','장학코드']};
+const HEADER_ALIASES={결제일자:['결제일자','날짜'],반:['반'],번호:['번호','학번'],수험번호:['수험번호'],이름:['이름','성명'],내역:['내역','과목'],결제금액:['결제금액','금액','승인금액'],비고:['비고','메모'],장학:['장학','장학코드','할인내역']};
 
 function detectHeader(row){return row.some(c=>['수험번호','이름','성명','내역'].includes(String(c||'').trim()));}
 
