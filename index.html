@@ -1059,8 +1059,10 @@ function renderDash(){
     // ★ 현재 날짜 스냅샷이 있으면 → 저장된 등록인원 고정 표시 (퇴소 후에도 불변)
     if(snaps[today]&&snaps[today][term]!==undefined){
       const total=snaps[today][term];
-      const todayIn=Math.max(0,total-prevDay);
-      return{term,prevDay,todayIn,todayOut:0,total,isPrev,isCurr};
+      const diff=total-prevDay;
+      const todayIn=diff>0?diff:0;
+      const todayOut=diff<0?diff:0;
+      return{term,prevDay,todayIn,todayOut,total,isPrev,isCurr};
     }
     // 스냅샷 없으면 → 실시간 계산
     const recs=active.filter(p=>p.내역===term);
@@ -1129,8 +1131,10 @@ function renderDash2(){
     // ★ 현재 날짜 스냅샷이 있으면 → 저장된 등록인원 고정 표시
     if(snaps2[today]&&snaps2[today][term]!==undefined){
       const total=snaps2[today][term];
-      const todayIn=Math.max(0,total-prevDay);
-      return{term,prevDay,todayIn,todayOut:0,total};
+      const diff=total-prevDay;
+      const todayIn=diff>0?diff:0;
+      const todayOut=diff<0?diff:0;
+      return{term,prevDay,todayIn,todayOut,total};
     }
     // 스냅샷 없으면 → 실시간 계산
     const recs=active.filter(p=>p.내역===term);
