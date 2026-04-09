@@ -1041,22 +1041,33 @@ function renderDash(){
         : [...prevIds].filter(id=>!미납퇴소Set.has(id)).length);
   // 총인원: currTerms 등록인원 + 미납인원 (선납완료 + 아직 미납이지만 재원 중인 학생)
   function calcGrandTotal(){
-    return currIds.size + unpaidCnt;
+    if(snaps[today]){
+      // ★ 스냅샷 있으면 저장된 curr 기수 합계 + 저장된 미납인원으로 고정
+      const snapCurrTotal=(S.cfg.currTerms||[]).reduce((sum,term)=>sum+(snaps[today][term]||0),0);
+      return snapCurrTotal+unpaidCnt;
+    }
+    return currIds.size+unpaidCnt;
   }
   let grandTotal=0;
   function calcTerm(term){
-    const recs=active.filter(p=>p.내역===term);
-    const todayIn=recs.filter(p=>(p.uploadedDate||p.결제일자)===today&&p.환불금액===0).length;
-    const todayRefund=recs.filter(p=>(p.uploadedDate||p.결제일자)===today&&p.환불금액>0).length;
-    const todayWithdraw=S.refunds.filter(r=>{const d=refDate(r);return d===today&&r.removedTerms?.includes(term);}).length;
     const isPrev=(S.cfg.prevTerms||[]).includes(term);
     const isCurr=(S.cfg.currTerms||[]).includes(term);
-    const todayOut=-(todayRefund+todayWithdraw);
     let prevDay;
     if(prevDate&&snaps[prevDate]&&snaps[prevDate][term]!==undefined) prevDay=snaps[prevDate][term];
     else if(prevDate) prevDay=countAsOf(term,prevDate,'reg');
     else prevDay=0;
-    // 등록인원 = 전일 + 금일등록 + 금일환불 (스냅샷 기준으로 누적)
+    // ★ 현재 날짜 스냅샷이 있으면 → 저장된 등록인원 고정 표시 (퇴소 후에도 불변)
+    if(snaps[today]&&snaps[today][term]!==undefined){
+      const total=snaps[today][term];
+      const todayIn=Math.max(0,total-prevDay);
+      return{term,prevDay,todayIn,todayOut:0,total,isPrev,isCurr};
+    }
+    // 스냅샷 없으면 → 실시간 계산
+    const recs=active.filter(p=>p.내역===term);
+    const todayIn=recs.filter(p=>(p.uploadedDate||p.결제일자)===today&&p.환불금액===0).length;
+    const todayRefund=recs.filter(p=>(p.uploadedDate||p.결제일자)===today&&p.환불금액>0).length;
+    const todayWithdraw=S.refunds.filter(r=>{const d=refDate(r);return d===today&&r.removedTerms?.includes(term);}).length;
+    const todayOut=-(todayRefund+todayWithdraw);
     const total=prevDay+todayIn+todayOut;
     return{term,prevDay,todayIn,todayOut,total,isPrev,isCurr};
   }
@@ -1749,6 +1760,30 @@ function removeUnpaidWithdraw(idx){
   S.미납퇴소.splice(idx,1);
   save();renderUnpaid();renderDash();toast('미납퇴소 처리가 취소됐습니다');
 }
+// ════ 날짜 기준 퇴소 대상 기수 계산 ════
+// 업로드 월이 prev월이면: prevTerms + currTerms(있으면)
+// 업로드 월이 curr월이면: currTerms만 (없으면 최근 기수 fallback)
+function getSmartRemovedRecs(recs, date){
+  const uploadMonth=parseInt((date||todayStr()).split('-')[1]);
+  const prevMonths=new Set((S.cfg.prevTerms||[]).map(t=>extractMonth(t)).filter(m=>m>0));
+  const currMonths=new Set((S.cfg.currTerms||[]).map(t=>extractMonth(t)).filter(m=>m>0));
+  const prevRecs=recs.filter(p=>(S.cfg.prevTerms||[]).includes(p.내역));
+  const currRecs=recs.filter(p=>(S.cfg.currTerms||[]).includes(p.내역));
+  let result=[];
+  if(prevMonths.has(uploadMonth)){
+    // prev월 업로드: prev기수 + curr기수(있으면)
+    result=[...prevRecs,...currRecs];
+  } else if(currMonths.has(uploadMonth)){
+    // curr월 업로드: curr기수만
+    result=[...currRecs];
+  }
+  if(!result.length){
+    // fallback: 가장 최근 납부 기수
+    const sorted=[...recs].sort((a,b)=>(b.addedAt||0)-(a.addedAt||0));
+    result=[sorted[0]];
+  }
+  return result;
+}
 function findActiveRecs(val){
   const v=val.trim();if(!v)return[];
   const direct=S.pays.filter(p=>p.status==='active'&&p.수험번호===v);
@@ -1775,15 +1810,10 @@ function showRefundModal(val,recs){
   const prevRecs=recs.filter(p=>(S.cfg.prevTerms||[]).includes(p.내역));
   const currRecs=recs.filter(p=>(S.cfg.currTerms||[]).includes(p.내역));
 
-  // 현재 수강 내역이 없으면 → 마지막 납부 기수 자동 선택
-  let displayRecs=recs;
-  let autoFallback=false;
-  if(prevRecs.length===0 && recs.length>0){
-    // addedAt 기준 가장 최근 기수
-    const sorted=[...recs].sort((a,b)=>(b.addedAt||0)-(a.addedAt||0));
-    displayRecs=[sorted[0]];
-    autoFallback=true;
-  }
+  // 업로드 날짜 월 기준으로 기본 선택 기수 결정
+  const _modalDate=document.getElementById('dailyDate')?.value||todayStr();
+  const displayRecs=getSmartRemovedRecs(recs,_modalDate);
+  const autoFallback=!(prevRecs.length||currRecs.length);
 
   // 선택 가능한 기수 목록 (설정된 변환 기수명 + 현재 보유 내역)
   const kwTerms=[...(S.cfg.keywords||[]).map(k=>k.term),...(S.cfg.danchaKeywords||[]).map(k=>k.term),...ALL_TERMS];
@@ -1885,11 +1915,8 @@ function processRefundExcel(e){
         const recs=findActiveRecs(val);
         if(!recs.length){fail.push(val);continue;}
         const student=recs[0];
-        // removedTerms: prevTerms+currTerms 기준, 없으면 최근 기수 fallback (개별 모달과 동일)
-        const prevRecs=recs.filter(p=>(S.cfg.prevTerms||[]).includes(p.내역));
-        const currRecs=recs.filter(p=>(S.cfg.currTerms||[]).includes(p.내역));
-        let removedRecs=[...prevRecs,...currRecs];
-        if(!removedRecs.length){const sorted=[...recs].sort((a,b)=>(b.addedAt||0)-(a.addedAt||0));removedRecs=[sorted[0]];}
+        // removedTerms: 업로드 날짜 월 기준 스마트 선택
+        const removedRecs=getSmartRemovedRecs(recs,date);
         const removedTerms=[...new Set(removedRecs.map(r=>r.내역))];
         // 모든 active 레코드 퇴소 처리 (재업로드 시 중복 방지)
         S.pays.filter(p=>p.수험번호===student.수험번호&&p.status==='active').forEach(r=>{r.status='퇴소';r.withdrawnAt=Date.now();});
