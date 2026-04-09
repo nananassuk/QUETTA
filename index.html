@@ -419,7 +419,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
   <div id="pay-unpaid" class="sub-tab-pane">
     <div id="unpaidLabel" style="font-size:12px;color:var(--muted);margin-bottom:8px;"></div>
     <div class="tbl-wrap">
-      <table class="data-tbl"><thead><tr><th>#</th><th>반</th><th>학번</th><th>수험번호</th><th>성명</th><th>수강 내역</th></tr></thead>
+      <table class="data-tbl"><thead><tr><th>#</th><th>반</th><th>학번</th><th>수험번호</th><th>성명</th><th>수강 내역</th><th>삭제</th></tr></thead>
       <tbody id="unpaidBody"></tbody></table>
     </div>
   </div>
@@ -1697,7 +1697,7 @@ function renderUnpaid(){
   const unpaid=sortByBan(S.pays.filter(p=>p.status==='active'&&(S.cfg.prevTerms||[]).includes(p.내역)&&!currIds.has(p.수험번호)));
   document.getElementById('unpaidLabel').textContent=`수강: ${(S.cfg.prevTerms||[]).join(', ')} → 선납: ${(S.cfg.currTerms||[]).join(', ')}`;
   let html='';
-  unpaid.forEach((r,i)=>{html+=`<tr><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td></tr>`;});
+  unpaid.forEach((r,i)=>{html+=`<tr><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td><button onclick="deleteRecord('${r.id}','reg')" style="background:none;border:none;cursor:pointer;">🗑️</button></td></tr>`;});
   if(!html)html=`<tr><td colspan="6" style="text-align:center;color:#bbb;padding:16px;">미납자 없음</td></tr>`;
   document.getElementById('unpaidBody').innerHTML=html;
 }
