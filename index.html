@@ -482,7 +482,6 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
         <button class="btn btn-gold" onclick="exportData()">📤 내보내기</button>
         <button class="btn btn-ghost" onclick="document.getElementById('importFileInput').click()">📥 가져오기</button>
         <button class="btn btn-ghost" onclick="migrateFromLocal()">🔄 로컬→클라우드</button>
-        <button class="btn btn-ghost" onclick="fixWithdrawnRecords()" title="퇴소 처리된 학생의 잔여 active 레코드를 정리합니다">🔧 데이터 정합성 수정</button>
         <button class="btn btn-red" onclick="resetAll()">⚠️ 초기화</button>
         <input type="file" id="importFileInput" accept=".json" style="display:none" onchange="importData(event)">
       </div>
@@ -2005,25 +2004,6 @@ function changePassword(){
 function exportData(){const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`QUETTA_data_${todayStr()}.json`;a.click();URL.revokeObjectURL(a.href);toast('내보내기 완료');}
 function importData(e){const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(!confirm('현재 데이터를 덮어씁니다. 계속?'))return;applyServerData(d);save();refreshAll();toast('가져오기 완료');}catch(err){alert('파일 오류: '+err.message);}};reader.readAsText(file);e.target.value='';}
 function resetAll(){if(!confirm('모든 데이터를 초기화하시겠습니까?'))return;if(!confirm('정말로 초기화하시겠습니까?'))return;S=mkState();save();refreshAll();toast('초기화 완료');}
-
-// 퇴소 학생 레코드 정합성 수정 (기존 데이터 정리용)
-function fixWithdrawnRecords(){
-  const withdrawnSuhIds=new Set(S.refunds.map(r=>r.수험번호).filter(Boolean));
-  let fixCount=0;
-  S.pays.forEach(p=>{
-    if(withdrawnSuhIds.has(p.수험번호)&&p.status==='active'){
-      p.status='퇴소';
-      if(!p.withdrawnAt)p.withdrawnAt=Date.now();
-      fixCount++;
-    }
-  });
-  if(fixCount>0){
-    save();refreshAll();
-    toast(`✅ ${fixCount}건 정합성 수정 완료`);
-  } else {
-    toast('수정할 항목이 없습니다');
-  }
-}
 function migrateFromLocal(){const SKEY='quetta_v4';try{const d=localStorage.getItem(SKEY);if(!d){alert('로컬 데이터가 없습니다.');return;}if(!confirm('기존 로컬 데이터를 클라우드로 업로드하시겠습니까?'))return;const p=JSON.parse(d);_SB.from('quetta_state').upsert({id:1,data:p,updated_at:new Date().toISOString()}).then(({error})=>{if(error)alert('오류: '+error.message);else{applyServerData(p);refreshAll();toast('✅ 마이그레이션 완료!');}});}catch(e){alert('오류: '+e.message);}}
 
 // ════ MODAL + TOAST ════
