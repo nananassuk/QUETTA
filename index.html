@@ -1697,12 +1697,32 @@ function renderUnpaid(){
   const unpaid=sortByBan(S.pays.filter(p=>p.status==='active'&&(S.cfg.prevTerms||[]).includes(p.내역)&&!currIds.has(p.수험번호)));
   document.getElementById('unpaidLabel').textContent=`수강: ${(S.cfg.prevTerms||[]).join(', ')} → 선납: ${(S.cfg.currTerms||[]).join(', ')}`;
   let html='';
-  unpaid.forEach((r,i)=>{html+=`<tr><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td><button onclick="deleteRecord('${r.id}','reg')" style="background:none;border:none;cursor:pointer;">🗑️</button></td></tr>`;});
+  unpaid.forEach((r,i)=>{html+=`<tr><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td><button class="btn btn-sm btn-red" onclick="quickWithdraw('${r.수험번호}','${h(r.이름)}')">퇴소처리</button></td></tr>`;});
   if(!html)html=`<tr><td colspan="6" style="text-align:center;color:#bbb;padding:16px;">미납자 없음</td></tr>`;
   document.getElementById('unpaidBody').innerHTML=html;
 }
 
-// ════ REFUND/WITHDRAWAL (정규) ════
+function quickWithdraw(수험번호, 이름){
+  const recs=S.pays.filter(p=>p.수험번호===수험번호&&p.status==='active');
+  if(!recs.length){toast('처리할 활성 기록이 없습니다');return;}
+  openModal('🚪 퇴소처리 (미납자)',
+    `<div style="font-size:13px;line-height:1.9;">
+      <strong>${h(이름)}</strong> (${h(수험번호)})<br>
+      수강 내역: ${h(recs.map(r=>r.내역).join(', '))}<br><br>
+      <span style="font-size:11px;color:var(--muted);">
+      ✅ 미납자 목록에서 제외됩니다<br>
+      ✅ 3월 납부 기록은 그대로 보존됩니다<br>
+      ✅ 환불 내역은 생성되지 않습니다
+      </span>
+    </div>`,
+    [{label:'퇴소처리',cls:'btn-red',fn:()=>{
+      recs.forEach(r=>{r.status='퇴소';r.withdrawnAt=Date.now();});
+      save();closeModal();
+      renderUnpaid();renderDash();
+      toast(`✅ ${이름} 퇴소처리 완료 — 미납자에서 제외됨`);
+    }},{label:'취소',cls:'btn-ghost',fn:closeModal}]
+  );
+}
 function findActiveRecs(val){
   const v=val.trim();if(!v)return[];
   const direct=S.pays.filter(p=>p.status==='active'&&p.수험번호===v);
