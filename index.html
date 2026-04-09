@@ -1885,9 +1885,15 @@ function processRefundExcel(e){
         const recs=findActiveRecs(val);
         if(!recs.length){fail.push(val);continue;}
         const student=recs[0];
-        // 해당 학생의 모든 active 레코드 퇴소 처리
+        // removedTerms: prevTerms+currTerms 기준, 없으면 최근 기수 fallback (개별 모달과 동일)
+        const prevRecs=recs.filter(p=>(S.cfg.prevTerms||[]).includes(p.내역));
+        const currRecs=recs.filter(p=>(S.cfg.currTerms||[]).includes(p.내역));
+        let removedRecs=[...prevRecs,...currRecs];
+        if(!removedRecs.length){const sorted=[...recs].sort((a,b)=>(b.addedAt||0)-(a.addedAt||0));removedRecs=[sorted[0]];}
+        const removedTerms=[...new Set(removedRecs.map(r=>r.내역))];
+        // 모든 active 레코드 퇴소 처리 (재업로드 시 중복 방지)
         S.pays.filter(p=>p.수험번호===student.수험번호&&p.status==='active').forEach(r=>{r.status='퇴소';r.withdrawnAt=Date.now();});
-        S.refunds.push({id:Date.now()+Math.random(),processedAt:Date.now(),processedDate:date,수험번호:student.수험번호,이름:student.이름,반:student.반,번호:student.번호,장학:student.장학||'',removedTerms:recs.map(r=>r.내역)});
+        S.refunds.push({id:Date.now()+Math.random(),processedAt:Date.now(),processedDate:date,수험번호:student.수험번호,이름:student.이름,반:student.반,번호:student.번호,장학:student.장학||'',removedTerms});
         ok.push(`${student.이름}(${val})`);
       }
       save();e.target.value='';
