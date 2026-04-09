@@ -418,8 +418,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
   <!-- 미납자 -->
   <div id="pay-unpaid" class="sub-tab-pane">
     <div id="unpaidLabel" style="font-size:12px;color:var(--muted);margin-bottom:8px;"></div>
+    <div id="unpaidExcludedList" style="display:none;background:#FEF8F8;border:1px solid #F5B7B1;border-radius:7px;padding:10px 12px;margin-bottom:10px;"></div>
     <div class="tbl-wrap">
-      <table class="data-tbl"><thead><tr><th>#</th><th>반</th><th>학번</th><th>수험번호</th><th>성명</th><th>수강 내역</th><th>삭제</th></tr></thead>
+      <table class="data-tbl"><thead><tr><th>#</th><th>반</th><th>학번</th><th>수험번호</th><th>성명</th><th>수강 내역</th><th>처리</th></tr></thead>
       <tbody id="unpaidBody"></tbody></table>
     </div>
   </div>
@@ -510,7 +511,8 @@ function mkState(){
   return {
     cfg:{prevTerms:['정규(2,3월)','정규1기(3월)'],currTerms:['정규2기(4월)'],danchaTerms:[],dashDate:todayStr(),dashDate2:todayStr(),hiddenTerms:[],danchaHiddenTerms:[],manualOverride:false,keywords:[],danchaKeywords:[],password:'1234'},
     pays:[],refunds:[],dancha:[],danchaRefunds:[],snapshots:{},danchaSnapshots:{},
-    재입소:[] // [{수험번호, date}] - 재입소 허용 목록
+    재입소:[], // [{수험번호, date}] - 재입소 허용 목록
+    미납퇴소:[] // [{수험번호, 이름, date}] - 미납자 퇴소처리 목록 (기존 기록 유지)
   };
 }
 let S = mkState();
@@ -659,6 +661,7 @@ function applyServerData(d){
   S.snapshots=d.snapshots||{};
   S.danchaSnapshots=d.danchaSnapshots||{};
   S.재입소=Array.isArray(d.재입소)?d.재입소:[];
+  S.미납퇴소=Array.isArray(d.미납퇴소)?d.미납퇴소:[];
   if(d.cfg){
     S.cfg={...S.cfg,...d.cfg};
     if(!S.cfg.hiddenTerms)S.cfg.hiddenTerms=[];
@@ -1029,12 +1032,13 @@ function renderDash(){
   const visibleTerms=[...new Set(S.pays.map(p=>p.내역).filter(Boolean))].filter(t=>!hidden.includes(t)).sort((a,b)=>{const d=extractMonth(a)-extractMonth(b);return d!==0?d:a.localeCompare(b);});
   const currIds=new Set(active.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
   const prevIds=new Set(active.filter(p=>(S.cfg.prevTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
+  const 미납퇴소Set=new Set((S.미납퇴소||[]).map(r=>r.수험번호));
   // 미납인원: 스냅샷이 있는 과거 날짜면 스냅샷 값 사용, 오늘이면 실시간 계산
   const unpaidCnt = (snaps[today]&&snaps[today]._unpaidCnt!==undefined)
     ? snaps[today]._unpaidCnt
     : ((S.cfg.currTerms||[]).length>0
-        ? [...prevIds].filter(id=>!currIds.has(id)).length
-        : prevIds.size);
+        ? [...prevIds].filter(id=>!currIds.has(id)&&!미납퇴소Set.has(id)).length
+        : [...prevIds].filter(id=>!미납퇴소Set.has(id)).length);
   // 총인원: prevTerms 수험번호 + currTerms에만 있는 신규 수험번호 (중복제거)
   function calcGrandTotal(){
     const prevTermSet=new Set(S.cfg.prevTerms||[]);
@@ -1170,7 +1174,10 @@ function saveSnapshot(){
   // 미납인원도 스냅샷에 저장
   const snapCurrIds=new Set(S.pays.filter(p=>p.status==='active'&&(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
   const snapPrevIds=new Set(S.pays.filter(p=>p.status==='active'&&(S.cfg.prevTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
-  snap._unpaidCnt=(S.cfg.currTerms||[]).length>0?[...snapPrevIds].filter(id=>!snapCurrIds.has(id)).length:snapPrevIds.size;
+  const snap미납퇴소Set=new Set((S.미납퇴소||[]).map(r=>r.수험번호));
+  snap._unpaidCnt=(S.cfg.currTerms||[]).length>0
+    ?[...snapPrevIds].filter(id=>!snapCurrIds.has(id)&&!snap미납퇴소Set.has(id)).length
+    :[...snapPrevIds].filter(id=>!snap미납퇴소Set.has(id)).length;
   if(!S.snapshots)S.snapshots={};
   if(S.snapshots[today]){
     openModal('💾 재저장',`<strong>${fmtKor(today)}</strong>에 이미 저장된 현황이 있습니다.<br>덮어쓰시겠습니까?`,
@@ -1693,35 +1700,60 @@ function exportPayHistoryExcel2(){
   toast('단과 납부현황 엑셀 다운로드 완료');
 }
 function renderUnpaid(){
+  if(!S.미납퇴소)S.미납퇴소=[];
+  const 미납퇴소Set=new Set(S.미납퇴소.map(r=>r.수험번호));
   const currIds=new Set(S.pays.filter(p=>p.status==='active'&&(S.cfg.currTerms||[]).includes(p.내역)).map(p=>p.수험번호));
-  const unpaid=sortByBan(S.pays.filter(p=>p.status==='active'&&(S.cfg.prevTerms||[]).includes(p.내역)&&!currIds.has(p.수험번호)));
+  const unpaid=sortByBan(S.pays.filter(p=>p.status==='active'&&(S.cfg.prevTerms||[]).includes(p.내역)&&!currIds.has(p.수험번호)&&!미납퇴소Set.has(p.수험번호)));
   document.getElementById('unpaidLabel').textContent=`수강: ${(S.cfg.prevTerms||[]).join(', ')} → 선납: ${(S.cfg.currTerms||[]).join(', ')}`;
   let html='';
   unpaid.forEach((r,i)=>{html+=`<tr><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td><button class="btn btn-sm btn-red" onclick="quickWithdraw('${r.수험번호}','${h(r.이름)}')">퇴소처리</button></td></tr>`;});
-  if(!html)html=`<tr><td colspan="6" style="text-align:center;color:#bbb;padding:16px;">미납자 없음</td></tr>`;
+  if(!html)html=`<tr><td colspan="7" style="text-align:center;color:#bbb;padding:16px;">미납자 없음</td></tr>`;
   document.getElementById('unpaidBody').innerHTML=html;
+  // 미납퇴소 처리 목록
+  const listEl=document.getElementById('unpaidExcludedList');
+  if(listEl){
+    if(S.미납퇴소.length){
+      listEl.style.display='block';
+      listEl.innerHTML=`<div style="font-size:12px;font-weight:700;color:var(--danger);margin-bottom:6px;">🚪 미납퇴소 처리됨 (${S.미납퇴소.length}명) — 수강 기록은 유지, 미납에서만 제외</div>`+
+        S.미납퇴소.map((r,i)=>`<span style="display:inline-flex;align-items:center;gap:4px;background:#FDE8E8;border:1px solid #F5B7B1;border-radius:12px;padding:2px 9px;margin:2px;font-size:11px;">${h(r.이름)} (${h(r.수험번호)}) ${fmtShort(r.date)}<button onclick="removeUnpaidWithdraw(${i})" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:11px;padding:0 2px;" title="취소">✕</button></span>`).join('');
+    } else {
+      listEl.style.display='none';
+      listEl.innerHTML='';
+    }
+  }
 }
 
 function quickWithdraw(수험번호, 이름){
   const recs=S.pays.filter(p=>p.수험번호===수험번호&&p.status==='active');
   if(!recs.length){toast('처리할 활성 기록이 없습니다');return;}
-  openModal('🚪 퇴소처리 (미납자)',
+  if(!S.미납퇴소)S.미납퇴소=[];
+  if(S.미납퇴소.find(r=>r.수험번호===수험번호)){toast('이미 미납퇴소 처리된 학생입니다');return;}
+  const prevRecs=recs.filter(p=>(S.cfg.prevTerms||[]).includes(p.내역));
+  const currTermNames=(S.cfg.currTerms||[]).join(', ')||'선납 내역';
+  openModal('🚪 미납퇴소 처리',
     `<div style="font-size:13px;line-height:1.9;">
       <strong>${h(이름)}</strong> (${h(수험번호)})<br>
-      수강 내역: ${h(recs.map(r=>r.내역).join(', '))}<br><br>
+      수강 내역: ${h(prevRecs.map(r=>r.내역).join(', '))}<br><br>
       <span style="font-size:11px;color:var(--muted);">
-      ✅ 미납자 목록에서 제외됩니다<br>
-      ✅ 3월 납부 기록은 그대로 보존됩니다<br>
-      ✅ 환불 내역은 생성되지 않습니다
+      ✅ <strong>${h(currTermNames)}</strong> 미납인원에서만 제외됩니다<br>
+      ✅ 기존 수강 기록은 그대로 유지됩니다 (인원 변동 없음)<br>
+      ✅ 환불 내역은 생성되지 않습니다<br>
+      ✅ 미납자 탭에서 처리 취소 가능합니다
       </span>
     </div>`,
-    [{label:'퇴소처리',cls:'btn-red',fn:()=>{
-      recs.forEach(r=>{r.status='퇴소';r.withdrawnAt=Date.now();});
+    [{label:'미납퇴소 처리',cls:'btn-red',fn:()=>{
+      const date=document.getElementById('dailyDate')?.value||todayStr();
+      S.미납퇴소.push({수험번호,이름,date});
       save();closeModal();
       renderUnpaid();renderDash();
-      toast(`✅ ${이름} 퇴소처리 완료 — 미납자에서 제외됨`);
+      toast(`✅ ${이름} 미납퇴소 처리 완료 — 수강 기록은 유지됩니다`);
     }},{label:'취소',cls:'btn-ghost',fn:closeModal}]
   );
+}
+function removeUnpaidWithdraw(idx){
+  if(!confirm('미납퇴소 처리를 취소하시겠습니까? 해당 학생이 다시 미납자 목록에 표시됩니다.'))return;
+  S.미납퇴소.splice(idx,1);
+  save();renderUnpaid();renderDash();toast('미납퇴소 처리가 취소됐습니다');
 }
 function findActiveRecs(val){
   const v=val.trim();if(!v)return[];
