@@ -1056,21 +1056,14 @@ function renderDash(){
     if(prevDate&&snaps[prevDate]&&snaps[prevDate][term]!==undefined) prevDay=snaps[prevDate][term];
     else if(prevDate) prevDay=countAsOf(term,prevDate,'reg');
     else prevDay=0;
-    // ★ 현재 날짜 스냅샷이 있으면 → 저장된 등록인원 고정 표시 (퇴소 후에도 불변)
-    if(snaps[today]&&snaps[today][term]!==undefined){
-      const total=snaps[today][term];
-      const diff=total-prevDay;
-      const todayIn=diff>0?diff:0;
-      const todayOut=diff<0?diff:0;
-      return{term,prevDay,todayIn,todayOut,total,isPrev,isCurr};
-    }
-    // 스냅샷 없으면 → 실시간 계산
+    // 금일등록/금일환불은 항상 실시간 계산
     const recs=active.filter(p=>p.내역===term);
     const todayIn=recs.filter(p=>(p.uploadedDate||p.결제일자)===today&&p.환불금액===0).length;
     const todayRefund=recs.filter(p=>(p.uploadedDate||p.결제일자)===today&&p.환불금액>0).length;
     const todayWithdraw=S.refunds.filter(r=>{const d=refDate(r);return d===today&&r.removedTerms?.includes(term);}).length;
     const todayOut=-(todayRefund+todayWithdraw);
-    const total=prevDay+todayIn+todayOut;
+    // ★ 등록인원(total)만 스냅샷 고정 — 금일등록/환불 표시는 실시간 유지
+    const total=snaps[today]&&snaps[today][term]!==undefined ? snaps[today][term] : prevDay+todayIn+todayOut;
     return{term,prevDay,todayIn,todayOut,total,isPrev,isCurr};
   }
   const monthMap={};
@@ -1128,19 +1121,12 @@ function renderDash2(){
     if(prevDate&&snaps2[prevDate]&&snaps2[prevDate][term]!==undefined)prevDay=snaps2[prevDate][term];
     else if(prevDate)prevDay=countAsOf(term,prevDate,'dancha');
     else prevDay=0;
-    // ★ 현재 날짜 스냅샷이 있으면 → 저장된 등록인원 고정 표시
-    if(snaps2[today]&&snaps2[today][term]!==undefined){
-      const total=snaps2[today][term];
-      const diff=total-prevDay;
-      const todayIn=diff>0?diff:0;
-      const todayOut=diff<0?diff:0;
-      return{term,prevDay,todayIn,todayOut,total};
-    }
-    // 스냅샷 없으면 → 실시간 계산
+    // 금일등록/금일취소는 항상 실시간 계산
     const recs=active.filter(p=>p.내역===term);
     const todayIn=recs.filter(p=>(p.uploadedDate||p.결제일자)===today&&p.환불금액===0).length;
     const todayCancel=S.danchaRefunds.filter(r=>{const d=refDate(r);return d===today&&r.removedTerms?.includes(term);}).length;
-    const total=prevDay+todayIn-todayCancel;
+    // ★ 등록인원(total)만 스냅샷 고정 — 금일등록/취소 표시는 실시간 유지
+    const total=snaps2[today]&&snaps2[today][term]!==undefined ? snaps2[today][term] : prevDay+todayIn-todayCancel;
     return{term,prevDay,todayIn,todayOut:-todayCancel,total};
   }
   // 기수별 그룹핑
