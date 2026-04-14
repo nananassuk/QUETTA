@@ -1045,8 +1045,9 @@ function renderDash(){
       const pm=allMonths[i-1],cm=allMonths[i];
       const pmIds=new Set(active.filter(p=>extractMonth(p.내역)===pm&&p.환불금액===0).map(p=>p.수험번호));
       const cmIds=new Set(active.filter(p=>extractMonth(p.내역)===cm&&p.환불금액===0).map(p=>p.수험번호));
-      // 미납퇴소 제외 (모든 월 쌍에 적용)
-      map[cm]=[...pmIds].filter(id=>!cmIds.has(id)&&!미납퇴소Set.has(id)).length;
+      // 이전 쌍: 미납퇴소 제외 (처리 완료된 기수) / 최신 쌍: 미납퇴소 적용 안 함 (현재 진행 중)
+      const isLatestPair=(i===allMonths.length-1);
+      map[cm]=[...pmIds].filter(id=>!cmIds.has(id)&&(isLatestPair||!미납퇴소Set.has(id))).length;
     }
     return map;
   }
@@ -1209,7 +1210,8 @@ function saveSnapshot(){
     const pm=snapAllMonths[i-1],cm=snapAllMonths[i];
     const pmIds=new Set(snapActive.filter(p=>extractMonth(p.내역)===pm&&p.환불금액===0).map(p=>p.수험번호));
     const cmIds=new Set(snapActive.filter(p=>extractMonth(p.내역)===cm&&p.환불금액===0).map(p=>p.수험번호));
-    snapUnpaidByMonth[cm]=[...pmIds].filter(id=>!cmIds.has(id)&&!snap미납퇴소Set.has(id)).length;
+    const isLatestSnapPair=(i===snapAllMonths.length-1);
+    snapUnpaidByMonth[cm]=[...pmIds].filter(id=>!cmIds.has(id)&&(isLatestSnapPair||!snap미납퇴소Set.has(id))).length;
   }
   snap._unpaidByMonth=snapUnpaidByMonth;
   const snapLatestMonth=snapAllMonths.length>0?snapAllMonths[snapAllMonths.length-1]:0;
