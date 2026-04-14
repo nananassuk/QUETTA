@@ -1057,8 +1057,18 @@ function renderDash(){
   const currIds=new Set(active.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
   function calcGrandTotal(){
     if(snaps[today]){
+      // 스냅샷: prev기수 저장값 + curr기수 신규(prev에 없는 사람) = union
+      if(snaps[today]._grandTotal!==undefined) return snaps[today]._grandTotal;
       const snapCurrTotal=(S.cfg.currTerms||[]).reduce((sum,term)=>sum+(snaps[today][term]||0),0);
       return snapCurrTotal+unpaidCnt;
+    }
+    // prev기수 학생 ∪ curr기수 학생 = prev기수 + curr기수 신규(prev에 없는 사람)
+    if(allMonths.length>=2){
+      const pm=allMonths[allMonths.length-2], cm=allMonths[allMonths.length-1];
+      const pmIds=new Set(active.filter(p=>extractMonth(p.내역)===pm&&p.환불금액===0).map(p=>p.수험번호));
+      const cmIds=new Set(active.filter(p=>extractMonth(p.내역)===cm&&p.환불금액===0).map(p=>p.수험번호));
+      const newOnly=[...cmIds].filter(id=>!pmIds.has(id)).length;
+      return pmIds.size+newOnly;
     }
     return currIds.size+unpaidCnt;
   }
@@ -1203,6 +1213,13 @@ function saveSnapshot(){
   snap._unpaidByMonth=snapUnpaidByMonth;
   const snapLatestMonth=snapAllMonths.length>0?snapAllMonths[snapAllMonths.length-1]:0;
   snap._unpaidCnt=snapUnpaidByMonth[snapLatestMonth]||0;
+  // grandTotal 스냅샷 저장 (prev ∪ curr union)
+  if(snapAllMonths.length>=2){
+    const gpm=snapAllMonths[snapAllMonths.length-2],gcm=snapAllMonths[snapAllMonths.length-1];
+    const gpmIds=new Set(snapActive.filter(p=>extractMonth(p.내역)===gpm&&p.환불금액===0).map(p=>p.수험번호));
+    const gcmIds=new Set(snapActive.filter(p=>extractMonth(p.내역)===gcm&&p.환불금액===0).map(p=>p.수험번호));
+    snap._grandTotal=gpmIds.size+[...gcmIds].filter(id=>!gpmIds.has(id)).length;
+  }
   if(!S.snapshots)S.snapshots={};
   if(S.snapshots[today]){
     openModal('💾 재저장',`<strong>${fmtKor(today)}</strong>에 이미 저장된 현황이 있습니다.<br>덮어쓰시겠습니까?`,
