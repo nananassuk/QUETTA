@@ -938,16 +938,22 @@ function refDate(r){
   return r.processedDate || msToLocalDate(r.processedAt);
 }
 function autoDetectTerms(refDate){
-  const date=refDate||S.cfg.dashDate||todayStr();
-  const cm=parseInt(date.split('-')[1]); // 대시보드 기준 월
-  const pm=cm===1?12:cm-1;              // 전월
   const allTerms=[...new Set(S.pays.map(p=>p.내역).filter(Boolean))];
   if(!S.cfg.manualOverride){
-    // prevTerms = 전월 내역 (현재 수강), currTerms = 당월 내역 (선납)
-    const prevCandidates=allTerms.filter(t=>extractMonth(t)===pm);
-    const currCandidates=allTerms.filter(t=>extractMonth(t)===cm);
-    S.cfg.prevTerms=prevCandidates.length>0?prevCandidates:[];
-    S.cfg.currTerms=currCandidates.length>0?currCandidates:[];
+    // 실제 데이터에 존재하는 월 목록에서 최신 월 감지
+    const months=[...new Set(allTerms.map(t=>extractMonth(t)).filter(m=>m>0))].sort((a,b)=>a-b);
+    if(months.length===0){S.cfg.prevTerms=[];S.cfg.currTerms=[];}
+    else if(months.length===1){
+      // 데이터가 한 달치만 있으면 그게 prevTerms
+      S.cfg.prevTerms=allTerms.filter(t=>extractMonth(t)===months[0]);
+      S.cfg.currTerms=[];
+    } else {
+      // 가장 최신 월 = currTerms, 바로 전 월 = prevTerms
+      const cm=months[months.length-1];
+      const pm=months[months.length-2];
+      S.cfg.prevTerms=allTerms.filter(t=>extractMonth(t)===pm);
+      S.cfg.currTerms=allTerms.filter(t=>extractMonth(t)===cm);
+    }
   }
   const danchaTerms=[...new Set(S.dancha.map(p=>p.내역).filter(Boolean))];
   S.cfg.danchaTerms=danchaTerms;
@@ -1030,19 +1036,27 @@ function renderDash(){
   const isSaved=!!snaps[today];
   if(snapBadge)snapBadge.innerHTML=isSaved?`<span style="background:#D4EDDA;color:#155724;padding:2px 9px;border-radius:9px;font-size:11px;">✅ ${fmtShort(today)} 저장됨</span><button class="btn btn-sm btn-ghost" onclick="deleteSnapshot('${today}')" style="margin-left:3px;font-size:10px;">삭제</button>`:`<span style="background:#FFF3CD;color:#856404;padding:2px 9px;border-radius:9px;font-size:11px;">⚠️ 미저장</span>`;
   const visibleTerms=[...new Set(S.pays.map(p=>p.내역).filter(Boolean))].filter(t=>!hidden.includes(t)).sort((a,b)=>{const d=extractMonth(a)-extractMonth(b);return d!==0?d:a.localeCompare(b);});
-  const currIds=new Set(active.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
-  const prevIds=new Set(active.filter(p=>(S.cfg.prevTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
   const 미납퇴소Set=new Set((S.미납퇴소||[]).map(r=>r.수험번호));
-  // 미납인원: 스냅샷이 있는 과거 날짜면 스냅샷 값 사용, 오늘이면 실시간 계산
-  const unpaidCnt = (snaps[today]&&snaps[today]._unpaidCnt!==undefined)
-    ? snaps[today]._unpaidCnt
-    : ((S.cfg.currTerms||[]).length>0
-        ? [...prevIds].filter(id=>!currIds.has(id)&&!미납퇴소Set.has(id)).length
-        : [...prevIds].filter(id=>!미납퇴소Set.has(id)).length);
-  // 총인원: currTerms 등록인원 + 미납인원 (선납완료 + 아직 미납이지만 재원 중인 학생)
+  // ★ 연속 월 쌍마다 미납인원 계산 (3→4월, 4→5월, 5→6월 ...)
+  const allMonths=[...new Set(S.pays.map(p=>p.내역).filter(Boolean).map(t=>extractMonth(t)).filter(m=>m>0))].sort((a,b)=>a-b);
+  function calcUnpaidByMonth(){
+    const map={};
+    for(let i=1;i<allMonths.length;i++){
+      const pm=allMonths[i-1],cm=allMonths[i];
+      const pmIds=new Set(active.filter(p=>extractMonth(p.내역)===pm&&p.환불금액===0).map(p=>p.수험번호));
+      const cmIds=new Set(active.filter(p=>extractMonth(p.내역)===cm&&p.환불금액===0).map(p=>p.수험번호));
+      map[cm]=[...pmIds].filter(id=>!cmIds.has(id)&&!미납퇴소Set.has(id)).length;
+    }
+    return map;
+  }
+  const unpaidByMonth=(snaps[today]&&snaps[today]._unpaidByMonth)
+    ? snaps[today]._unpaidByMonth
+    : calcUnpaidByMonth();
+  const latestMonth=allMonths.length>0?allMonths[allMonths.length-1]:0;
+  const unpaidCnt=unpaidByMonth[latestMonth]||0;
+  const currIds=new Set(active.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
   function calcGrandTotal(){
     if(snaps[today]){
-      // ★ 스냅샷 있으면 저장된 curr 기수 합계 + 저장된 미납인원으로 고정
       const snapCurrTotal=(S.cfg.currTerms||[]).reduce((sum,term)=>sum+(snaps[today][term]||0),0);
       return snapCurrTotal+unpaidCnt;
     }
@@ -1075,7 +1089,7 @@ function renderDash(){
     const isLastMonth=mi===moKeys.length-1;
     const datas=monthMap[mo].map(calcTerm);
     for(const d of datas){
-      html+=`<tr class="${d.isCurr?'row-curr':''}"><td style="text-align:left;padding-left:16px;">${h(d.term)}</td><td>${d.prevDay>0?d.prevDay.toLocaleString():'0'}</td><td>${d.todayIn>0?`<span class="pos">${d.todayIn.toLocaleString()}</span>`:''}</td><td>${d.todayOut<0?`<span class="neg">${d.todayOut.toLocaleString()}</span>`:''}</td><td><strong>${d.total>0?d.total.toLocaleString():'0'}</strong></td><td>${d.isCurr&&unpaidCnt>0?`미납인원:${unpaidCnt}명`:''}</td></tr>`;
+      html+=`<tr class="${d.isCurr?'row-curr':''}"><td style="text-align:left;padding-left:16px;">${h(d.term)}</td><td>${d.prevDay>0?d.prevDay.toLocaleString():'0'}</td><td>${d.todayIn>0?`<span class="pos">${d.todayIn.toLocaleString()}</span>`:''}</td><td>${d.todayOut<0?`<span class="neg">${d.todayOut.toLocaleString()}</span>`:''}</td><td><strong>${d.total>0?d.total.toLocaleString():'0'}</strong></td><td>${(()=>{const tm=extractMonth(d.term);const tu=unpaidByMonth[tm]||0;return tu>0?`미납인원:${tu}명`:'';})()}</td></tr>`;
     }
     const sPrev=datas.reduce((a,d)=>a+d.prevDay,0),sIn=datas.reduce((a,d)=>a+d.todayIn,0),sOut=datas.reduce((a,d)=>a+d.todayOut,0),sTotal=datas.reduce((a,d)=>a+d.total,0);
     if(isLastMonth) grandTotal=calcGrandTotal();
@@ -1085,7 +1099,7 @@ function renderDash(){
   }
   if(!html)html=`<tr><td colspan="6" style="text-align:center;color:#bbb;padding:24px;">납부 데이터를 입력하면 표시됩니다</td></tr>`;
   document.getElementById('dashBody').innerHTML=html;
-  document.getElementById('dashStats').innerHTML=`<div class="chip c-grn"><div class="v">${grandTotal}</div><div class="l">총 등록인원</div></div><div class="chip c-gold"><div class="v">${active.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).length}</div><div class="l">선납 완료</div></div><div class="chip c-red"><div class="v">${unpaidCnt}</div><div class="l">미납인원</div></div><div class="chip"><div class="v">${S.refunds.length}</div><div class="l">누적 퇴소</div></div>`;
+  document.getElementById('dashStats').innerHTML=`<div class="chip c-grn"><div class="v">${grandTotal}</div><div class="l">총 등록인원</div></div><div class="chip c-gold"><div class="v">${active.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).length}</div><div class="l">선납 완료</div></div><div class="chip c-red"><div class="v">${Object.values(unpaidByMonth).reduce((s,v)=>s+v,0)}</div><div class="l">미납인원</div></div><div class="chip"><div class="v">${S.refunds.length}</div><div class="l">누적 퇴소</div></div>`;
 }
 
 // ════ DASHBOARD (단과) ════
@@ -1175,13 +1189,20 @@ function saveSnapshot(){
     else prevDay=0;
     snap[term]=prevDay+todayIn-(todayRefund+todayWithdraw);
   });
-  // 미납인원도 스냅샷에 저장
-  const snapCurrIds=new Set(S.pays.filter(p=>p.status==='active'&&(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
-  const snapPrevIds=new Set(S.pays.filter(p=>p.status==='active'&&(S.cfg.prevTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
+  // 미납인원 스냅샷 저장 (연속 월 쌍별)
   const snap미납퇴소Set=new Set((S.미납퇴소||[]).map(r=>r.수험번호));
-  snap._unpaidCnt=(S.cfg.currTerms||[]).length>0
-    ?[...snapPrevIds].filter(id=>!snapCurrIds.has(id)&&!snap미납퇴소Set.has(id)).length
-    :[...snapPrevIds].filter(id=>!snap미납퇴소Set.has(id)).length;
+  const snapActive=S.pays.filter(p=>p.status==='active');
+  const snapAllMonths=[...new Set(S.pays.map(p=>p.내역).filter(Boolean).map(t=>extractMonth(t)).filter(m=>m>0))].sort((a,b)=>a-b);
+  const snapUnpaidByMonth={};
+  for(let i=1;i<snapAllMonths.length;i++){
+    const pm=snapAllMonths[i-1],cm=snapAllMonths[i];
+    const pmIds=new Set(snapActive.filter(p=>extractMonth(p.내역)===pm&&p.환불금액===0).map(p=>p.수험번호));
+    const cmIds=new Set(snapActive.filter(p=>extractMonth(p.내역)===cm&&p.환불금액===0).map(p=>p.수험번호));
+    snapUnpaidByMonth[cm]=[...pmIds].filter(id=>!cmIds.has(id)&&!snap미납퇴소Set.has(id)).length;
+  }
+  snap._unpaidByMonth=snapUnpaidByMonth;
+  const snapLatestMonth=snapAllMonths.length>0?snapAllMonths[snapAllMonths.length-1]:0;
+  snap._unpaidCnt=snapUnpaidByMonth[snapLatestMonth]||0;
   if(!S.snapshots)S.snapshots={};
   if(S.snapshots[today]){
     openModal('💾 재저장',`<strong>${fmtKor(today)}</strong>에 이미 저장된 현황이 있습니다.<br>덮어쓰시겠습니까?`,
