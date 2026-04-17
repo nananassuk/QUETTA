@@ -432,12 +432,26 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
 <div id="tab-stats" class="tab-pane">
   <div class="card">
     <div class="card-ttl">📈 등록 현황 추이</div>
-    <div class="btn-row" style="margin-bottom:14px;">
-      <button class="btn btn-g" id="statsViewDaily" onclick="setStatsView('daily')">일별</button>
-      <button class="btn btn-ghost" id="statsViewMonthly" onclick="setStatsView('monthly')">월별</button>
-      <span style="font-size:11px;color:var(--muted);margin-left:8px;">📌 현황 저장된 날짜 기준 데이터</span>
+    <!-- 컨트롤 바 -->
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px;">
+      <div style="display:flex;gap:4px;">
+        <button class="btn btn-g btn-sm" id="statsViewDaily" onclick="setStatsView('daily')">일별</button>
+        <button class="btn btn-ghost btn-sm" id="statsViewMonthly" onclick="setStatsView('monthly')">월별</button>
+      </div>
+      <div style="width:1px;height:20px;background:var(--border);"></div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;">
+        <button class="btn btn-sm" id="statsDS_total" onclick="toggleStatsDS('total')" style="background:#1B4332;color:#fff;">총인원</button>
+        <button class="btn btn-sm" id="statsDS_new" onclick="toggleStatsDS('new')" style="background:#eee;color:#555;">신규등록</button>
+        <button class="btn btn-sm" id="statsDS_out" onclick="toggleStatsDS('out')" style="background:#eee;color:#555;">퇴소</button>
+      </div>
+      <div style="width:1px;height:20px;background:var(--border);"></div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:11px;">
+        <label style="font-weight:600;color:var(--g1);">시작일</label>
+        <input type="date" class="inp" id="statsStartDate" style="width:145px;font-size:11px;" onchange="renderStats()">
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('statsStartDate').value='';renderStats()">전체</button>
+      </div>
     </div>
-    <div style="position:relative;height:340px;">
+    <div style="position:relative;height:360px;">
       <canvas id="statsChart"></canvas>
     </div>
   </div>
@@ -445,7 +459,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
     <div class="card-ttl">📋 일별 상세 데이터</div>
     <div class="tbl-wrap" style="max-height:300px;">
       <table class="data-tbl">
-        <thead><tr><th>날짜</th><th>총인원</th><th>전일대비</th><th>금일등록</th><th>금일환불</th></tr></thead>
+        <thead><tr><th>날짜</th><th>총인원</th><th>전일대비</th><th>금일신규</th><th>금일퇴소</th></tr></thead>
         <tbody id="statsTableBody"></tbody>
       </table>
     </div>
@@ -2240,152 +2254,171 @@ document.getElementById('modalBg').addEventListener('click',e=>{if(e.target===e.
 // ════ 통계 차트 ════
 let _statsChart = null;
 let _statsView = 'daily';
+let _statsDS = {total: true, new: false, out: false};
 
-function setStatsView(view){
-  _statsView = view;
-  document.getElementById('statsViewDaily').className = 'btn ' + (view==='daily'?'btn-g':'btn-ghost');
-  document.getElementById('statsViewMonthly').className = 'btn ' + (view==='monthly'?'btn-g':'btn-ghost');
+function setStatsView(v){
+  _statsView = v;
+  document.getElementById('statsViewDaily').className = 'btn btn-sm ' + (v==='daily'?'btn-g':'btn-ghost');
+  document.getElementById('statsViewMonthly').className = 'btn btn-sm ' + (v==='monthly'?'btn-g':'btn-ghost');
+  renderStats();
+}
+
+function toggleStatsDS(key){
+  _statsDS[key] = !_statsDS[key];
+  const el = document.getElementById('statsDS_'+key);
+  const colors = {total:'#1B4332', new:'#27AE60', out:'#C0392B'};
+  if(_statsDS[key]){el.style.background=colors[key];el.style.color='#fff';}
+  else{el.style.background='#eee';el.style.color='#555';}
   renderStats();
 }
 
 function renderStats(){
   const snaps = S.snapshots || {};
-  const snapDates = Object.keys(snaps).filter(d=>!d.startsWith('_')).sort();
+  const startDate = document.getElementById('statsStartDate')?.value || '';
 
-  // 날짜별 grandTotal 계산
+  // 기본 시작일 없으면 4/14로 설정
+  if(!document.getElementById('statsStartDate').value && !_statsInitDate){
+    _statsInitDate = true;
+    document.getElementById('statsStartDate').value = '2026-04-14';
+  }
+  const filterFrom = document.getElementById('statsStartDate').value || '';
+
+  const snapDates = Object.keys(snaps)
+    .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
+    .filter(d => !filterFrom || d >= filterFrom)
+    .sort();
+
+  // grandTotal 계산
   function getGrandTotalForSnap(date){
-    const snap = snaps[date];
-    if(!snap) return 0;
+    const snap = snaps[date]; if(!snap) return 0;
     if(snap._grandTotal !== undefined) return snap._grandTotal;
-    // _grandTotal 없으면 curr 합계 + 미납
     const allTerms = Object.keys(snap).filter(k=>!k.startsWith('_'));
     const months = [...new Set(allTerms.map(t=>extractMonth(t)).filter(m=>m>0))].sort((a,b)=>a-b);
-    if(months.length < 2){
-      return allTerms.reduce((s,t)=>s+(snap[t]||0),0);
-    }
-    const pm = months[months.length-2], cm = months[months.length-1];
-    const pmTerms = allTerms.filter(t=>extractMonth(t)===pm);
-    const cmTerms = allTerms.filter(t=>extractMonth(t)===cm);
-    const pmTotal = pmTerms.reduce((s,t)=>s+(snap[t]||0),0);
-    const cmTotal = cmTerms.reduce((s,t)=>s+(snap[t]||0),0);
-    const unpaid = snap._unpaidByMonth ? (snap._unpaidByMonth[cm]||0) : (snap._unpaidCnt||0);
-    return pmTotal + (cmTotal > 0 ? cmTotal : 0) + unpaid;
+    if(months.length < 2) return allTerms.reduce((s,t)=>s+(snap[t]||0),0);
+    const pm=months[months.length-2], cm=months[months.length-1];
+    const pmT=allTerms.filter(t=>extractMonth(t)===pm).reduce((s,t)=>s+(snap[t]||0),0);
+    const cmT=allTerms.filter(t=>extractMonth(t)===cm).reduce((s,t)=>s+(snap[t]||0),0);
+    const unpaid=snap._unpaidByMonth?(snap._unpaidByMonth[cm]||0):(snap._unpaidCnt||0);
+    return pmT + cmT + unpaid;
   }
 
-  // 일별 데이터
-  const dailyData = snapDates.map(date => ({
-    date,
-    total: getGrandTotalForSnap(date),
-    label: fmtShort(date)
+  // 날짜별 신규/퇴소 (S.pays, S.refunds 기반, 스냅샷 없어도 계산)
+  const allDates = [...new Set([
+    ...snapDates,
+    ...S.pays.map(p=>p.uploadedDate||p.결제일자).filter(d=>d&&(!filterFrom||d>=filterFrom)),
+    ...S.refunds.map(r=>refDate(r)).filter(d=>d&&(!filterFrom||d>=filterFrom))
+  ])].sort();
+
+  const dailyData = snapDates.map(date => {
+    const newCnt = S.pays.filter(p=>(p.uploadedDate||p.결제일자)===date&&p.환불금액===0).length;
+    const outCnt = S.refunds.filter(r=>refDate(r)===date).length;
+    return { date, total: getGrandTotalForSnap(date), new: newCnt, out: outCnt };
+  });
+
+  // 신규/퇴소만 있는 날짜도 포함 (스냅샷 없는 날)
+  const snapDateSet = new Set(snapDates);
+  const extraDates = allDates.filter(d => !snapDateSet.has(d));
+  const extraData = extraDates.map(date => ({
+    date, total: null,
+    new: S.pays.filter(p=>(p.uploadedDate||p.결제일자)===date&&p.환불금액===0).length,
+    out: S.refunds.filter(r=>refDate(r)===date).length
   }));
 
-  // 월별 데이터 (각 월의 마지막 스냅샷)
-  const monthlyMap = {};
-  dailyData.forEach(d => {
-    const mo = d.date.substring(0,7); // YYYY-MM
-    monthlyMap[mo] = d; // 같은 월이면 뒤에 오는 게 덮어씀 (마지막 날짜)
+  const fullDaily = [...dailyData, ...extraData].sort((a,b)=>a.date.localeCompare(b.date));
+
+  // 월별
+  const moMap = {};
+  fullDaily.forEach(d => {
+    const mo = d.date.substring(0,7);
+    if(!moMap[mo]) moMap[mo] = {date:d.date, total:d.total, new:0, out:0};
+    moMap[mo].new += d.new;
+    moMap[mo].out += d.out;
+    if(d.total !== null) moMap[mo].total = d.total; // 마지막 스냅샷 total
   });
-  const monthlyData = Object.values(monthlyMap).sort((a,b)=>a.date.localeCompare(b.date));
+  const monthlyData = Object.values(moMap).sort((a,b)=>a.date.localeCompare(b.date));
 
   const isDaily = _statsView === 'daily';
-  const chartData = isDaily ? dailyData : monthlyData;
+  const chartData = isDaily ? fullDaily : monthlyData;
 
-  if(!chartData.length){
-    document.getElementById('statsTableBody').innerHTML = '<tr><td colspan="5" style="text-align:center;color:#bbb;padding:16px;">현황 저장된 데이터가 없습니다</td></tr>';
+  // 차트 x 레이블
+  const labels = chartData.map(d => isDaily ? fmtShort(d.date) : d.date.substring(0,7));
+
+  // datasets
+  const datasets = [];
+  if(_statsDS.total){
+    datasets.push({
+      label:'총인원', data: chartData.map(d=>d.total),
+      borderColor:'#1B4332', backgroundColor:'rgba(27,67,50,0.07)',
+      borderWidth:2.5, pointBackgroundColor:'#C9A84C', pointBorderColor:'#1B4332',
+      pointRadius:5, pointHoverRadius:7, fill:true, tension:0.3, yAxisID:'y'
+    });
+  }
+  if(_statsDS.new){
+    datasets.push({
+      label:'신규등록', data: chartData.map(d=>d.new),
+      borderColor:'#27AE60', backgroundColor:'rgba(39,174,96,0.0)',
+      borderWidth:2, pointBackgroundColor:'#27AE60', pointRadius:4, pointHoverRadius:6,
+      fill:false, tension:0.3, yAxisID:'y2'
+    });
+  }
+  if(_statsDS.out){
+    datasets.push({
+      label:'퇴소', data: chartData.map(d=>d.out),
+      borderColor:'#C0392B', backgroundColor:'rgba(192,57,43,0.0)',
+      borderWidth:2, pointBackgroundColor:'#C0392B', pointRadius:4, pointHoverRadius:6,
+      fill:false, tension:0.3, yAxisID:'y2'
+    });
+  }
+
+  if(!chartData.length || !datasets.length){
+    if(_statsChart){_statsChart.destroy();_statsChart=null;}
     return;
   }
 
-  const labels = chartData.map(d => isDaily ? fmtShort(d.date) : d.date.substring(0,7));
-  const totals = chartData.map(d => d.total);
-
-  // 전일 대비 변화
-  const diffs = totals.map((v,i) => i===0 ? 0 : v - totals[i-1]);
-
-  // Chart.js 렌더링
   const ctx = document.getElementById('statsChart').getContext('2d');
-  if(_statsChart) { _statsChart.destroy(); _statsChart = null; }
+  if(_statsChart){_statsChart.destroy();_statsChart=null;}
+
+  const hasY2 = _statsDS.new || _statsDS.out;
   _statsChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [{
-        label: '총인원',
-        data: totals,
-        borderColor: '#1B4332',
-        backgroundColor: 'rgba(27,67,50,0.08)',
-        borderWidth: 2.5,
-        pointBackgroundColor: '#C9A84C',
-        pointBorderColor: '#1B4332',
-        pointRadius: 5,
-        pointHoverRadius: 7,
-        fill: true,
-        tension: 0.3
-      },{
-        label: '전일대비',
-        data: diffs,
-        borderColor: '#4A7DB5',
-        backgroundColor: 'rgba(74,125,181,0.0)',
-        borderWidth: 1.5,
-        pointRadius: 3,
-        borderDash: [4,3],
-        fill: false,
-        tension: 0.3,
-        yAxisID: 'y2'
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
-      plugins: {
-        legend: { position: 'top', labels: { font: { family: 'Noto Sans KR', size: 12 } } },
-        tooltip: {
-          callbacks: {
-            label: ctx => {
-              if(ctx.datasetIndex === 0) return ` 총인원: ${ctx.parsed.y.toLocaleString()}명`;
-              const sign = ctx.parsed.y >= 0 ? '+' : '';
-              return ` 전일대비: ${sign}${ctx.parsed.y}명`;
-            }
-          }
-        }
+    type:'line', data:{labels, datasets},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index', intersect:false},
+      plugins:{
+        legend:{position:'top', labels:{font:{family:'Noto Sans KR',size:12}}},
+        tooltip:{callbacks:{label:c=>{
+          const sign = c.parsed.y>=0?'':'-';
+          return ` ${c.dataset.label}: ${Math.abs(c.parsed.y).toLocaleString()}명`;
+        }}}
       },
-      scales: {
-        x: { ticks: { font: { family: 'Noto Sans KR', size: 11 }, maxRotation: 45 } },
-        y: {
-          position: 'left',
-          ticks: { font: { family: 'Noto Sans KR', size: 11 }, callback: v => v.toLocaleString()+'명' },
-          title: { display: true, text: '총인원', font: { family: 'Noto Sans KR', size: 11 } }
-        },
-        y2: {
-          position: 'right',
-          grid: { drawOnChartArea: false },
-          ticks: { font: { family: 'Noto Sans KR', size: 11 }, callback: v => (v>=0?'+':'')+v },
-          title: { display: true, text: '전일대비', font: { family: 'Noto Sans KR', size: 11 } }
-        }
+      scales:{
+        x:{ticks:{font:{family:'Noto Sans KR',size:11},maxRotation:45}},
+        y:{position:'left', display:_statsDS.total,
+          ticks:{font:{family:'Noto Sans KR',size:11},callback:v=>v===null?'':v.toLocaleString()+'명'},
+          title:{display:true,text:'총인원',font:{family:'Noto Sans KR',size:11}}},
+        y2:{position:'right', display:hasY2,
+          grid:{drawOnChartArea:false},
+          ticks:{font:{family:'Noto Sans KR',size:11},callback:v=>v+'명'},
+          title:{display:true,text:'신규/퇴소',font:{family:'Noto Sans KR',size:11}}}
       }
     }
   });
 
-  // 테이블 렌더링 (일별만, 내림차순)
+  // 테이블 (일별, 역순, 스냅샷 있는 날만)
   const tableRows = [...dailyData].reverse();
   let tHtml = '';
   tableRows.forEach((d,i) => {
-    const prev = i < tableRows.length-1 ? tableRows[i+1].total : null;
-    const diff = prev !== null ? d.total - prev : 0;
-    const diffStr = prev === null ? '-' : (diff >= 0 ? `<span class="pos">+${diff}</span>` : `<span class="neg">${diff}</span>`);
-    // 금일등록/환불: 스냅샷에서 해당 날짜 실시간 데이터 추출
-    const snap = snaps[d.date] || {};
-    const allT = Object.keys(snap).filter(k=>!k.startsWith('_'));
-    // 전일 스냅샷 합계
-    const prevSnapDate = snapDates[snapDates.indexOf(d.date)-1];
-    const prevSnap = prevSnapDate ? (snaps[prevSnapDate]||{}) : {};
-    const todayIn = S.pays.filter(p=>(p.uploadedDate||p.결제일자)===d.date&&p.환불금액===0&&p.status!=='퇴소').length;
-    const todayOut = S.refunds.filter(r=>refDate(r)===d.date).length;
-    tHtml += `<tr><td style="font-weight:600;">${fmtKor(d.date)}</td><td><strong>${d.total.toLocaleString()}명</strong></td><td>${diffStr}</td><td>${todayIn>0?`<span class="pos">+${todayIn}</span>`:'-'}</td><td>${todayOut>0?`<span class="neg">-${todayOut}</span>`:'-'}</td></tr>`;
+    const prev = i<tableRows.length-1 ? tableRows[i+1].total : null;
+    const diff = prev!==null ? d.total-prev : null;
+    const diffStr = diff===null?'-':(diff>=0?`<span class="pos">+${diff}</span>`:`<span class="neg">${diff}</span>`);
+    const newStr = d.new>0?`<span class="pos">+${d.new}</span>`:'-';
+    const outStr = d.out>0?`<span class="neg">-${d.out}</span>`:'-';
+    tHtml+=`<tr><td style="font-weight:600;">${fmtKor(d.date)}</td><td><strong>${d.total.toLocaleString()}명</strong></td><td>${diffStr}</td><td>${newStr}</td><td>${outStr}</td></tr>`;
   });
-  if(!tHtml) tHtml = '<tr><td colspan="5" style="text-align:center;color:#bbb;padding:16px;">데이터 없음</td></tr>';
+  if(!tHtml) tHtml='<tr><td colspan="5" style="text-align:center;color:#bbb;padding:16px;">현황 저장된 데이터가 없습니다</td></tr>';
   document.getElementById('statsTableBody').innerHTML = tHtml;
 }
+let _statsInitDate = false;
 
 // ════ INIT ════
 function init(){
