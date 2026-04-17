@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 :root{--g1:#1B4332;--g2:#2D6A4F;--g3:#40916C;--d1:#1A3A5C;--d2:#2E5D8E;--d3:#4A7DB5;--gold:#C9A84C;--gold2:#E8C97A;--bg:#F4F1EB;--card:#FFFFFF;--danger:#C0392B;--danger2:#E74C3C;--success:#27AE60;--border:#D8CEB8;--muted:#888;--shadow:0 2px 16px rgba(27,67,50,0.13);}
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -181,6 +182,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
   <button class="tab-btn dancha" onclick="goTab('dash2',this)">📊 대시보드(단과)</button>
   <button class="tab-btn dancha" onclick="goTab('daily2',this)">📄 일일명단(단과)</button>
   <button class="tab-btn" onclick="goTab('pay',this)">📋 납부명단 입력</button>
+  <button class="tab-btn" onclick="goTab('stats',this)">📈 통계</button>
   <button class="tab-btn" onclick="goTab('cfg',this)">⚙️ 설정</button>
 </div>
 
@@ -422,6 +424,30 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
     <div class="tbl-wrap">
       <table class="data-tbl"><thead><tr><th>#</th><th>반</th><th>학번</th><th>수험번호</th><th>성명</th><th>수강 내역</th><th>처리</th></tr></thead>
       <tbody id="unpaidBody"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<!-- 통계 -->
+<div id="tab-stats" class="tab-pane">
+  <div class="card">
+    <div class="card-ttl">📈 등록 현황 추이</div>
+    <div class="btn-row" style="margin-bottom:14px;">
+      <button class="btn btn-g" id="statsViewDaily" onclick="setStatsView('daily')">일별</button>
+      <button class="btn btn-ghost" id="statsViewMonthly" onclick="setStatsView('monthly')">월별</button>
+      <span style="font-size:11px;color:var(--muted);margin-left:8px;">📌 현황 저장된 날짜 기준 데이터</span>
+    </div>
+    <div style="position:relative;height:340px;">
+      <canvas id="statsChart"></canvas>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-ttl">📋 일별 상세 데이터</div>
+    <div class="tbl-wrap" style="max-height:300px;">
+      <table class="data-tbl">
+        <thead><tr><th>날짜</th><th>총인원</th><th>전일대비</th><th>금일등록</th><th>금일환불</th></tr></thead>
+        <tbody id="statsTableBody"></tbody>
+      </table>
     </div>
   </div>
 </div>
@@ -739,6 +765,7 @@ function goTab(id,btn){
     renderTodayUploads();renderPayHistory();renderUnpaid();
   }
   if(id==='cfg')renderCfg();
+  if(id==='stats')renderStats();
 }
 function goPayTab(id,btn){
   document.querySelectorAll('.sub-tab-pane').forEach(p=>p.classList.remove('on'));
@@ -1111,7 +1138,7 @@ function renderDash(){
   }
   if(!html)html=`<tr><td colspan="6" style="text-align:center;color:#bbb;padding:24px;">납부 데이터를 입력하면 표시됩니다</td></tr>`;
   document.getElementById('dashBody').innerHTML=html;
-  document.getElementById('dashStats').innerHTML=`<div class="chip c-grn"><div class="v">${grandTotal}</div><div class="l">총 등록인원</div></div><div class="chip c-gold"><div class="v">${active.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).length}</div><div class="l">선납 완료</div></div><div class="chip c-red"><div class="v">${Object.values(unpaidByMonth).reduce((s,v)=>s+v,0)}</div><div class="l">미납인원</div></div><div class="chip"><div class="v">${S.refunds.length}</div><div class="l">누적 퇴소</div></div>`;
+  document.getElementById('dashStats').innerHTML=`<div class="chip c-gold" style="border-color:var(--g1);background:#EAF6EE;"><div class="v" style="color:var(--g1);">${grandTotal}</div><div class="l">📌 총인원</div></div><div class="chip c-grn"><div class="v">${grandTotal}</div><div class="l">총 등록인원</div></div><div class="chip c-gold"><div class="v">${active.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).length}</div><div class="l">선납 완료</div></div><div class="chip c-red"><div class="v">${Object.values(unpaidByMonth).reduce((s,v)=>s+v,0)}</div><div class="l">미납인원</div></div><div class="chip"><div class="v">${S.refunds.length}</div><div class="l">누적 퇴소</div></div>`;
 }
 
 // ════ DASHBOARD (단과) ════
@@ -2208,6 +2235,157 @@ function openModal(title,body,buttons){
 }
 function closeModal(){document.getElementById('modalBg').classList.remove('open');}
 document.getElementById('modalBg').addEventListener('click',e=>{if(e.target===e.currentTarget)closeModal();});
+
+
+// ════ 통계 차트 ════
+let _statsChart = null;
+let _statsView = 'daily';
+
+function setStatsView(view){
+  _statsView = view;
+  document.getElementById('statsViewDaily').className = 'btn ' + (view==='daily'?'btn-g':'btn-ghost');
+  document.getElementById('statsViewMonthly').className = 'btn ' + (view==='monthly'?'btn-g':'btn-ghost');
+  renderStats();
+}
+
+function renderStats(){
+  const snaps = S.snapshots || {};
+  const snapDates = Object.keys(snaps).filter(d=>!d.startsWith('_')).sort();
+
+  // 날짜별 grandTotal 계산
+  function getGrandTotalForSnap(date){
+    const snap = snaps[date];
+    if(!snap) return 0;
+    if(snap._grandTotal !== undefined) return snap._grandTotal;
+    // _grandTotal 없으면 curr 합계 + 미납
+    const allTerms = Object.keys(snap).filter(k=>!k.startsWith('_'));
+    const months = [...new Set(allTerms.map(t=>extractMonth(t)).filter(m=>m>0))].sort((a,b)=>a-b);
+    if(months.length < 2){
+      return allTerms.reduce((s,t)=>s+(snap[t]||0),0);
+    }
+    const pm = months[months.length-2], cm = months[months.length-1];
+    const pmTerms = allTerms.filter(t=>extractMonth(t)===pm);
+    const cmTerms = allTerms.filter(t=>extractMonth(t)===cm);
+    const pmTotal = pmTerms.reduce((s,t)=>s+(snap[t]||0),0);
+    const cmTotal = cmTerms.reduce((s,t)=>s+(snap[t]||0),0);
+    const unpaid = snap._unpaidByMonth ? (snap._unpaidByMonth[cm]||0) : (snap._unpaidCnt||0);
+    return pmTotal + (cmTotal > 0 ? cmTotal : 0) + unpaid;
+  }
+
+  // 일별 데이터
+  const dailyData = snapDates.map(date => ({
+    date,
+    total: getGrandTotalForSnap(date),
+    label: fmtShort(date)
+  }));
+
+  // 월별 데이터 (각 월의 마지막 스냅샷)
+  const monthlyMap = {};
+  dailyData.forEach(d => {
+    const mo = d.date.substring(0,7); // YYYY-MM
+    monthlyMap[mo] = d; // 같은 월이면 뒤에 오는 게 덮어씀 (마지막 날짜)
+  });
+  const monthlyData = Object.values(monthlyMap).sort((a,b)=>a.date.localeCompare(b.date));
+
+  const isDaily = _statsView === 'daily';
+  const chartData = isDaily ? dailyData : monthlyData;
+
+  if(!chartData.length){
+    document.getElementById('statsTableBody').innerHTML = '<tr><td colspan="5" style="text-align:center;color:#bbb;padding:16px;">현황 저장된 데이터가 없습니다</td></tr>';
+    return;
+  }
+
+  const labels = chartData.map(d => isDaily ? fmtShort(d.date) : d.date.substring(0,7));
+  const totals = chartData.map(d => d.total);
+
+  // 전일 대비 변화
+  const diffs = totals.map((v,i) => i===0 ? 0 : v - totals[i-1]);
+
+  // Chart.js 렌더링
+  const ctx = document.getElementById('statsChart').getContext('2d');
+  if(_statsChart) { _statsChart.destroy(); _statsChart = null; }
+  _statsChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: '총인원',
+        data: totals,
+        borderColor: '#1B4332',
+        backgroundColor: 'rgba(27,67,50,0.08)',
+        borderWidth: 2.5,
+        pointBackgroundColor: '#C9A84C',
+        pointBorderColor: '#1B4332',
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        fill: true,
+        tension: 0.3
+      },{
+        label: '전일대비',
+        data: diffs,
+        borderColor: '#4A7DB5',
+        backgroundColor: 'rgba(74,125,181,0.0)',
+        borderWidth: 1.5,
+        pointRadius: 3,
+        borderDash: [4,3],
+        fill: false,
+        tension: 0.3,
+        yAxisID: 'y2'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'top', labels: { font: { family: 'Noto Sans KR', size: 12 } } },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              if(ctx.datasetIndex === 0) return ` 총인원: ${ctx.parsed.y.toLocaleString()}명`;
+              const sign = ctx.parsed.y >= 0 ? '+' : '';
+              return ` 전일대비: ${sign}${ctx.parsed.y}명`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { font: { family: 'Noto Sans KR', size: 11 }, maxRotation: 45 } },
+        y: {
+          position: 'left',
+          ticks: { font: { family: 'Noto Sans KR', size: 11 }, callback: v => v.toLocaleString()+'명' },
+          title: { display: true, text: '총인원', font: { family: 'Noto Sans KR', size: 11 } }
+        },
+        y2: {
+          position: 'right',
+          grid: { drawOnChartArea: false },
+          ticks: { font: { family: 'Noto Sans KR', size: 11 }, callback: v => (v>=0?'+':'')+v },
+          title: { display: true, text: '전일대비', font: { family: 'Noto Sans KR', size: 11 } }
+        }
+      }
+    }
+  });
+
+  // 테이블 렌더링 (일별만, 내림차순)
+  const tableRows = [...dailyData].reverse();
+  let tHtml = '';
+  tableRows.forEach((d,i) => {
+    const prev = i < tableRows.length-1 ? tableRows[i+1].total : null;
+    const diff = prev !== null ? d.total - prev : 0;
+    const diffStr = prev === null ? '-' : (diff >= 0 ? `<span class="pos">+${diff}</span>` : `<span class="neg">${diff}</span>`);
+    // 금일등록/환불: 스냅샷에서 해당 날짜 실시간 데이터 추출
+    const snap = snaps[d.date] || {};
+    const allT = Object.keys(snap).filter(k=>!k.startsWith('_'));
+    // 전일 스냅샷 합계
+    const prevSnapDate = snapDates[snapDates.indexOf(d.date)-1];
+    const prevSnap = prevSnapDate ? (snaps[prevSnapDate]||{}) : {};
+    const todayIn = S.pays.filter(p=>(p.uploadedDate||p.결제일자)===d.date&&p.환불금액===0&&p.status!=='퇴소').length;
+    const todayOut = S.refunds.filter(r=>refDate(r)===d.date).length;
+    tHtml += `<tr><td style="font-weight:600;">${fmtKor(d.date)}</td><td><strong>${d.total.toLocaleString()}명</strong></td><td>${diffStr}</td><td>${todayIn>0?`<span class="pos">+${todayIn}</span>`:'-'}</td><td>${todayOut>0?`<span class="neg">-${todayOut}</span>`:'-'}</td></tr>`;
+  });
+  if(!tHtml) tHtml = '<tr><td colspan="5" style="text-align:center;color:#bbb;padding:16px;">데이터 없음</td></tr>';
+  document.getElementById('statsTableBody').innerHTML = tHtml;
+}
 
 // ════ INIT ════
 function init(){
