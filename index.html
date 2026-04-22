@@ -1130,9 +1130,10 @@ function renderDash(){
     if(prevDate&&snaps[prevDate]&&snaps[prevDate][term]!==undefined) prevDay=snaps[prevDate][term];
     else if(prevDate) prevDay=countAsOf(term,prevDate,'reg');
     else prevDay=0;
-    // 금일등록/금일환불은 항상 실시간 계산
+    // 금일등록: status 무관 (당일 등록 후 퇴소된 학생도 포함)
+    const allTermRecs=S.pays.filter(p=>p.내역===term);
     const recs=active.filter(p=>p.내역===term);
-    const todayIn=recs.filter(p=>(p.uploadedDate||p.결제일자)===today&&p.환불금액===0).length;
+    const todayIn=allTermRecs.filter(p=>(p.uploadedDate||p.결제일자)===today&&p.환불금액===0).length;
     const todayRefund=recs.filter(p=>(p.uploadedDate||p.결제일자)===today&&p.환불금액>0).length;
     const todayWithdraw=S.refunds.filter(r=>{const d=refDate(r);return d===today&&r.removedTerms?.includes(term);}).length;
     const todayOut=-(todayRefund+todayWithdraw);
@@ -2218,15 +2219,18 @@ function exportDailyExcel2(){
 }
 function exportPayHistoryExcel(){
   const date=document.getElementById('historyExcelDate').value;
+  const termF=document.getElementById('payTermFilter')?.value||'';
   let pays=S.pays;
   if(date)pays=pays.filter(p=>(p.uploadedDate||p.결제일자)===date);
+  if(termF)pays=pays.filter(p=>p.내역===termF);
   pays=sortByBan([...pays].sort((a,b)=>extractMonth(a.내역)-extractMonth(b.내역)||a.내역.localeCompare(b.내역)));
   const wb=XLSX.utils.book_new();
   const headers=['업로드일','구분','반','학번','수험번호','성명','내역','결제금액','장학','상태'];
   const rows=[headers,...pays.map(r=>[(r.uploadedDate||r.결제일자),r.status==='퇴소'?'환불':'등록',r.반,r.번호,r.수험번호,r.이름,r.내역,r.결제금액,r.장학,r.status])];
   const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=headers.map(()=>({wch:13}));
   XLSX.utils.book_append_sheet(wb,ws,'납부현황');
-  XLSX.writeFile(wb,`QUETTA_납부현황${date?'_'+date:''}.xlsx`);toast('납부현황 엑셀 다운로드 완료');
+  const fname='QUETTA_납부현황'+(termF?'_'+termF:'')+(date?'_'+date:'')+'.xlsx';
+  XLSX.writeFile(wb,fname);toast('납부현황 엑셀 다운로드 완료');
 }
 
 // ════ SETTINGS ════
