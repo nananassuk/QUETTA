@@ -1814,10 +1814,6 @@ function exportPayHistoryExcel2(){
 }
 function exportGrandTotalExcel(){
   const active=S.pays.filter(p=>p.status==='active'&&p.환불금액===0);
-  if(allMonths_cached&&allMonths_cached.length>=2){
-    // prev ∪ curr
-  }
-  // 모든 월 목록
   const allMonths=[...new Set(active.map(p=>p.내역).filter(Boolean).map(t=>extractMonth(t)).filter(m=>m>0))].sort((a,b)=>a-b);
   let rows=[];
   if(allMonths.length>=2){
