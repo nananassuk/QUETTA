@@ -654,6 +654,8 @@ function loadFromServer(initial){
         console.error('Load error:', error);
         return;
       }
+      // ★ 요청 진행 중 저장이 일어났으면 무시 (레이스 컨디션 방지)
+      if(!initial && (Date.now()-_lastSaveAt < 3000 || _isSyncing)) return;
       if(row?.data){
         applyServerData(row.data);
         setSyncStatus('ok', initial?'연결됨':'동기화됨');
