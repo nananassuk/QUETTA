@@ -419,7 +419,10 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
 
   <!-- 미납자 -->
   <div id="pay-unpaid" class="sub-tab-pane">
-    <div id="unpaidLabel" style="font-size:12px;color:var(--muted);margin-bottom:8px;"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+      <div id="unpaidLabel" style="font-size:12px;color:var(--muted);"></div>
+      <button class="btn btn-g btn-sm" onclick="exportUnpaidExcel()">⬇️ 엑셀 다운로드</button>
+    </div>
     <div id="unpaidExcludedList" style="display:none;background:#FEF8F8;border:1px solid #F5B7B1;border-radius:7px;padding:10px 12px;margin-bottom:10px;"></div>
     <div class="tbl-wrap">
       <table class="data-tbl"><thead><tr><th>#</th><th>반</th><th>학번</th><th>수험번호</th><th>성명</th><th>수강 내역</th><th>처리</th></tr></thead>
@@ -1803,6 +1806,21 @@ function exportPayHistoryExcel2(){
   XLSX.utils.book_append_sheet(wb,ws,'단과납부현황');
   XLSX.writeFile(wb,`QUETTA_단과납부현황${date?'_'+date:''}.xlsx`);
   toast('단과 납부현황 엑셀 다운로드 완료');
+}
+function exportUnpaidExcel(){
+  if(!S.미납퇴소)S.미납퇴소=[];
+  const 미납퇴소Set=new Set(S.미납퇴소.map(r=>r.수험번호));
+  const currIds=new Set(S.pays.filter(p=>p.status==='active'&&(S.cfg.currTerms||[]).includes(p.내역)).map(p=>p.수험번호));
+  const unpaid=sortByBan(S.pays.filter(p=>p.status==='active'&&(S.cfg.prevTerms||[]).includes(p.내역)&&!currIds.has(p.수험번호)&&!미납퇴소Set.has(p.수험번호)));
+  if(!unpaid.length){toast('미납자가 없습니다');return;}
+  const headers=['반','학번','수험번호','성명','수강 내역'];
+  const data=[headers,...unpaid.map(r=>[r.반||'',r.번호||'',r.수험번호,r.이름,r.내역])];
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet(data);
+  ws['!cols']=headers.map(()=>({wch:14}));
+  XLSX.utils.book_append_sheet(wb,ws,'미납자');
+  XLSX.writeFile(wb,`QUETTA_미납자_${todayStr()}.xlsx`);
+  toast(`✅ 미납자 ${unpaid.length}명 다운로드 완료`);
 }
 function renderUnpaid(){
   if(!S.미납퇴소)S.미납퇴소=[];
