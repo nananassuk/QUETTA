@@ -1815,37 +1815,45 @@ function exportPayHistoryExcel2(){
 function exportGrandTotalExcel(){
   const active=S.pays.filter(p=>p.status==='active'&&p.환불금액===0);
   const allMonths=[...new Set(active.map(p=>p.내역).filter(Boolean).map(t=>extractMonth(t)).filter(m=>m>0))].sort((a,b)=>a-b);
+  if(!allMonths.length){toast('데이터가 없습니다');return;}
+
+  const cm=allMonths[allMonths.length-1]; // 가장 최신 월(curr)
+  const pm=allMonths.length>=2?allMonths[allMonths.length-2]:null; // 바로 전 월(prev)
+
+  // 총인원 = prev active ∪ curr active
+  const pmIds=pm?new Set(active.filter(p=>extractMonth(p.내역)===pm).map(p=>p.수험번호)):new Set();
+  const cmIds=new Set(active.filter(p=>extractMonth(p.내역)===cm).map(p=>p.수험번호));
+  const allIds=new Set([...pmIds,...cmIds]);
+
+  // 각 학생의 가장 최신 납부 기수 찾기
+  // 수험번호별 최신 월 기록 추출
+  const latestRecByNum={};
+  active.forEach(r=>{
+    const mo=extractMonth(r.내역);
+    if(!mo)return;
+    const existing=latestRecByNum[r.수험번호];
+    if(!existing||mo>extractMonth(existing.내역)){
+      latestRecByNum[r.수험번호]=r;
+    }
+  });
+
+  // 총인원 학생만 추출 (prev∪curr)
   let rows=[];
-  if(allMonths.length>=2){
-    const pm=allMonths[allMonths.length-2],cm=allMonths[allMonths.length-1];
-    const pmRecs=active.filter(p=>extractMonth(p.내역)===pm);
-    const cmRecs=active.filter(p=>extractMonth(p.내역)===cm);
-    const pmIds=new Set(pmRecs.map(p=>p.수험번호));
-    // prev 기수 학생
-    const prevByNum={};
-    pmRecs.forEach(r=>{if(!prevByNum[r.수험번호])prevByNum[r.수험번호]=r;});
-    Object.values(prevByNum).forEach(r=>rows.push({...r,_구분:'재원'}));
-    // curr 기수 신규(prev에 없는 사람)
-    const cmByNum={};
-    cmRecs.forEach(r=>{if(!cmByNum[r.수험번호])cmByNum[r.수험번호]=r;});
-    Object.values(cmByNum).filter(r=>!pmIds.has(r.수험번호)).forEach(r=>rows.push({...r,_구분:'신규'}));
-  } else {
-    const allRecs=active;
-    const byNum={};
-    allRecs.forEach(r=>{if(!byNum[r.수험번호])byNum[r.수험번호]=r;});
-    Object.values(byNum).forEach(r=>rows.push({...r,_구분:'재원'}));
-  }
-  // 반 순 정렬
+  allIds.forEach(suh=>{
+    const r=latestRecByNum[suh];
+    if(r) rows.push(r);
+  });
+
   rows=sortByBan(rows);
   if(!rows.length){toast('데이터가 없습니다');return;}
-  const headers=['구분','반','학번','수험번호','성명','내역','결제금액','장학'];
-  const data=[headers,...rows.map(r=>[r._구분,r.반||'',r.번호||'',r.수험번호,r.이름,r.내역,r.결제금액,r.장학||''])];
-  const wb=XLSX.utils.book_new();
-  const ws=XLSX.utils.aoa_to_sheet(data);
-  ws['!cols']=headers.map(()=>({wch:14}));
-  XLSX.utils.book_append_sheet(wb,ws,'총인원명단');
+  const headers=['반','학번','수험번호','성명','최신납부내역','결제금액','장학'];
+  const data=[headers,...rows.map(r=>[r.반||'',r.번호||'',r.수험번호,r.이름,r.내역,r.결제금액,r.장학||''])];
+  const wb2=XLSX.utils.book_new();
+  const ws2=XLSX.utils.aoa_to_sheet(data);
+  ws2['!cols']=headers.map(()=>({wch:14}));
+  XLSX.utils.book_append_sheet(wb2,ws2,'총인원명단');
   const today=S.cfg.dashDate||todayStr();
-  XLSX.writeFile(wb,`QUETTA_총인원명단_${today}.xlsx`);
+  XLSX.writeFile(wb2,`QUETTA_총인원명단_${today}.xlsx`);
   toast(`✅ 총인원 ${rows.length}명 다운로드 완료`);
 }
 function exportUnpaidExcel(){
