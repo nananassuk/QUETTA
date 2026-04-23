@@ -1094,10 +1094,10 @@ function renderDash(){
       const pmIds=new Set(active.filter(p=>extractMonth(p.내역)===pm&&p.환불금액===0).map(p=>p.수험번호));
       const cmIds=new Set(active.filter(p=>extractMonth(p.내역)===cm&&p.환불금액===0).map(p=>p.수험번호));
       // 이전 쌍: 미납퇴소 제외 (처리 완료된 기수) / 최신 쌍: 미납퇴소 적용 안 함 (현재 진행 중)
-      // 미납퇴소: targetMonth가 cm과 같은 학생만 제외 (targetMonth 없으면 cm===latestMonth일 때만)
-      const latestCm=allMonths[allMonths.length-1];
+      // 미납퇴소: targetMonth 기준으로 해당 cm에만 적용
+      // targetMonth 없으면 pm(이전 월) 기준 → 이미 지난 쌍에만 제외됨, 최신 쌍에서는 제외 안 됨
       const unpaidExcludeSet=new Set((S.미납퇴소||[]).filter(r=>{
-        const tm=r.targetMonth||latestCm;
+        const tm=r.targetMonth||pm;
         return tm===cm;
       }).map(r=>r.수험번호));
       map[cm]=[...pmIds].filter(id=>!cmIds.has(id)&&!unpaidExcludeSet.has(id)).length;
@@ -1259,7 +1259,7 @@ function saveSnapshot(){
     const cmIds=new Set(snapActive.filter(p=>extractMonth(p.내역)===cm&&p.환불금액===0).map(p=>p.수험번호));
     const snapLatestCm=snapAllMonths[snapAllMonths.length-1];
     const snapExcludeSet=new Set((S.미납퇴소||[]).filter(r=>{
-      const tm=r.targetMonth||snapLatestCm;
+      const tm=r.targetMonth||pm;
       return tm===cm;
     }).map(r=>r.수험번호));
     snapUnpaidByMonth[cm]=[...pmIds].filter(id=>!cmIds.has(id)&&!snapExcludeSet.has(id)).length;
