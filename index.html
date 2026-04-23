@@ -1111,14 +1111,7 @@ function renderDash(){
       const snapCurrTotal=(S.cfg.currTerms||[]).reduce((sum,term)=>sum+(snaps[today][term]||0),0);
       return snapCurrTotal+unpaidCnt;
     }
-    // prev기수 학생 ∪ curr기수 학생 = prev기수 + curr기수 신규(prev에 없는 사람)
-    if(allMonths.length>=2){
-      const pm=allMonths[allMonths.length-2], cm=allMonths[allMonths.length-1];
-      const pmIds=new Set(active.filter(p=>extractMonth(p.내역)===pm&&p.환불금액===0).map(p=>p.수험번호));
-      const cmIds=new Set(active.filter(p=>extractMonth(p.내역)===cm&&p.환불금액===0).map(p=>p.수험번호));
-      const newOnly=[...cmIds].filter(id=>!pmIds.has(id)).length;
-      return pmIds.size+newOnly;
-    }
+    // 총인원 = 최신 월 등록인원 + 미납인원
     return currIds.size+unpaidCnt;
   }
   let grandTotal=0;
