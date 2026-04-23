@@ -1256,13 +1256,9 @@ function saveSnapshot(){
   snap._unpaidByMonth=snapUnpaidByMonth;
   const snapLatestMonth=snapAllMonths.length>0?snapAllMonths[snapAllMonths.length-1]:0;
   snap._unpaidCnt=snapUnpaidByMonth[snapLatestMonth]||0;
-  // grandTotal 스냅샷 저장 (prev ∪ curr union)
-  if(snapAllMonths.length>=2){
-    const gpm=snapAllMonths[snapAllMonths.length-2],gcm=snapAllMonths[snapAllMonths.length-1];
-    const gpmIds=new Set(snapActive.filter(p=>extractMonth(p.내역)===gpm&&p.환불금액===0).map(p=>p.수험번호));
-    const gcmIds=new Set(snapActive.filter(p=>extractMonth(p.내역)===gcm&&p.환불금액===0).map(p=>p.수험번호));
-    snap._grandTotal=gpmIds.size+[...gcmIds].filter(id=>!gpmIds.has(id)).length;
-  }
+  // grandTotal 스냅샷 저장 (최신월 등록 + 미납)
+  const snapCurrIds=new Set(snapActive.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
+  snap._grandTotal=snapCurrIds.size+snap._unpaidCnt;
   if(!S.snapshots)S.snapshots={};
   if(S.snapshots[today]){
     openModal('💾 재저장',`<strong>${fmtKor(today)}</strong>에 이미 저장된 현황이 있습니다.<br>덮어쓰시겠습니까?`,
