@@ -1239,7 +1239,9 @@ function saveSnapshot(){
   const snap={};
   [...new Set(S.pays.map(p=>p.내역).filter(Boolean))].forEach(term=>{
     const recs=active.filter(p=>p.내역===term);
-    const todayIn=recs.filter(p=>(p.uploadedDate||p.결제일자)===today&&p.환불금액===0).length;
+    // 당일 등록+퇴소 케이스 대응: todayIn은 status 무관하게 계산
+    const allTermRecs=S.pays.filter(p=>p.내역===term);
+    const todayIn=allTermRecs.filter(p=>(p.uploadedDate||p.결제일자)===today&&p.환불금액===0).length;
     const todayRefund=recs.filter(p=>(p.uploadedDate||p.결제일자)===today&&p.환불금액>0).length;
     const todayWithdraw=S.refunds.filter(r=>{const d=refDate(r);return d===today&&r.removedTerms?.includes(term);}).length;
     let prevDay;
