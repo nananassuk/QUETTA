@@ -1,0 +1,1361 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QUETTA 조교 근무표</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --primary:#1B3D2B; --primary-lt:#254d38; --primary-dk:#122a1d;
+  --gold:#B8912A; --gold-lt:#d4aa50;
+  --bg:#f3f1ec; --surface:#fff; --surface-alt:#f8f7f4;
+  --border:#ddd; --border-lt:#eee;
+  --text:#1a1a1a; --text2:#555; --text3:#999;
+  --danger:#d32f2f; --danger-lt:#ffebee;
+  --shift0:#f0f9f4; --shift1:#ffffff; --shift2:#f8f5f0;
+  --sat-bg:#edf0ff; --sat-hd:#2244aa;
+  --sun-bg:#fff0f0; --sun-hd:#aa3333;
+  --off-bg:#f8f0f0;
+  --leave-연차:#ffebee; --leave-연차t:#c62828;
+  --leave-공가:#e3f2fd; --leave-공가t:#1565c0;
+  --leave-반차:#fff8e1; --leave-반차t:#f57f17;
+  --leave-조퇴:#e8f5e9; --leave-조퇴t:#2e7d32;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:13px;}
+
+.app-header{background:var(--primary);color:#fff;height:52px;display:flex;align-items:center;padding:0 14px;gap:10px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.25);}
+.app-logo{font-size:16px;font-weight:700;letter-spacing:-.3px;white-space:nowrap;}
+.app-logo em{color:var(--gold);font-style:normal;}
+.spacer{flex:1;}
+.month-nav{display:flex;align-items:center;gap:6px;}
+.mnav-btn{background:rgba(255,255,255,.15);border:none;color:#fff;width:28px;height:28px;border-radius:4px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;}
+.mnav-btn:hover{background:rgba(255,255,255,.28);}
+.month-display{font-size:14px;font-weight:600;min-width:84px;text-align:center;}
+.admin-badge{background:var(--gold);color:#fff;font-size:10px;padding:2px 7px;border-radius:3px;font-weight:700;}
+.auth-btn{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);color:#fff;padding:4px 11px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:12px;}
+.auth-btn:hover{background:rgba(255,255,255,.25);}
+
+.tab-nav{background:var(--primary-dk);display:flex;overflow-x:auto;scrollbar-width:none;}
+.tab-nav::-webkit-scrollbar{display:none;}
+.tab-btn{padding:9px 15px;color:rgba(255,255,255,.55);background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;font-family:inherit;font-size:12.5px;white-space:nowrap;transition:all .15s;}
+.tab-btn:hover{color:rgba(255,255,255,.85);}
+.tab-btn.active{color:var(--gold);border-bottom-color:var(--gold);font-weight:600;}
+
+.tab-content{display:none;}
+.tab-content.active{display:block;}
+
+.schedule-wrap{padding:12px;}
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;font-size:11px;color:var(--text2);}
+.leg-item{display:flex;align-items:center;gap:4px;}
+.leg-dot{width:13px;height:13px;border-radius:2px;border:1px solid rgba(0,0,0,.12);}
+
+.week-block{margin-bottom:16px;background:var(--surface);border:1px solid var(--border);border-radius:6px;overflow:hidden;}
+.schedule-tbl{border-collapse:collapse;min-width:780px;font-size:11px;table-layout:auto;}
+.schedule-tbl th,.schedule-tbl td{border:1px solid #ddd;padding:2px;text-align:center;vertical-align:middle;}
+.day-th{background:var(--primary);color:#fff;font-size:11.5px;padding:4px 2px;white-space:nowrap;}
+.day-th.sat{background:var(--sat-hd);}
+.day-th.sun,.day-th.hoff{background:var(--sun-hd);}
+.day-th .dow{font-weight:700;}
+.dept-th{background:#e8f0eb;color:#333;font-size:10px;padding:2px 1px;font-weight:600;}
+.dept-th.cm{background:#f0e8f5;color:#5c2d7a;}
+.dept-th.wkend{background:#e4e8f8;}
+.shift-td{background:var(--surface-alt);font-size:10px;color:var(--text2);padding:2px 4px;min-width:54px;white-space:nowrap;}
+.shift-td.s0{background:var(--shift0);}
+.shift-td.s1{background:var(--shift1);}
+.shift-td.s2{background:var(--shift2);}
+.cell{min-width:20px;height:24px;padding:1px 2px;position:relative;cursor:default;}
+.cell.s0{background:var(--shift0);}
+.cell.s1{background:var(--shift1);}
+.cell.s2{background:var(--shift2);}
+.cell.hoff{background:var(--off-bg);}
+.cell.sat{background:var(--sat-bg);}
+.cell.can-edit:hover{background:rgba(184,145,42,.1)!important;cursor:pointer;}
+.wb{display:inline-block;font-size:11px;font-weight:600;padding:1px 2px;border-radius:2px;line-height:1.3;color:var(--primary);}
+.wb.연차{background:var(--leave-연차);color:var(--leave-연차t);}
+.wb.공가{background:var(--leave-공가);color:var(--leave-공가t);}
+.wb.반차{background:var(--leave-반차);color:var(--leave-반차t);}
+.wb.조퇴{background:var(--leave-조퇴);color:var(--leave-조퇴t);}
+.wb-tag{font-size:8px;margin-left:1px;}
+.misc-label{background:#f5f4f0;font-size:10px;color:var(--text2);white-space:nowrap;padding:3px 4px;}
+.misc-cell{font-size:11px;padding:3px 4px;text-align:left;min-height:22px;}
+.misc-cell.note[contenteditable="true"]{background:#fffef8;cursor:text;}
+.misc-cell.note[contenteditable="true"]:focus{outline:1px solid var(--gold);background:#fff;}
+.off-text{font-size:10px;color:#cc3333;}
+.week-sum{background:var(--primary-dk);display:flex;flex-wrap:wrap;align-items:center;padding:4px 8px;gap:10px;font-size:10px;color:rgba(255,255,255,.8);}
+.sum-lbl{font-weight:600;opacity:.6;margin-right:2px;}
+.sum-item{display:flex;align-items:center;gap:3px;}
+.sum-name{font-weight:700;}
+.sum-h{background:rgba(255,255,255,.2);padding:1px 5px;border-radius:3px;}
+.sum-h.over52{background:#cc2222;}
+
+.page{padding:16px;max-width:1100px;}
+.page-title{font-size:15px;font-weight:700;color:var(--primary);margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid var(--primary);}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:14px;margin-bottom:14px;}
+.card-title{font-size:13px;font-weight:600;color:var(--primary);margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+.dtbl{width:100%;border-collapse:collapse;font-size:12.5px;}
+.dtbl th{background:var(--primary);color:#fff;padding:7px 10px;text-align:left;font-weight:500;}
+.dtbl td{padding:8px 10px;border-bottom:1px solid var(--border-lt);vertical-align:middle;}
+.dtbl tr:hover td{background:#f8f8f5;}
+
+.btn{padding:6px 13px;border-radius:4px;border:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:500;transition:all .15s;}
+.btn-primary{background:var(--primary);color:#fff;}
+.btn-primary:hover{background:var(--primary-lt);}
+.btn-gold{background:var(--gold);color:#fff;}
+.btn-danger{background:var(--danger);color:#fff;}
+.btn-danger:hover{background:#c62828;}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text);}
+.btn-ghost:hover{background:var(--surface-alt);}
+.btn-sm{padding:3px 9px;font-size:11.5px;}
+.btn-xs{padding:2px 7px;font-size:11px;}
+
+.fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;}
+.fg{display:flex;flex-direction:column;gap:3px;}
+.fl{font-size:11.5px;color:var(--text2);font-weight:500;}
+.fi,.fs,.fta{padding:6px 9px;border:1px solid var(--border);border-radius:4px;font-family:inherit;font-size:13px;background:#fff;}
+.fi:focus,.fs:focus,.fta:focus{outline:1px solid var(--primary);border-color:var(--primary);}
+.fta{min-height:65px;resize:vertical;}
+
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;display:flex;align-items:center;justify-content:center;padding:14px;}
+.mo.hidden{display:none;}
+.mbox{background:#fff;border-radius:8px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.2);}
+.mbox.sm{max-width:360px;}
+.mhd{background:var(--primary);color:#fff;padding:13px 15px;font-size:14px;font-weight:600;border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:space-between;}
+.mc-btn{background:none;border:none;color:#fff;font-size:18px;cursor:pointer;line-height:1;padding:0 2px;}
+.mbody{padding:15px;}
+.mfooter{padding:11px 15px;border-top:1px solid var(--border-lt);display:flex;justify-content:flex-end;gap:7px;}
+
+.chip{display:inline-block;padding:1px 8px;border-radius:11px;font-size:11px;font-weight:600;}
+.chip-조교{background:#e8f5e9;color:#2e7d32;}
+.chip-CM{background:#f3e5f5;color:#7b1fa2;}
+.chip-연차{background:var(--leave-연차);color:var(--leave-연차t);}
+.chip-반차{background:var(--leave-반차);color:var(--leave-반차t);}
+.chip-공가{background:var(--leave-공가);color:var(--leave-공가t);}
+.chip-조퇴{background:var(--leave-조퇴);color:var(--leave-조퇴t);}
+
+.alert{padding:9px 13px;border-radius:5px;font-size:12.5px;margin-bottom:10px;}
+.alert-info{background:#e3f2fd;border-left:3px solid #1976d2;color:#0d47a1;}
+.alert-warn{background:#fff8e1;border-left:3px solid #f9a825;color:#5c4a00;}
+.alert-danger{background:var(--danger-lt);border-left:3px solid var(--danger);color:#b71c1c;}
+
+.hcal{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+.cday{aspect-ratio:1;border:1px solid var(--border);border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12px;position:relative;}
+.cday.clickable{cursor:pointer;}
+.cday.clickable:hover{border-color:var(--primary);}
+.cday.empty{border:none;}
+.cday.sun{color:#cc3333;}
+.cday.sat{color:var(--sat-hd);}
+.cday.hoff{background:#ffeeee;border-color:#ffaaaa;}
+.cday.hwork{background:#eeffee;border-color:#aaddaa;}
+.cday.today{border:2px solid var(--gold);}
+.cday-n{font-weight:700;}
+.cday-l{font-size:9px;color:var(--text2);}
+.rot-list{display:flex;flex-direction:column;gap:5px;}
+.rot-item{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--surface-alt);border:1px solid var(--border);border-radius:4px;}
+.rot-rank{width:22px;height:22px;background:var(--primary);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;}
+.over52{color:var(--danger)!important;background:#fff5f5!important;font-weight:700;}
+.near52{color:#e65100;}
+.assign-badge{display:inline-flex;align-items:center;gap:3px;background:#e8f0eb;border:1px solid #c0d4c8;border-radius:4px;padding:2px 6px;font-size:11px;margin:2px;}
+.leave-list{display:flex;flex-direction:column;gap:5px;}
+.leave-item{display:grid;grid-template-columns:100px auto 1fr auto;align-items:center;gap:8px;padding:8px 12px;background:var(--surface-alt);border:1px solid var(--border);border-radius:6px;cursor:pointer;}
+.leave-item:hover{border-color:var(--primary);}
+.leave-date{font-size:12px;color:var(--text2);}
+
+.loading{position:fixed;inset:0;background:rgba(255,255,255,.85);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;}
+.loading.hidden{display:none;}
+.spinner{width:38px;height:38px;border:3px solid #eee;border-top-color:var(--primary);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.toast-wrap{position:fixed;bottom:18px;right:18px;z-index:9999;display:flex;flex-direction:column;gap:7px;}
+.toast{background:#2d2d2d;color:#fff;padding:9px 15px;border-radius:6px;font-size:12.5px;box-shadow:0 3px 10px rgba(0,0,0,.2);animation:toastIn .2s ease;max-width:280px;}
+.toast.ok{background:var(--primary);}
+.toast.err{background:var(--danger);}
+@keyframes toastIn{from{transform:translateX(100%);opacity:0;}to{transform:translateX(0);opacity:1;}}
+
+.mt8{margin-top:8px;}.mt12{margin-top:12px;}.mb8{margin-bottom:8px;}.mb12{margin-bottom:12px;}
+.fr{display:flex;align-items:center;gap:7px;}.fe{justify-content:flex-end;}
+.empty-state{text-align:center;padding:36px;color:var(--text3);}
+.ovx{overflow-x:auto;}
+@media(max-width:600px){.page{padding:9px;}.fgrid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<div class="loading" id="loading">
+  <div class="spinner"></div>
+  <div style="color:var(--text2);font-size:13px;">데이터 불러오는 중...</div>
+</div>
+<div class="toast-wrap" id="toastWrap"></div>
+
+<!-- 로그인 모달 -->
+<div class="mo hidden" id="loginModal">
+  <div class="mbox sm">
+    <div class="mhd">관리자 로그인<button class="mc-btn" onclick="closeModal('loginModal')">✕</button></div>
+    <div class="mbody">
+      <div class="fg mb8"><label class="fl">이메일</label><input type="email" class="fi" id="loginEmail" placeholder="admin@example.com"></div>
+      <div class="fg"><label class="fl">비밀번호</label><input type="password" class="fi" id="loginPw"></div>
+      <div class="alert alert-danger mt8 hidden" id="loginErr"></div>
+    </div>
+    <div class="mfooter"><button class="btn btn-ghost" onclick="closeModal('loginModal')">취소</button><button class="btn btn-primary" onclick="doLogin()">로그인</button></div>
+  </div>
+</div>
+
+<!-- 직원 모달 -->
+<div class="mo hidden" id="staffModal">
+  <div class="mbox">
+    <div class="mhd"><span id="staffModalTitle">직원 추가</span><button class="mc-btn" onclick="closeModal('staffModal')">✕</button></div>
+    <div class="mbody">
+      <div class="fgrid">
+        <div class="fg"><label class="fl">이름 *</label><input type="text" class="fi" id="sName"></div>
+        <div class="fg"><label class="fl">약자 (1-2글자) *</label><input type="text" class="fi" id="sShort" maxlength="2"></div>
+        <div class="fg"><label class="fl">구분 *</label><select class="fs" id="sType"><option value="조교">조교</option><option value="CM">CM</option></select></div>
+        <div class="fg"><label class="fl">주 계약시간(h)</label><input type="number" class="fi" id="sContract" min="1" max="52" placeholder="40"></div>
+        <div class="fg"><label class="fl">입사일 *</label><input type="date" class="fi" id="sHire"></div>
+        <div class="fg"><label class="fl">퇴사일 (재직중이면 비워두기)</label><input type="date" class="fi" id="sLeave"></div>
+      </div>
+    </div>
+    <div class="mfooter"><button class="btn btn-ghost" onclick="closeModal('staffModal')">취소</button><button class="btn btn-primary" onclick="saveStaff()">저장</button></div>
+  </div>
+</div>
+
+<!-- 배치 모달 -->
+<div class="mo hidden" id="assignModal">
+  <div class="mbox">
+    <div class="mhd"><span id="assignModalTitle">부서 배치 설정</span><button class="mc-btn" onclick="closeModal('assignModal')">✕</button></div>
+    <div class="mbody">
+      <div class="fgrid">
+        <div class="fg"><label class="fl">배치 부서 *</label><select class="fs" id="aDept"></select></div>
+        <div class="fg"><label class="fl">근무 시간대 *</label><select class="fs" id="aShift"></select></div>
+        <div class="fg"><label class="fl">시작일 *</label><input type="date" class="fi" id="aStart"></div>
+        <div class="fg"><label class="fl">종료일 (미정이면 비워두기)</label><input type="date" class="fi" id="aEnd"></div>
+      </div>
+    </div>
+    <div class="mfooter"><button class="btn btn-ghost" onclick="closeModal('assignModal')">취소</button><button class="btn btn-primary" onclick="saveAssignment()">저장</button></div>
+  </div>
+</div>
+
+<!-- 휴가 모달 -->
+<div class="mo hidden" id="leaveModal">
+  <div class="mbox">
+    <div class="mhd"><span id="leaveModalTitle">휴가 입력</span><button class="mc-btn" onclick="closeModal('leaveModal')">✕</button></div>
+    <div class="mbody">
+      <div class="fgrid">
+        <div class="fg"><label class="fl">직원 *</label><select class="fs" id="lStaff"></select></div>
+        <div class="fg"><label class="fl">날짜 *</label><input type="date" class="fi" id="lDate"></div>
+        <div class="fg"><label class="fl">유형 *</label>
+          <select class="fs" id="lType">
+            <option value="연차">연차 (전일)</option>
+            <option value="공가">공가 (전일)</option>
+            <option value="반차">반차 (반일)</option>
+            <option value="조퇴">조퇴</option>
+          </select>
+        </div>
+      </div>
+      <div class="fg mt8"><label class="fl">사유</label><textarea class="fta" id="lReason" placeholder="예: 예비군 훈련, 통원치료 등"></textarea></div>
+    </div>
+    <div class="mfooter"><button class="btn btn-ghost" onclick="closeModal('leaveModal')">취소</button><button class="btn btn-primary" onclick="saveLeave()">저장</button></div>
+  </div>
+</div>
+
+<!-- 휴가 상세 모달 -->
+<div class="mo hidden" id="leaveDetailModal">
+  <div class="mbox sm">
+    <div class="mhd">휴가 상세<button class="mc-btn" onclick="closeModal('leaveDetailModal')">✕</button></div>
+    <div class="mbody" id="leaveDetailBody"></div>
+    <div class="mfooter" id="leaveDetailFooter"></div>
+  </div>
+</div>
+
+<!-- 수동편성 모달 -->
+<div class="mo hidden" id="overrideModal">
+  <div class="mbox">
+    <div class="mhd"><span id="overrideTitle">근무 수동 설정</span><button class="mc-btn" onclick="closeModal('overrideModal')">✕</button></div>
+    <div class="mbody" id="overrideBody"></div>
+    <div class="mfooter">
+      <button class="btn btn-ghost" onclick="closeModal('overrideModal')">취소</button>
+      <button class="btn btn-danger btn-sm hidden" id="overrideDelBtn" onclick="deleteOverride()">초기화</button>
+      <button class="btn btn-primary" onclick="saveOverride()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 휴일 모달 -->
+<div class="mo hidden" id="holidayModal">
+  <div class="mbox">
+    <div class="mhd"><span id="holidayModalTitle">휴일 설정</span><button class="mc-btn" onclick="closeModal('holidayModal')">✕</button></div>
+    <div class="mbody" id="holidayModalBody"></div>
+    <div class="mfooter" id="holidayModalFooter"></div>
+  </div>
+</div>
+
+<!-- 근무시간대 모달 -->
+<div class="mo hidden" id="shiftModal">
+  <div class="mbox sm">
+    <div class="mhd"><span id="shiftModalTitle">근무시간대 추가</span><button class="mc-btn" onclick="closeModal('shiftModal')">✕</button></div>
+    <div class="mbody">
+      <div class="fgrid">
+        <div class="fg"><label class="fl">시작 시간 *</label><input type="time" class="fi" id="shStart"></div>
+        <div class="fg"><label class="fl">종료 시간 *</label><input type="time" class="fi" id="shEnd"></div>
+        <div class="fg"><label class="fl">근무시간 (h) *</label><input type="number" class="fi" id="shHours" min="1" max="12" value="8"></div>
+      </div>
+    </div>
+    <div class="mfooter"><button class="btn btn-ghost" onclick="closeModal('shiftModal')">취소</button><button class="btn btn-primary" onclick="saveShift()">저장</button></div>
+  </div>
+</div>
+
+<!-- 부서 모달 -->
+<div class="mo hidden" id="deptModal">
+  <div class="mbox sm">
+    <div class="mhd"><span id="deptModalTitle">부서 추가</span><button class="mc-btn" onclick="closeModal('deptModal')">✕</button></div>
+    <div class="mbody">
+      <div class="fgrid">
+        <div class="fg"><label class="fl">부서명 *</label><input type="text" class="fi" id="dpName" placeholder="예: 영상"></div>
+        <div class="fg"><label class="fl">약자 (1-2글자) *</label><input type="text" class="fi" id="dpShort" maxlength="2" placeholder="예: 영"></div>
+      </div>
+    </div>
+    <div class="mfooter"><button class="btn btn-ghost" onclick="closeModal('deptModal')">취소</button><button class="btn btn-primary" onclick="saveDept()">저장</button></div>
+  </div>
+</div>
+
+<!-- 헤더 -->
+<header class="app-header">
+  <div class="app-logo">QUETTA <em>조교 근무표</em></div>
+  <div class="spacer"></div>
+  <div class="month-nav">
+    <button class="mnav-btn" onclick="changeMonth(-1)">‹</button>
+    <div class="month-display" id="monthDisplay">---</div>
+    <button class="mnav-btn" onclick="changeMonth(1)">›</button>
+  </div>
+  <div class="spacer"></div>
+  <span class="admin-badge hidden" id="adminBadge">관리자</span>
+  <button class="auth-btn" id="authBtn" onclick="handleAuth()">로그인</button>
+</header>
+
+<!-- 탭 네비게이션 -->
+<nav class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('schedule',this)">📅 근무표</button>
+  <button class="tab-btn" onclick="switchTab('staff',this)">👤 인원 관리</button>
+  <button class="tab-btn" onclick="switchTab('leave',this)">📝 휴가 관리</button>
+  <button class="tab-btn" onclick="switchTab('holiday',this)">🗓️ 휴일 설정</button>
+  <button class="tab-btn" onclick="switchTab('weekly',this)">⏱️ 주간 현황</button>
+  <button class="tab-btn" onclick="switchTab('settings',this)">⚙️ 설정</button>
+</nav>
+
+<main>
+
+<!-- 근무표 탭 -->
+<div class="tab-content active" id="tab-schedule">
+  <div class="schedule-wrap">
+    <div class="legend">
+      <div class="leg-item"><div class="leg-dot" style="background:var(--leave-연차)"></div>연차</div>
+      <div class="leg-item"><div class="leg-dot" style="background:var(--leave-공가)"></div>공가</div>
+      <div class="leg-item"><div class="leg-dot" style="background:var(--leave-반차)"></div>반차</div>
+      <div class="leg-item"><div class="leg-dot" style="background:var(--leave-조퇴)"></div>조퇴</div>
+      <div class="leg-item"><div class="leg-dot" style="background:var(--off-bg)"></div>휴일</div>
+      <div class="leg-item"><div class="leg-dot" style="background:var(--sat-bg)"></div>토요근무</div>
+      <span id="adminScheduleNote" class="hidden" style="margin-left:auto;font-size:11px;color:var(--gold);font-weight:600;">✏ 이름 클릭: 개별 수동편성 | 빈 셀 클릭: 직원 추가</span>
+    </div>
+    <div id="scheduleContainer"></div>
+  </div>
+</div>
+
+<!-- 인원 관리 탭 -->
+<div class="tab-content" id="tab-staff">
+  <div class="page">
+    <div class="page-title">👤 인원 관리</div>
+    <div class="card">
+      <div class="card-title">직원 목록
+        <button class="btn btn-primary btn-sm hidden" id="addStaffBtn" onclick="openAddStaff()">+ 직원 추가</button>
+      </div>
+      <div id="staffList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 휴가 관리 탭 -->
+<div class="tab-content" id="tab-leave">
+  <div class="page">
+    <div class="page-title">📝 휴가 관리</div>
+    <div class="fr mb12" style="flex-wrap:wrap;gap:8px;">
+      <button class="btn btn-primary hidden" id="addLeaveBtn" onclick="openAddLeave()">+ 휴가 입력</button>
+      <select class="fs" id="leaveTypeFilter" style="width:auto;" onchange="renderLeaveTab()">
+        <option value="">전체 유형</option>
+        <option value="연차">연차</option><option value="반차">반차</option>
+        <option value="공가">공가</option><option value="조퇴">조퇴</option>
+      </select>
+      <select class="fs" id="leaveStaffFilter" style="width:auto;" onchange="renderLeaveTab()">
+        <option value="">전체 직원</option>
+      </select>
+    </div>
+    <div id="leaveSummary"></div>
+    <div id="leaveList"></div>
+  </div>
+</div>
+
+<!-- 휴일 설정 탭 -->
+<div class="tab-content" id="tab-holiday">
+  <div class="page">
+    <div class="page-title">🗓️ 휴일 설정</div>
+    <div class="alert alert-info">날짜를 클릭하여 <strong>전원 휴무</strong> 또는 <strong>근무있는 휴일</strong>로 설정하세요.<br>기본: 일요일 전원 휴무 | 토요일 로테이션 2명 근무</div>
+    <div class="card">
+      <div class="card-title">달력</div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center;margin-bottom:5px;">
+        <div style="font-size:11px;color:#cc3333;font-weight:600;">일</div>
+        <div style="font-size:11px;color:var(--text2);font-weight:600;">월</div>
+        <div style="font-size:11px;color:var(--text2);font-weight:600;">화</div>
+        <div style="font-size:11px;color:var(--text2);font-weight:600;">수</div>
+        <div style="font-size:11px;color:var(--text2);font-weight:600;">목</div>
+        <div style="font-size:11px;color:var(--text2);font-weight:600;">금</div>
+        <div style="font-size:11px;color:var(--sat-hd);font-weight:600;">토</div>
+      </div>
+      <div class="hcal" id="holidayCalendar"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">🔄 휴일 근무 로테이션</div>
+      <div class="alert alert-info mb8" id="rotPreview"></div>
+      <div class="rot-list" id="rotList"></div>
+      <div class="hidden" id="rotControls">
+        <div style="height:1px;background:var(--border);margin:12px 0;"></div>
+        <div class="fgrid">
+          <div class="fg"><label class="fl">기준일</label><input type="date" class="fi" id="rotStartDate"></div>
+          <div class="fg"><label class="fl">시작 순번 (0=첫번째)</label><input type="number" class="fi" id="rotStartIdx" min="0" value="0" style="max-width:100px;"></div>
+        </div>
+        <div class="mt8" id="rotOrderEdit"></div>
+        <button class="btn btn-primary mt8" onclick="saveRotation()">로테이션 저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 주간 현황 탭 -->
+<div class="tab-content" id="tab-weekly">
+  <div class="page">
+    <div class="page-title">⏱️ 주간 근무시간 현황</div>
+    <div class="alert alert-warn mb8">주간 52시간 초과 시 <strong style="color:var(--danger);">빨간색</strong>으로 표시됩니다.</div>
+    <div class="card ovx">
+      <table class="dtbl" id="weeklyTable">
+        <thead><tr><th>직원</th><th>구분</th><th>주계약H</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- 설정 탭 -->
+<div class="tab-content" id="tab-settings">
+  <div class="page">
+    <div class="page-title">⚙️ 설정</div>
+    <div class="card">
+      <div class="card-title">근무 시간대
+        <button class="btn btn-primary btn-sm hidden" id="addShiftBtn" onclick="openAddShift()">+ 추가</button>
+      </div>
+      <div id="shiftList"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">부서 관리
+        <button class="btn btn-primary btn-sm hidden" id="addDeptBtn" onclick="openAddDept()">+ 추가</button>
+      </div>
+      <div id="deptList"></div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  SUPABASE CONFIG  ← 아래 두 값을 교체하세요
+// ═══════════════════════════════════════════════════════
+const SUPABASE_URL      = 'https://elqxailuuxkzddsujlmc.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_6O6p_9kzyKV0w7SHToPNVg_5SnaEHbE';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ═══════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════
+const S = {
+  isAdmin: false,
+  yr: new Date().getFullYear(),
+  mo: new Date().getMonth() + 1,
+  staff: [], shifts: [], depts: [], assigns: [],
+  overrides: [], leaves: [], holidays: [], notes: {},
+  rotation: { order:[], startDate:'2025-05-01', startIndex:0 },
+  _staffId:null, _assignStaffId:null, _assignId:null,
+  _leaveId:null, _shiftId:null, _deptId:null,
+  _ovDate:null, _ovStaffId:null, _holidayDate:null,
+};
+
+// ═══════════════════════════════════════════════════════
+//  DATE HELPERS
+// ═══════════════════════════════════════════════════════
+const fmtDate = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const parseD  = s => { const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); };
+const DOW_KR  = ['일','월','화','수','목','금','토'];
+
+function getWeeksOfMonth(yr, mo) {
+  const weeks=[]; const total=new Date(yr,mo,0).getDate();
+  let week=new Array(7).fill(null);
+  for(let d=1;d<=total;d++){
+    const dt=new Date(yr,mo-1,d); const raw=dt.getDay();
+    const idx=raw===0?6:raw-1;
+    week[idx]=dt;
+    if(raw===0||d===total){weeks.push([...week]);week=new Array(7).fill(null);}
+  }
+  return weeks;
+}
+function activeStaffOn(ds){
+  return S.staff.filter(s=>{
+    if(s.hireDate&&s.hireDate>ds) return false;
+    if(s.leaveDate&&s.leaveDate<=ds) return false;
+    return true;
+  });
+}
+function getAssign(staffId,ds){
+  return S.assigns.filter(a=>a.staffId===staffId).find(a=>{
+    if(a.startDate&&a.startDate>ds) return false;
+    if(a.endDate&&a.endDate<ds) return false;
+    return true;
+  })||null;
+}
+function getLeave(staffId,ds){return S.leaves.find(l=>l.staffId===staffId&&l.date===ds)||null;}
+function getOverride(staffId,ds){return S.overrides.find(o=>o.staffId===staffId&&o.date===ds)||null;}
+function getHoliday(ds){return S.holidays.find(h=>h.date===ds)||null;}
+
+// ═══════════════════════════════════════════════════════
+//  ROTATION
+// ═══════════════════════════════════════════════════════
+function allRotDates(from,to){
+  const res=[]; if(!from||!to) return res;
+  const cur=parseD(from),end=parseD(to);
+  while(cur<=end){
+    const ds=fmtDate(cur); const dow=cur.getDay(); const h=getHoliday(ds);
+    if(dow===6&&h?.type!=='휴무') res.push(ds);
+    else if(h?.type==='근무있음'&&h?.useRotation!==false) res.push(ds);
+    cur.setDate(cur.getDate()+1);
+  }
+  return res;
+}
+function rotWorkers(ds,count){
+  const {order,startDate,startIndex}=S.rotation;
+  if(!order||!order.length) return [];
+  const all=allRotDates(startDate,ds); const idx=all.indexOf(ds);
+  if(idx<0) return [];
+  let total=(startIndex||0);
+  for(let i=0;i<idx;i++){const h=getHoliday(all[i]);total+=(h?.workerCount||2);}
+  const res=[];
+  for(let i=0;i<count;i++) res.push(order[(total+i)%order.length]);
+  return res;
+}
+
+// ═══════════════════════════════════════════════════════
+//  DAY COMPUTATION
+// ═══════════════════════════════════════════════════════
+function computeDay(date){
+  if(!date) return null;
+  const ds=fmtDate(date); const dow=date.getDay(); const h=getHoliday(ds);
+  let dayType='regular'; let rotIds=[]; let manIds=[];
+  if(dow===0){dayType='hoff';}
+  else if(h){
+    dayType=h.type==='휴무'?'hoff':'hwork';
+    if(dayType==='hwork'){
+      if(h.useRotation!==false) rotIds=rotWorkers(ds,h.workerCount||2);
+      else manIds=h.workerIds||[];
+    }
+  } else if(dow===6){dayType='saturday';rotIds=rotWorkers(ds,2);}
+
+  const sched={};const offStaff=[];
+  if(dayType!=='hoff'){
+    activeStaffOn(ds).forEach(staff=>{
+      if(staff.type==='CM'&&dayType!=='regular') return;
+      if((dayType==='saturday'||(dayType==='hwork'&&h?.useRotation!==false))&&staff.type==='조교'){
+        if(!rotIds.includes(staff.id)) return;
+      }
+      if(dayType==='hwork'&&h?.useRotation===false){
+        if(!manIds.includes(staff.id)) return;
+      }
+      const leave=getLeave(staff.id,ds);
+      if(leave&&(leave.type==='연차'||leave.type==='공가')){offStaff.push({staff,leave});return;}
+      const ov=getOverride(staff.id,ds);
+      if(ov&&ov.isAbsent){offStaff.push({staff,ov});return;}
+      const assign=getDeptOrOv(staff,ds,ov);
+      if(!assign) return;
+      const{shiftId,deptId}=assign;
+      if(!sched[shiftId]) sched[shiftId]={};
+      if(!sched[shiftId][deptId]) sched[shiftId][deptId]=[];
+      sched[shiftId][deptId].push({staff,leave,hasOv:!!ov});
+    });
+  }
+  return{ds,date,dow,dayType,sched,offStaff,note:S.notes[ds]||'',h};
+}
+function getDeptOrOv(staff,ds,ov){
+  const shiftId=ov?.shiftTypeId||getAssign(staff.id,ds)?.shiftTypeId;
+  const deptId=ov?.deptId||getAssign(staff.id,ds)?.deptId;
+  return(shiftId&&deptId)?{shiftId,deptId}:null;
+}
+
+// ═══════════════════════════════════════════════════════
+//  RENDER: 근무표
+// ═══════════════════════════════════════════════════════
+function renderSchedule(){
+  document.getElementById('monthDisplay').textContent=`${S.yr}년 ${S.mo}월`;
+  const container=document.getElementById('scheduleContainer'); container.innerHTML='';
+  const weeks=getWeeksOfMonth(S.yr,S.mo);
+  const depts=S.depts;
+  const shifts=[...S.shifts].sort((a,b)=>a.startTime.localeCompare(b.startTime));
+  const cols=[...depts.map(d=>d.id),'CM'];
+  document.getElementById('adminScheduleNote')?.classList.toggle('hidden',!S.isAdmin);
+
+  weeks.forEach(week=>{
+    if(!week.some(d=>d)) return;
+    const block=document.createElement('div'); block.className='week-block';
+    const dayData=week.map(d=>d?computeDay(d):null);
+    const tbl=document.createElement('table'); tbl.className='schedule-tbl';
+    const thead=document.createElement('thead'); const tbody=document.createElement('tbody');
+
+    // 날짜 헤더
+    const tr1=document.createElement('tr');
+    const lth=document.createElement('th');
+    lth.rowSpan=2;lth.style.cssText='background:var(--primary);color:#fff;font-size:10px;min-width:52px;';
+    lth.textContent='근무시간';tr1.appendChild(lth);
+    week.forEach((d,wi)=>{
+      const th=document.createElement('th');th.colSpan=cols.length;
+      if(!d){th.className='day-th';th.style.cssText='background:#e0e0e0;opacity:0;';tr1.appendChild(th);return;}
+      const dd=dayData[wi];const raw=d.getDay();
+      let cls='day-th';
+      if(raw===6)cls+=' sat';if(raw===0)cls+=' sun';
+      if(dd?.dayType==='hoff'&&raw!==0)cls+=' hoff';
+      th.className=cls;
+      th.innerHTML=`<span class="dow">${DOW_KR[raw]}</span> <span class="dt">${d.getMonth()+1}/${d.getDate()}</span>${dd?.h?.note?`<br><span style="font-size:9px;opacity:.8;">${dd.h.note}</span>`:''}`;
+      tr1.appendChild(th);
+    });
+    thead.appendChild(tr1);
+
+    // 부서 서브 헤더
+    const tr2=document.createElement('tr');
+    week.forEach((d,wi)=>{
+      cols.forEach(colId=>{
+        const th=document.createElement('th');
+        if(!d){th.style.cssText='background:#e0e0e0;opacity:0;';tr2.appendChild(th);return;}
+        const raw=d.getDay();
+        let cls='dept-th';if(colId==='CM')cls+=' cm';if(raw===6||raw===0)cls+=' wkend';
+        th.className=cls;
+        if(colId==='CM'){th.textContent='CM';}
+        else{const dep=depts.find(x=>x.id===colId);th.textContent=dep?.short||'?';}
+        tr2.appendChild(th);
+      });
+    });
+    thead.appendChild(tr2);tbl.appendChild(thead);
+
+    // 근무시간대 행
+    shifts.forEach((shift,si)=>{
+      const tr=document.createElement('tr');
+      const stl=document.createElement('td');stl.className=`shift-td s${si%3}`;
+      stl.innerHTML=`${shift.startTime}<br>~<br>${shift.endTime}`;tr.appendChild(stl);
+      week.forEach((d,wi)=>{
+        cols.forEach(colId=>{
+          const td=document.createElement('td');
+          if(!d){td.style.cssText='background:#e0e0e0;opacity:0;';tr.appendChild(td);return;}
+          const dd=dayData[wi];const raw=d.getDay();
+          let cls=`cell s${si%3}`;
+          if(dd?.dayType==='hoff')cls+=' hoff';
+          else if(raw===6||dd?.dayType==='saturday')cls+=' sat';
+          if(S.isAdmin&&dd?.dayType!=='hoff')cls+=' can-edit';
+          td.className=cls;
+          const workers=dd?.sched?.[shift.id]?.[colId]||[];
+          workers.forEach(({staff,leave,hasOv})=>{
+            const sp=document.createElement('span');
+            let bc='wb';if(leave)bc+=` ${leave.type}`;
+            sp.className=bc;sp.textContent=staff.shortName;
+            if(leave&&(leave.type==='반차'||leave.type==='조퇴')){
+              const tag=document.createElement('span');tag.className='wb-tag';
+              tag.textContent=leave.type==='반차'?'반':'조';sp.appendChild(tag);
+            }
+            if(leave)sp.title=`${leave.type}: ${leave.reason||''}`;
+            if(hasOv)sp.title=(sp.title?sp.title+' ':'')+'[수동편성]';
+            if(S.isAdmin)sp.addEventListener('click',e=>{e.stopPropagation();openOverrideModal(staff.id,fmtDate(d));});
+            td.appendChild(sp);
+          });
+          if(S.isAdmin&&workers.length===0&&dd?.dayType!=='hoff'){
+            td.addEventListener('click',()=>openOverrideModal(null,fmtDate(d),shift.id,colId));
+          }
+          tr.appendChild(td);
+        });
+      });
+      tbody.appendChild(tr);
+    });
+
+    // 휴무 행
+    const trOff=document.createElement('tr');
+    const offLbl=document.createElement('td');offLbl.className='misc-label';offLbl.textContent='휴무';trOff.appendChild(offLbl);
+    week.forEach((d,wi)=>{
+      const td=document.createElement('td');td.colSpan=cols.length;td.className='misc-cell';
+      if(d){
+        const dd=dayData[wi];
+        if(dd?.offStaff?.length){
+          td.innerHTML=`<span class="off-text">${dd.offStaff.map(x=>`${x.staff.shortName}(${x.leave?.type||'-'})`).join(' ')}</span>`;
+        }
+      }else{td.style.cssText='background:#e0e0e0;opacity:0;';}
+      trOff.appendChild(td);
+    });
+    tbody.appendChild(trOff);
+
+    // 비고 행
+    const trNote=document.createElement('tr');
+    const noteLbl=document.createElement('td');noteLbl.className='misc-label';noteLbl.textContent='비고';trNote.appendChild(noteLbl);
+    week.forEach((d,wi)=>{
+      const td=document.createElement('td');td.colSpan=cols.length;td.className='misc-cell note';
+      if(d){
+        const dd=dayData[wi];td.textContent=dd?.note||'';
+        if(S.isAdmin){
+          td.contentEditable='true';td.dataset.date=fmtDate(d);
+          td.addEventListener('blur',e=>saveNote(fmtDate(d),e.target.textContent.trim()));
+          td.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();e.target.blur();}});
+        }
+      }else{td.style.cssText='background:#e0e0e0;opacity:0;';}
+      trNote.appendChild(td);
+    });
+    tbody.appendChild(trNote);
+
+    tbl.appendChild(tbody);block.appendChild(tbl);
+    block.appendChild(buildWeekSummaryBar(week,dayData,shifts));
+    container.appendChild(block);
+  });
+}
+
+function buildWeekSummaryBar(week,dayData,shifts){
+  const bar=document.createElement('div');bar.className='week-sum';
+  const lbl=document.createElement('span');lbl.className='sum-lbl';lbl.textContent='주간근무:';bar.appendChild(lbl);
+  const shMap={};shifts.forEach(s=>shMap[s.id]=s.hours||8);
+  const hrs={};
+  week.forEach((d,wi)=>{
+    if(!d||d.getMonth()+1!==S.mo) return;
+    const dd=dayData[wi];if(!dd||dd.dayType==='hoff') return;
+    Object.entries(dd.sched).forEach(([shId,deptMap])=>{
+      const h=shMap[shId]||8;
+      Object.values(deptMap).forEach(workers=>{workers.forEach(({staff})=>{hrs[staff.id]=(hrs[staff.id]||0)+h;});});
+    });
+  });
+  const mo1=`${S.yr}-${String(S.mo).padStart(2,'0')}-01`;
+  const moEnd=fmtDate(new Date(S.yr,S.mo,0));
+  S.staff.filter(s=>(!s.hireDate||s.hireDate<=moEnd)&&(!s.leaveDate||s.leaveDate>mo1)).forEach(staff=>{
+    const h=hrs[staff.id]||0;
+    const item=document.createElement('div');item.className='sum-item';
+    const n=document.createElement('span');n.className='sum-name';n.textContent=staff.shortName;
+    const hsp=document.createElement('span');hsp.className='sum-h'+(h>52?' over52':'');hsp.textContent=h+'h';
+    hsp.title=`${staff.name}: ${h}h / 계약 ${staff.contractHours||'?'}h`;
+    item.appendChild(n);item.appendChild(hsp);bar.appendChild(item);
+  });
+  return bar;
+}
+
+// ═══════════════════════════════════════════════════════
+//  RENDER: 인원 관리
+// ═══════════════════════════════════════════════════════
+function renderStaffTab(){
+  document.getElementById('addStaffBtn').classList.toggle('hidden',!S.isAdmin);
+  const el=document.getElementById('staffList');
+  if(!S.staff.length){el.innerHTML='<div class="empty-state">등록된 직원이 없습니다.</div>';return;}
+  const today=fmtDate(new Date());
+  let html='';
+  ['조교','CM'].forEach(type=>{
+    const group=S.staff.filter(s=>s.type===type);
+    if(!group.length) return;
+    html+=`<div class="mb12"><div style="font-size:12px;font-weight:600;color:var(--text2);padding:4px 0;border-bottom:1px solid var(--border-lt);margin-bottom:6px;">${type} ${group.length}명</div>`;
+    html+=`<table class="dtbl"><thead><tr><th>이름</th><th>약자</th><th>계약H</th><th>입사일</th><th>퇴사일</th><th>현재 배치</th>${S.isAdmin?'<th>관리</th>':''}</tr></thead><tbody>`;
+    group.forEach(st=>{
+      const active=(!st.leaveDate||st.leaveDate>today)&&(!st.hireDate||st.hireDate<=today);
+      const as=getAssign(st.id,today);
+      const dep=as?S.depts.find(d=>d.id===as.deptId):null;
+      const sh=as?S.shifts.find(s=>s.id===as.shiftTypeId):null;
+      const assignTxt=as?`${as.deptId==='CM'?'CM':dep?.name||as.deptId} (${sh?.startTime||'?'}~${sh?.endTime||'?'})`:'미배정';
+      html+=`<tr style="opacity:${active?1:.45}">
+        <td><strong>${st.name}</strong> <span class="chip chip-${st.type}" style="font-size:9px;">${active?st.type:'퇴직'}</span></td>
+        <td><strong>${st.shortName}</strong></td>
+        <td>${st.contractHours||'-'}h</td>
+        <td>${st.hireDate||'-'}</td>
+        <td>${st.leaveDate||'재직중'}</td>
+        <td style="font-size:11px;">${assignTxt}</td>
+        ${S.isAdmin?`<td><button class="btn btn-ghost btn-xs" onclick="openEditStaff('${st.id}')">수정</button> <button class="btn btn-primary btn-xs" onclick="openAssignModal('${st.id}')">배치</button></td>`:''}
+      </tr>`;
+      if(S.isAdmin){
+        const hist=S.assigns.filter(a=>a.staffId===st.id).sort((a,b)=>(b.startDate||'').localeCompare(a.startDate||''));
+        if(hist.length){
+          html+=`<tr><td colspan="${S.isAdmin?7:6}" style="padding:3px 10px;background:#fafaf8;font-size:11px;color:var(--text2);">배치이력: `;
+          hist.forEach(a=>{
+            const d=S.depts.find(x=>x.id===a.deptId);const s=S.shifts.find(x=>x.id===a.shiftTypeId);
+            html+=`<span class="assign-badge">${a.deptId==='CM'?'CM':d?.name||a.deptId} ${s?.startTime||'?'} (${a.startDate}~${a.endDate||'현재'}) <button onclick="delAssign('${a.id}')" style="background:none;border:none;cursor:pointer;color:#c62828;font-size:12px;">×</button></span>`;
+          });
+          html+='</td></tr>';
+        }
+      }
+    });
+    html+=`</tbody></table></div>`;
+  });
+  el.innerHTML=html;
+}
+
+// ═══════════════════════════════════════════════════════
+//  RENDER: 휴가 관리
+// ═══════════════════════════════════════════════════════
+function renderLeaveTab(){
+  document.getElementById('addLeaveBtn').classList.toggle('hidden',!S.isAdmin);
+  const sel=document.getElementById('leaveStaffFilter');
+  if(sel){
+    const v=sel.value;
+    sel.innerHTML='<option value="">전체 직원</option>'+S.staff.map(s=>`<option value="${s.id}"${s.id===v?' selected':''}>${s.name}</option>`).join('');
+  }
+  const mo=`${S.yr}-${String(S.mo).padStart(2,'0')}`;
+  const tf=document.getElementById('leaveTypeFilter')?.value||'';
+  const sf=document.getElementById('leaveStaffFilter')?.value||'';
+  let list=S.leaves.filter(l=>l.date.startsWith(mo));
+  if(tf)list=list.filter(l=>l.type===tf);
+  if(sf)list=list.filter(l=>l.staffId===sf);
+  list.sort((a,b)=>a.date.localeCompare(b.date));
+  const cnt={연차:0,반차:0,공가:0,조퇴:0};
+  list.forEach(l=>cnt[l.type]=(cnt[l.type]||0)+1);
+  document.getElementById('leaveSummary').innerHTML=`<div class="card" style="padding:10px 14px;margin-bottom:10px;"><div class="fr" style="flex-wrap:wrap;gap:10px;">
+    <span><span class="chip chip-연차">연차</span> ${cnt.연차}건</span>
+    <span><span class="chip chip-반차">반차</span> ${cnt.반차}건</span>
+    <span><span class="chip chip-공가">공가</span> ${cnt.공가}건</span>
+    <span><span class="chip chip-조퇴">조퇴</span> ${cnt.조퇴}건</span>
+  </div></div>`;
+  const el=document.getElementById('leaveList');
+  if(!list.length){el.innerHTML='<div class="empty-state">이번 달 기록이 없습니다.</div>';return;}
+  el.innerHTML='<div class="leave-list">'+list.map(lv=>{
+    const st=S.staff.find(s=>s.id===lv.staffId);
+    const dt=parseD(lv.date);
+    return `<div class="leave-item" onclick="showLeaveDetail('${lv.id}')">
+      <span class="leave-date">${lv.date} (${DOW_KR[dt.getDay()]})</span>
+      <span style="font-weight:600;">${st?.name||'?'}</span>
+      <span class="chip chip-${lv.type}">${lv.type}</span>
+      <span style="font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${lv.reason||'-'}</span>
+    </div>`;
+  }).join('')+'</div>';
+}
+
+// ═══════════════════════════════════════════════════════
+//  RENDER: 휴일 설정
+// ═══════════════════════════════════════════════════════
+function renderHolidayTab(){
+  const cal=document.getElementById('holidayCalendar');
+  const today=fmtDate(new Date());
+  const firstDow=new Date(S.yr,S.mo-1,1).getDay();
+  const total=new Date(S.yr,S.mo,0).getDate();
+  cal.innerHTML='';
+  for(let i=0;i<firstDow;i++){const e=document.createElement('div');e.className='cday empty';cal.appendChild(e);}
+  for(let d=1;d<=total;d++){
+    const ds=`${S.yr}-${String(S.mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dt=new Date(S.yr,S.mo-1,d);const raw=dt.getDay();
+    const h=getHoliday(ds);
+    const el=document.createElement('div');
+    let cls='cday';
+    if(raw===0)cls+=' sun';if(raw===6)cls+=' sat';
+    if(ds===today)cls+=' today';
+    if(h)cls+=(h.type==='휴무'?' hoff':' hwork');
+    if(raw!==0&&S.isAdmin)cls+=' clickable';
+    el.className=cls;
+    el.innerHTML=`<div class="cday-n">${d}</div>${h?`<div class="cday-l">${h.type==='휴무'?'휴무':'근무'}</div>`:raw===0?'<div class="cday-l">일요휴무</div>':raw===6?'<div class="cday-l">토요근무</div>':''}`;
+    if(raw!==0&&S.isAdmin)el.addEventListener('click',()=>openHolidayModal(ds));
+    cal.appendChild(el);
+  }
+  renderRotation();
+  document.getElementById('rotControls').classList.toggle('hidden',!S.isAdmin);
+}
+
+function renderRotation(){
+  const{order}=S.rotation;
+  const list=document.getElementById('rotList');
+  if(!order||!order.length){list.innerHTML='<div style="font-size:12px;color:var(--text2);">순서가 설정되지 않았습니다.</div>';}
+  else{
+    list.innerHTML=order.map((id,i)=>{
+      const st=S.staff.find(s=>s.id===id);
+      return `<div class="rot-item"><div class="rot-rank">${i+1}</div><span style="font-weight:600;">${st?.name||'?'}</span><span style="font-size:11px;color:var(--text2);">(${st?.shortName||'?'})</span></div>`;
+    }).join('');
+  }
+  // 다음 근무 예정 미리보기
+  const today=new Date();let cur=new Date(today);const upcoming=[];
+  for(let i=0;i<180&&upcoming.length<3;i++){
+    cur.setDate(cur.getDate()+1);
+    const ds=fmtDate(cur);const dow=cur.getDay();const h=getHoliday(ds);
+    const isRot=(dow===6&&h?.type!=='휴무')||(h?.type==='근무있음'&&h?.useRotation!==false);
+    if(isRot){
+      const cnt=h?.workerCount||2;const ids=rotWorkers(ds,cnt);
+      const names=ids.map(id=>S.staff.find(s=>s.id===id)?.name||id).join(', ');
+      upcoming.push(`${ds} (${DOW_KR[dow]}): <strong>${names||'미설정'}</strong>`);
+    }
+  }
+  const prev=document.getElementById('rotPreview');
+  prev.innerHTML=upcoming.length?'<strong>예정 휴일 근무:</strong><br>'+upcoming.join('<br>'):'예정된 휴일 근무가 없습니다.';
+
+  if(S.isAdmin){
+    const el=document.getElementById('rotOrderEdit');if(!el)return;
+    document.getElementById('rotStartDate').value=S.rotation.startDate||'2025-05-01';
+    document.getElementById('rotStartIdx').value=S.rotation.startIndex||0;
+    const 조교List=S.staff.filter(s=>s.type==='조교'&&(!s.leaveDate||s.leaveDate>fmtDate(new Date())));
+    let html='<div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px;">조교 순서 지정 (클릭 순서대로 적용)</div><div style="display:flex;flex-wrap:wrap;gap:6px;">';
+    let pendingOrder=[...order];
+    조교List.forEach(st=>{
+      const inOrder=pendingOrder.indexOf(st.id);
+      html+=`<button class="btn btn-ghost btn-sm rot-order-btn" data-id="${st.id}" style="${inOrder>=0?'background:var(--primary);color:#fff;':''}">${inOrder>=0?`${inOrder+1}.`:''}${st.name}</button>`;
+    });
+    html+='</div><div style="font-size:11px;color:var(--text2);margin-top:5px;">클릭: 순서 지정 / 다시 클릭: 제거</div>';
+    el.innerHTML=html;
+    el._pendingOrder=pendingOrder;
+    el.querySelectorAll('.rot-order-btn').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const id=btn.dataset.id;const idx=el._pendingOrder.indexOf(id);
+        if(idx>=0)el._pendingOrder.splice(idx,1);else el._pendingOrder.push(id);
+        el.querySelectorAll('.rot-order-btn').forEach(b=>{
+          const i=el._pendingOrder.indexOf(b.dataset.id);const st=S.staff.find(s=>s.id===b.dataset.id);
+          if(i>=0){b.style.background='var(--primary)';b.style.color='#fff';b.textContent=`${i+1}.${st?.name||b.dataset.id}`;}
+          else{b.style.background='';b.style.color='';b.textContent=st?.name||b.dataset.id;}
+        });
+      });
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  RENDER: 주간 현황
+// ═══════════════════════════════════════════════════════
+function renderWeeklyTab(){
+  const weeks=getWeeksOfMonth(S.yr,S.mo);
+  const shifts=[...S.shifts].sort((a,b)=>a.startTime.localeCompare(b.startTime));
+  const shMap={};shifts.forEach(s=>shMap[s.id]=s.hours||8);
+  const validWeeks=weeks.map((w,i)=>{
+    const active=w.filter(d=>d&&d.getMonth()+1===S.mo);
+    if(!active.length)return null;
+    return{week:w,label:`${S.mo}/${active[0].getDate()}~${S.mo}/${active[active.length-1].getDate()}`,idx:i};
+  }).filter(Boolean);
+  const tbl=document.getElementById('weeklyTable');
+  tbl.querySelector('thead').innerHTML='<tr><th>직원</th><th>구분</th><th>주계약H</th>'+validWeeks.map(vw=>`<th>${vw.label}</th>`).join('')+'<th>월합계</th></tr>';
+  const data={};
+  validWeeks.forEach(vw=>{
+    vw.week.forEach(d=>{
+      if(!d||d.getMonth()+1!==S.mo)return;
+      const dd=computeDay(d);if(!dd||dd.dayType==='hoff')return;
+      Object.entries(dd.sched).forEach(([shId,deptMap])=>{
+        const h=shMap[shId]||8;
+        Object.values(deptMap).forEach(workers=>{workers.forEach(({staff})=>{if(!data[staff.id])data[staff.id]={};data[staff.id][vw.idx]=(data[staff.id][vw.idx]||0)+h;});});
+      });
+    });
+  });
+  const mo1=`${S.yr}-${String(S.mo).padStart(2,'0')}-01`;
+  const moEnd=fmtDate(new Date(S.yr,S.mo,0));
+  const tbody=tbl.querySelector('tbody');tbody.innerHTML='';
+  S.staff.filter(s=>(!s.hireDate||s.hireDate<=moEnd)&&(!s.leaveDate||s.leaveDate>mo1)).forEach(st=>{
+    let total=0,maxW=0;
+    let html=`<td><strong>${st.name}</strong></td><td><span class="chip chip-${st.type}">${st.type}</span></td><td>${st.contractHours||'-'}h</td>`;
+    validWeeks.forEach(vw=>{const h=data[st.id]?.[vw.idx]||0;total+=h;if(h>maxW)maxW=h;html+=`<td class="${h>52?'over52':h>45?'near52':''}">${h?h+'h':'-'}</td>`;});
+    html+=`<td style="font-weight:700;">${total}h</td>`;
+    const tr=document.createElement('tr');tr.innerHTML=html;
+    if(maxW>52)tr.style.background='#fff5f5';
+    tbody.appendChild(tr);
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  RENDER: 설정
+// ═══════════════════════════════════════════════════════
+function renderSettingsTab(){
+  document.getElementById('addShiftBtn').classList.toggle('hidden',!S.isAdmin);
+  document.getElementById('addDeptBtn').classList.toggle('hidden',!S.isAdmin);
+  const sl=document.getElementById('shiftList');
+  if(!S.shifts.length){sl.innerHTML='<div class="empty-state">근무시간대가 없습니다.</div>';}
+  else{
+    sl.innerHTML=`<table class="dtbl"><thead><tr><th>시작</th><th>종료</th><th>시간</th>${S.isAdmin?'<th>관리</th>':''}</tr></thead><tbody>`+
+    [...S.shifts].sort((a,b)=>a.startTime.localeCompare(b.startTime)).map(s=>`<tr><td>${s.startTime}</td><td>${s.endTime}</td><td>${s.hours}h</td>${S.isAdmin?`<td><button class="btn btn-ghost btn-xs" onclick="openEditShift('${s.id}')">수정</button> <button class="btn btn-danger btn-xs" onclick="delShift('${s.id}')">삭제</button></td>`:''}</tr>`).join('')+'</tbody></table>';
+  }
+  const dl=document.getElementById('deptList');
+  if(!S.depts.length){dl.innerHTML='<div class="empty-state">부서가 없습니다.</div>';}
+  else{
+    dl.innerHTML=`<table class="dtbl"><thead><tr><th>부서명</th><th>약자</th>${S.isAdmin?'<th>관리</th>':''}</tr></thead><tbody>`+
+    S.depts.map(d=>`<tr><td>${d.name}</td><td><strong>${d.short}</strong></td>${S.isAdmin?`<td><button class="btn btn-ghost btn-xs" onclick="openEditDept('${d.id}')">수정</button> <button class="btn btn-danger btn-xs" onclick="delDept('${d.id}')">삭제</button></td>`:''}</tr>`).join('')+'</tbody></table>';
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  MODAL OPENERS
+// ═══════════════════════════════════════════════════════
+function openAddStaff(){
+  S._staffId=null;
+  document.getElementById('staffModalTitle').textContent='직원 추가';
+  ['sName','sShort','sLeave'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('sType').value='조교';
+  document.getElementById('sContract').value='40';
+  document.getElementById('sHire').value=fmtDate(new Date());
+  openModal('staffModal');
+}
+function openEditStaff(id){
+  const s=S.staff.find(x=>x.id===id);if(!s)return;
+  S._staffId=id;
+  document.getElementById('staffModalTitle').textContent='직원 수정';
+  document.getElementById('sName').value=s.name;
+  document.getElementById('sShort').value=s.shortName;
+  document.getElementById('sType').value=s.type;
+  document.getElementById('sContract').value=s.contractHours||'';
+  document.getElementById('sHire').value=s.hireDate||'';
+  document.getElementById('sLeave').value=s.leaveDate||'';
+  openModal('staffModal');
+}
+function openAssignModal(staffId){
+  S._assignStaffId=staffId;S._assignId=null;
+  const st=S.staff.find(s=>s.id===staffId);
+  document.getElementById('assignModalTitle').textContent=`배치 설정 – ${st?.name||''}`;
+  document.getElementById('aDept').innerHTML=S.depts.map(d=>`<option value="${d.id}">${d.name} (${d.short})</option>`).join('')+'<option value="CM">CM</option>';
+  document.getElementById('aShift').innerHTML=[...S.shifts].sort((a,b)=>a.startTime.localeCompare(b.startTime)).map(s=>`<option value="${s.id}">${s.startTime}~${s.endTime}</option>`).join('');
+  document.getElementById('aStart').value=fmtDate(new Date());
+  document.getElementById('aEnd').value='';
+  openModal('assignModal');
+}
+function openAddLeave(){
+  S._leaveId=null;
+  const today=fmtDate(new Date());
+  document.getElementById('lStaff').innerHTML=S.staff.filter(s=>!s.leaveDate||s.leaveDate>today).map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  document.getElementById('lDate').value=today;
+  document.getElementById('lType').value='연차';
+  document.getElementById('lReason').value='';
+  openModal('leaveModal');
+}
+function showLeaveDetail(id){
+  const lv=S.leaves.find(l=>l.id===id);if(!lv)return;
+  const st=S.staff.find(s=>s.id===lv.staffId);const dt=parseD(lv.date);
+  document.getElementById('leaveDetailBody').innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:13px;">
+    <tr><td style="padding:6px;color:var(--text2);width:70px;">직원</td><td style="padding:6px;font-weight:600;">${st?.name||'-'}</td></tr>
+    <tr><td style="padding:6px;color:var(--text2);">날짜</td><td style="padding:6px;">${lv.date} (${DOW_KR[dt.getDay()]})</td></tr>
+    <tr><td style="padding:6px;color:var(--text2);">유형</td><td style="padding:6px;"><span class="chip chip-${lv.type}">${lv.type}</span></td></tr>
+    <tr><td style="padding:6px;color:var(--text2);">사유</td><td style="padding:6px;">${lv.reason||'-'}</td></tr>
+  </table>`;
+  const ft=document.getElementById('leaveDetailFooter');
+  ft.innerHTML='<button class="btn btn-ghost" onclick="closeModal(\'leaveDetailModal\')">닫기</button>';
+  if(S.isAdmin)ft.innerHTML+=`<button class="btn btn-danger btn-sm" onclick="delLeave('${id}')">삭제</button>`;
+  openModal('leaveDetailModal');
+}
+function openHolidayModal(ds){
+  if(!S.isAdmin)return;
+  S._holidayDate=ds;
+  const dt=parseD(ds);const dow=dt.getDay();const h=getHoliday(ds);
+  document.getElementById('holidayModalTitle').textContent=`${ds} (${DOW_KR[dow]}) 설정`;
+  const activeStaff=activeStaffOn(ds).filter(s=>s.type==='조교');
+  const curType=h?.type||(dow===6?'근무있음':'정상');
+  const useRot=h?.useRotation!==false;
+  const wCnt=h?.workerCount||2;
+  const manIds=h?.workerIds||[];
+  document.getElementById('holidayModalBody').innerHTML=`
+    <div class="fg mb8"><label class="fl">이 날 설정</label>
+      <select class="fs" id="hType" onchange="updateHModal()">
+        <option value="정상"${curType==='정상'?' selected':''}>정상 근무 (기본)</option>
+        <option value="근무있음"${curType==='근무있음'?' selected':''}>휴일 근무있음</option>
+        <option value="휴무"${curType==='휴무'?' selected':''}>전원 휴무</option>
+      </select></div>
+    <div id="hWorkArea" style="${curType==='근무있음'?'':'display:none;'}">
+      <div class="fg mb8"><label class="fl">근무자 지정 방식</label>
+        <select class="fs" id="hRotSel" onchange="updateHModal()">
+          <option value="1"${useRot?' selected':''}>로테이션 자동</option>
+          <option value="0"${!useRot?' selected':''}>직접 선택</option>
+        </select></div>
+      <div id="hRotCnt" style="${useRot?'':'display:none;'}">
+        <div class="fg mb8"><label class="fl">근무 인원</label>
+          <input type="number" class="fi" id="hWCount" value="${wCnt}" min="1" max="10" style="max-width:90px;" oninput="updateHModal()"></div>
+        <div id="hRotPreview" class="alert alert-info" style="font-size:12px;"></div>
+      </div>
+      <div id="hManArea" style="${!useRot?'':'display:none;'}">
+        <label class="fl mb8">근무자 선택</label>
+        ${activeStaff.map(s=>`<label style="display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:13px;"><input type="checkbox" class="hman-cb" value="${s.id}"${manIds.includes(s.id)?' checked':''}>${s.name} (${s.shortName})</label>`).join('')}
+      </div>
+    </div>
+    <div class="fg mt8"><label class="fl">비고</label><input type="text" class="fi" id="hNote" value="${h?.note||''}" placeholder="예: 어린이날"></div>`;
+  document.getElementById('holidayModalFooter').innerHTML=`
+    <button class="btn btn-ghost" onclick="closeModal('holidayModal')">취소</button>
+    ${h?`<button class="btn btn-danger btn-sm" onclick="delHoliday('${ds}')">초기화</button>`:''}
+    <button class="btn btn-primary" onclick="saveHoliday()">저장</button>`;
+  document.getElementById('hType').addEventListener('change',updateHModal);
+  document.getElementById('hRotSel')?.addEventListener('change',updateHModal);
+  openModal('holidayModal');
+  setTimeout(updateHModal,50);
+}
+function updateHModal(){
+  const type=document.getElementById('hType')?.value;
+  const useRot=document.getElementById('hRotSel')?.value==='1';
+  const wa=document.getElementById('hWorkArea');if(wa)wa.style.display=type==='근무있음'?'':'none';
+  const rc=document.getElementById('hRotCnt');if(rc)rc.style.display=useRot?'':'none';
+  const ma=document.getElementById('hManArea');if(ma)ma.style.display=!useRot?'':'none';
+  if(useRot&&S._holidayDate){
+    const cnt=parseInt(document.getElementById('hWCount')?.value||2);
+    const ids=rotWorkers(S._holidayDate,cnt);
+    const names=ids.map(id=>S.staff.find(s=>s.id===id)?.name||id).join(', ');
+    const pv=document.getElementById('hRotPreview');
+    if(pv)pv.innerHTML=`예상 근무자: <strong>${names||'(순서 미설정)'}</strong>`;
+  }
+}
+function openOverrideModal(staffId,ds,defShiftId=null,defDeptId=null){
+  if(!S.isAdmin)return;
+  S._ovStaffId=staffId;S._ovDate=ds;
+  const existing=staffId?getOverride(staffId,ds):null;
+  document.getElementById('overrideTitle').textContent=`수동 편성 – ${ds}`;
+  document.getElementById('overrideDelBtn').classList.toggle('hidden',!existing);
+  const activeStaff=activeStaffOn(ds);
+  const deptOpts=S.depts.map(d=>`<option value="${d.id}"${defDeptId===d.id?' selected':''}>${d.name}</option>`).join('')+`<option value="CM"${defDeptId==='CM'?' selected':''}>CM</option>`;
+  const shiftOpts=[...S.shifts].sort((a,b)=>a.startTime.localeCompare(b.startTime)).map(s=>`<option value="${s.id}"${defShiftId===s.id?' selected':''}>${s.startTime}~${s.endTime}</option>`).join('');
+  const curType=existing?.isAbsent?'absent':'assign';
+  document.getElementById('overrideBody').innerHTML=`
+    <div class="fg mb8"><label class="fl">직원</label>
+      <select class="fs" id="ovStaff"><option value="">선택</option>
+        ${activeStaff.map(s=>`<option value="${s.id}"${s.id===staffId?' selected':''}>${s.name} (${s.shortName})</option>`).join('')}
+      </select></div>
+    <div class="fg mb8"><label class="fl">처리</label>
+      <select class="fs" id="ovType">
+        <option value="assign"${curType==='assign'?' selected':''}>배치 변경</option>
+        <option value="absent"${curType==='absent'?' selected':''}>이 날 휴무 처리</option>
+      </select></div>
+    <div id="ovAssign" style="${curType==='assign'?'':'display:none;'}">
+      <div class="fg mb8"><label class="fl">부서</label><select class="fs" id="ovDept">${deptOpts}</select></div>
+      <div class="fg"><label class="fl">근무시간대</label><select class="fs" id="ovShift">${shiftOpts}</select></div>
+    </div>`;
+  document.getElementById('ovType').addEventListener('change',function(){document.getElementById('ovAssign').style.display=this.value==='assign'?'':'none';});
+  openModal('overrideModal');
+}
+function openAddShift(){S._shiftId=null;document.getElementById('shiftModalTitle').textContent='근무시간대 추가';['shStart','shEnd'].forEach(id=>document.getElementById(id).value='');document.getElementById('shHours').value='8';openModal('shiftModal');}
+function openEditShift(id){const s=S.shifts.find(x=>x.id===id);if(!s)return;S._shiftId=id;document.getElementById('shiftModalTitle').textContent='근무시간대 수정';document.getElementById('shStart').value=s.startTime;document.getElementById('shEnd').value=s.endTime;document.getElementById('shHours').value=s.hours;openModal('shiftModal');}
+function openAddDept(){S._deptId=null;document.getElementById('deptModalTitle').textContent='부서 추가';['dpName','dpShort'].forEach(id=>document.getElementById(id).value='');openModal('deptModal');}
+function openEditDept(id){const d=S.depts.find(x=>x.id===id);if(!d)return;S._deptId=id;document.getElementById('deptModalTitle').textContent='부서 수정';document.getElementById('dpName').value=d.name;document.getElementById('dpShort').value=d.short;openModal('deptModal');}
+function openModal(id){document.getElementById(id).classList.remove('hidden');}
+function closeModal(id){document.getElementById(id).classList.add('hidden');}
+
+// ═══════════════════════════════════════════════════════
+//  SUPABASE SAVE OPERATIONS
+// ═══════════════════════════════════════════════════════
+async function saveStaff(){
+  const name=v('sName'),shortName=v('sShort'),type=v('sType'),
+    contractHours=parseFloat(v('sContract'))||null,
+    hireDate=v('sHire')||null,leaveDate=v('sLeave')||null;
+  if(!name||!shortName||!hireDate){toast('이름, 약자, 입사일은 필수입니다','err');return;}
+  try{
+    const data={name,short_name:shortName,type,contract_hours:contractHours,hire_date:hireDate,leave_date:leaveDate};
+    if(S._staffId){await sb.from('staff').update(data).eq('id',S._staffId);}
+    else{await sb.from('staff').insert(data);}
+    await reload();renderStaffTab();renderSchedule();
+    closeModal('staffModal');toast('저장되었습니다');
+  }catch(e){toast('오류: '+e.message,'err');}
+}
+async function saveAssignment(){
+  const deptId=v('aDept'),shiftTypeId=v('aShift'),startDate=v('aStart'),endDate=v('aEnd')||null;
+  if(!deptId||!shiftTypeId||!startDate){toast('필수 항목을 입력하세요','err');return;}
+  try{
+    const open=S.assigns.find(a=>a.staffId===S._assignStaffId&&!a.endDate);
+    if(open){
+      const prev=new Date(parseD(startDate));prev.setDate(prev.getDate()-1);
+      await sb.from('dept_assignments').update({end_date:fmtDate(prev)}).eq('id',open.id);
+    }
+    await sb.from('dept_assignments').insert({staff_id:S._assignStaffId,dept_id:deptId,shift_type_id:shiftTypeId,start_date:startDate,end_date:endDate});
+    await reload();renderStaffTab();renderSchedule();
+    closeModal('assignModal');toast('배치 저장');
+  }catch(e){toast('오류: '+e.message,'err');}
+}
+async function delAssign(id){
+  if(!confirm('이 배치 내역을 삭제하시겠습니까?'))return;
+  try{await sb.from('dept_assignments').delete().eq('id',id);await reload();renderStaffTab();renderSchedule();toast('삭제됨');}
+  catch(e){toast('오류: '+e.message,'err');}
+}
+async function saveLeave(){
+  const staffId=v('lStaff'),date=v('lDate'),type=v('lType'),reason=v('lReason').trim();
+  if(!staffId||!date||!type){toast('필수 항목을 입력하세요','err');return;}
+  try{
+    const dup=S.leaves.find(l=>l.staffId===staffId&&l.date===date);
+    const data={staff_id:staffId,date,type,reason};
+    if(dup){if(!confirm('이 날 기록이 이미 있습니다. 덮어쓸까요?'))return;await sb.from('leave_records').update(data).eq('id',dup.id);}
+    else{await sb.from('leave_records').insert(data);}
+    await reload();renderLeaveTab();renderSchedule();closeModal('leaveModal');toast('저장됨');
+  }catch(e){toast('오류: '+e.message,'err');}
+}
+async function delLeave(id){
+  if(!confirm('삭제하시겠습니까?'))return;
+  try{await sb.from('leave_records').delete().eq('id',id);await reload();renderLeaveTab();renderSchedule();closeModal('leaveDetailModal');toast('삭제됨');}
+  catch(e){toast('오류: '+e.message,'err');}
+}
+async function saveNote(ds,text){
+  try{
+    if(text){await sb.from('date_notes').upsert({date:ds,note:text},{onConflict:'date'});S.notes[ds]=text;}
+    else{await sb.from('date_notes').delete().eq('date',ds);delete S.notes[ds];}
+  }catch(e){console.error(e);}
+}
+async function saveHoliday(){
+  const ds=S._holidayDate;if(!ds)return;
+  const type=v('hType');
+  if(type==='정상'){await delHoliday(ds);return;}
+  const useRotation=document.getElementById('hRotSel')?.value==='1';
+  const workerCount=parseInt(document.getElementById('hWCount')?.value||2);
+  const workerIds=Array.from(document.querySelectorAll('.hman-cb:checked')).map(c=>c.value);
+  const note=v('hNote');
+  try{
+    await sb.from('holidays').upsert({date:ds,type,use_rotation:useRotation,worker_count:workerCount,worker_ids:workerIds,note},{onConflict:'date'});
+    await reload();renderHolidayTab();renderSchedule();closeModal('holidayModal');toast('저장됨');
+  }catch(e){toast('오류: '+e.message,'err');}
+}
+async function delHoliday(ds){
+  try{await sb.from('holidays').delete().eq('date',ds);await reload();renderHolidayTab();renderSchedule();closeModal('holidayModal');toast('초기화됨');}
+  catch(e){toast('오류: '+e.message,'err');}
+}
+async function saveOverride(){
+  const staffId=v('ovStaff');if(!staffId){toast('직원을 선택하세요','err');return;}
+  const isAbsent=document.getElementById('ovType').value==='absent';
+  const deptId=isAbsent?null:v('ovDept');
+  const shiftTypeId=isAbsent?null:v('ovShift');
+  try{
+    await sb.from('schedule_overrides').upsert({staff_id:staffId,date:S._ovDate,is_absent:isAbsent,dept_id:deptId,shift_type_id:shiftTypeId},{onConflict:'staff_id,date'});
+    await reload();renderSchedule();closeModal('overrideModal');toast('수동편성 저장');
+  }catch(e){toast('오류: '+e.message,'err');}
+}
+async function deleteOverride(){
+  try{
+    await sb.from('schedule_overrides').delete().eq('staff_id',S._ovStaffId).eq('date',S._ovDate);
+    await reload();renderSchedule();closeModal('overrideModal');toast('초기화됨');
+  }catch(e){toast('오류: '+e.message,'err');}
+}
+async function saveRotation(){
+  const el=document.getElementById('rotOrderEdit');
+  const order=el?._pendingOrder||S.rotation.order;
+  const startDate=v('rotStartDate')||'2025-05-01';
+  const startIndex=parseInt(v('rotStartIdx')||'0');
+  try{
+    await sb.from('settings').upsert({key:'rotation',value:{order,startDate,startIndex}},{onConflict:'key'});
+    S.rotation={order,startDate,startIndex};
+    renderHolidayTab();renderSchedule();toast('로테이션 저장됨');
+  }catch(e){toast('오류: '+e.message,'err');}
+}
+async function saveShift(){
+  const startTime=v('shStart'),endTime=v('shEnd'),hours=parseFloat(v('shHours'));
+  if(!startTime||!endTime||!hours){toast('모든 항목을 입력하세요','err');return;}
+  try{
+    const data={start_time:startTime,end_time:endTime,hours};
+    if(S._shiftId)await sb.from('shift_types').update(data).eq('id',S._shiftId);
+    else await sb.from('shift_types').insert(data);
+    await reload();renderSettingsTab();closeModal('shiftModal');toast('저장됨');
+  }catch(e){toast('오류: '+e.message,'err');}
+}
+async function delShift(id){
+  if(!confirm('삭제하시겠습니까?'))return;
+  try{await sb.from('shift_types').delete().eq('id',id);await reload();renderSettingsTab();toast('삭제됨');}
+  catch(e){toast('오류: '+e.message,'err');}
+}
+async function saveDept(){
+  const name=v('dpName').trim(),short=v('dpShort').trim();
+  if(!name||!short){toast('부서명과 약자를 입력하세요','err');return;}
+  try{
+    const data={name,short};
+    if(S._deptId)await sb.from('departments').update(data).eq('id',S._deptId);
+    else await sb.from('departments').insert(data);
+    await reload();renderSettingsTab();closeModal('deptModal');toast('저장됨');
+  }catch(e){toast('오류: '+e.message,'err');}
+}
+async function delDept(id){
+  if(!confirm('삭제하시겠습니까?'))return;
+  try{await sb.from('departments').delete().eq('id',id);await reload();renderSettingsTab();toast('삭제됨');}
+  catch(e){toast('오류: '+e.message,'err');}
+}
+
+// ═══════════════════════════════════════════════════════
+//  DATA LOADING
+// ═══════════════════════════════════════════════════════
+async function reload(){
+  const mo=`${S.yr}-${String(S.mo).padStart(2,'0')}`;
+  const mo1=mo+'-01', mo31=mo+'-31';
+  const [r1,r2,r3,r4,r5,r6,r7,r8,r9]=await Promise.all([
+    sb.from('staff').select('*').order('type').order('hire_date'),
+    sb.from('shift_types').select('*').order('start_time'),
+    sb.from('departments').select('*').order('sort_order'),
+    sb.from('dept_assignments').select('*'),
+    sb.from('schedule_overrides').select('*').gte('date',mo1).lte('date',mo31),
+    sb.from('leave_records').select('*').gte('date',mo1).lte('date',mo31),
+    sb.from('holidays').select('*'),
+    sb.from('date_notes').select('*'),
+    sb.from('settings').select('*'),
+  ]);
+  // 에러 체크
+  for(const r of[r1,r2,r3,r4,r5,r6,r7,r8,r9]){if(r.error)console.error(r.error);}
+
+  S.staff=(r1.data||[]).map(s=>({id:s.id,name:s.name,shortName:s.short_name,type:s.type,contractHours:s.contract_hours,hireDate:s.hire_date,leaveDate:s.leave_date}));
+  S.shifts=(r2.data||[]).map(s=>({id:s.id,startTime:s.start_time,endTime:s.end_time,hours:s.hours}));
+  S.depts=(r3.data||[]).map(d=>({id:d.id,name:d.name,short:d.short}));
+  S.assigns=(r4.data||[]).map(a=>({id:a.id,staffId:a.staff_id,deptId:a.dept_id,shiftTypeId:a.shift_type_id,startDate:a.start_date,endDate:a.end_date}));
+  S.overrides=(r5.data||[]).map(o=>({id:o.id,staffId:o.staff_id,date:o.date,isAbsent:o.is_absent,deptId:o.dept_id,shiftTypeId:o.shift_type_id}));
+  S.leaves=(r6.data||[]).map(l=>({id:l.id,staffId:l.staff_id,date:l.date,type:l.type,reason:l.reason}));
+  S.holidays=(r7.data||[]).map(h=>({id:h.id,date:h.date,type:h.type,useRotation:h.use_rotation,workerCount:h.worker_count,workerIds:h.worker_ids||[],note:h.note}));
+  S.notes={};(r8.data||[]).forEach(n=>S.notes[n.date]=n.note);
+  const rotRow=(r9.data||[]).find(s=>s.key==='rotation');
+  if(rotRow?.value) S.rotation=rotRow.value;
+}
+
+// ═══════════════════════════════════════════════════════
+//  AUTH
+// ═══════════════════════════════════════════════════════
+function handleAuth(){
+  if(S.isAdmin){if(confirm('로그아웃 하시겠습니까?'))sb.auth.signOut();}
+  else openModal('loginModal');
+}
+async function doLogin(){
+  const email=v('loginEmail'),pw=v('loginPw');
+  const errEl=document.getElementById('loginErr');errEl.classList.add('hidden');
+  const{error}=await sb.auth.signInWithPassword({email,password:pw});
+  if(error){errEl.textContent='이메일 또는 비밀번호가 올바르지 않습니다.';errEl.classList.remove('hidden');}
+  else closeModal('loginModal');
+}
+document.getElementById('loginPw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+
+// ═══════════════════════════════════════════════════════
+//  TAB / MONTH NAV
+// ═══════════════════════════════════════════════════════
+let _activeTab='schedule';
+function switchTab(name,btn){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  btn?.classList.add('active');_activeTab=name;
+  ({schedule:renderSchedule,staff:renderStaffTab,leave:renderLeaveTab,holiday:renderHolidayTab,weekly:renderWeeklyTab,settings:renderSettingsTab})[name]?.();
+}
+function changeMonth(delta){
+  S.mo+=delta;if(S.mo>12){S.mo=1;S.yr++;}if(S.mo<1){S.mo=12;S.yr--;}
+  document.getElementById('monthDisplay').textContent=`${S.yr}년 ${S.mo}월`;
+  reload().then(()=>({schedule:renderSchedule,staff:renderStaffTab,leave:renderLeaveTab,holiday:renderHolidayTab,weekly:renderWeeklyTab,settings:renderSettingsTab})[_activeTab]?.());
+}
+
+// ═══════════════════════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════════════════════
+function v(id){return document.getElementById(id)?.value||'';}
+function toast(msg,type='ok'){
+  const w=document.getElementById('toastWrap');
+  const t=document.createElement('div');t.className=`toast ${type}`;t.textContent=msg;w.appendChild(t);
+  setTimeout(()=>{t.style.cssText='opacity:0;transform:translateX(100%);transition:all .3s;';setTimeout(()=>t.remove(),300);},2600);
+}
+
+// ═══════════════════════════════════════════════════════
+//  APP INIT
+// ═══════════════════════════════════════════════════════
+async function init(){
+  sb.auth.onAuthStateChange(async(event,session)=>{
+    S.isAdmin=!!session;
+    document.getElementById('authBtn').textContent=S.isAdmin?'로그아웃':'로그인';
+    document.getElementById('adminBadge').classList.toggle('hidden',!S.isAdmin);
+    // Re-render current tab when auth changes
+    if(event==='SIGNED_IN'||event==='SIGNED_OUT'){
+      ({schedule:renderSchedule,staff:renderStaffTab,leave:renderLeaveTab,holiday:renderHolidayTab,weekly:renderWeeklyTab,settings:renderSettingsTab})[_activeTab]?.();
+    }
+  });
+  try{
+    await reload();
+  }catch(e){
+    console.error('초기화 오류:',e);
+    document.getElementById('scheduleContainer').innerHTML=`<div class="alert alert-danger" style="margin:20px;">
+      <strong>연결 오류</strong><br>Supabase URL과 API Key를 확인해주세요.<br><small>${e.message}</small></div>`;
+  }
+  document.getElementById('monthDisplay').textContent=`${S.yr}년 ${S.mo}월`;
+  renderSchedule();
+  document.getElementById('loading').classList.add('hidden');
+}
+
+init();
+</script>
+</body>
+</html>
