@@ -231,6 +231,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
       <button class="btn btn-d" onclick="renderDash2()">🔄</button>
       <button class="btn btn-d" onclick="saveSnapshot2()">💾 현황 저장</button>
       <button class="btn btn-ghost" onclick="printDash('dancha')">🖨️ PDF 저장</button>
+      <button class="btn btn-ghost no-print" onclick="exportDanchaExcel()">⬇️ 등록인원 명단</button>
       <span id="snapBadge2" style="font-size:11px;font-weight:600;"></span>
     </div>
     <div class="dash-filter no-print" id="dashFilter2">
@@ -2516,6 +2517,28 @@ function renderStats(){
 }
 let _statsInitDate = false;
 
+function exportDanchaExcel(){
+  const active=S.dancha.filter(p=>p.status==='active'&&p.환불금액===0);
+  if(!active.length){toast('데이터가 없습니다');return;}
+  // 수험번호별 최신 기수 기준으로 중복 제거 후 정렬
+  const byNum={};
+  active.forEach(r=>{
+    const existing=byNum[r.수험번호];
+    if(!existing||extractMonth(r.내역)>extractMonth(existing.내역)) byNum[r.수험번호]=r;
+  });
+  // 내역별로 그룹핑해서 출력
+  const rows=Object.values(byNum);
+  rows.sort((a,b)=>a.내역.localeCompare(b.내역)||(a.반||'').localeCompare(b.반||'')||+(a.번호||0)-(+(b.번호||0)));
+  const headers=['반','학번','수험번호','성명','내역','결제금액','장학'];
+  const data=[headers,...rows.map(r=>[r.반||'',r.번호||'',r.수험번호,r.이름,r.내역,r.결제금액,r.장학||''])];
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.aoa_to_sheet(data);
+  ws['!cols']=headers.map(()=>({wch:14}));
+  XLSX.utils.book_append_sheet(wb,ws,'단과등록명단');
+  const today=S.cfg.dashDate2||todayStr();
+  XLSX.writeFile(wb,`QUETTA_단과등록명단_${today}.xlsx`);
+  toast(`✅ 단과 등록인원 ${rows.length}명 다운로드 완료`);
+}
 function printDash(type){
   // 인쇄 전 해당 대시보드 카드에 print-target 클래스 추가
   const tabId = type==='reg' ? 'tab-dash' : 'tab-dash2';
