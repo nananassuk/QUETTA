@@ -153,6 +153,13 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
 .sig-tbl .sig-box{height:26px;}
 .info-box{background:#F0F7F4;border-left:4px solid var(--g3);padding:8px 12px;border-radius:0 5px 5px 0;font-size:11.5px;color:#2D6A4F;line-height:1.6;margin-bottom:10px;}
 @media print{.no-print{display:none!important;}.tab-pane{display:block!important;padding:0;}.card{box-shadow:none;border:1px solid #ccc;}.daily-grid{grid-template-columns:1fr 1fr;}}
+  @media print {
+    body * { visibility: hidden !important; }
+    .print-target, .print-target * { visibility: visible !important; }
+    .print-target { position: fixed !important; left: 0 !important; top: 0 !important; width: 100% !important; background: white !important; }
+    .no-print { display: none !important; }
+    @page { size: A4 landscape; margin: 10mm; }
+  }
 </style>
 </head>
 <body>
@@ -198,7 +205,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
       <input type="date" class="inp" id="dashDatePicker" onchange="onDashDateChange()">
       <button class="btn btn-gold" onclick="renderDash()">🔄</button>
       <button class="btn btn-g" id="saveSnapBtn" onclick="saveSnapshot()">💾 현황 저장</button>
-      <button class="btn btn-ghost" onclick="window.print()">🖨️</button>
+      <button class="btn btn-ghost" onclick="printDash('reg')">🖨️ PDF 저장</button>
       <button class="btn btn-ghost no-print" onclick="exportGrandTotalExcel()">⬇️ 총인원 명단</button>
       <span id="snapBadge" style="font-size:11px;font-weight:600;"></span>
       <span id="prevDateLabel" style="font-size:11px;color:var(--muted);"></span>
@@ -223,6 +230,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
       <input type="date" class="inp" id="dashDatePicker2" onchange="onDashDateChange2()">
       <button class="btn btn-d" onclick="renderDash2()">🔄</button>
       <button class="btn btn-d" onclick="saveSnapshot2()">💾 현황 저장</button>
+      <button class="btn btn-ghost" onclick="printDash('dancha')">🖨️ PDF 저장</button>
       <span id="snapBadge2" style="font-size:11px;font-weight:600;"></span>
     </div>
     <div class="dash-filter no-print" id="dashFilter2">
@@ -2508,6 +2516,24 @@ function renderStats(){
 }
 let _statsInitDate = false;
 
+function printDash(type){
+  // 인쇄 전 해당 대시보드 카드에 print-target 클래스 추가
+  const tabId = type==='reg' ? 'tab-dash' : 'tab-dash2';
+  const tab = document.getElementById(tabId);
+  if(!tab) return;
+  // 모든 print-target 제거
+  document.querySelectorAll('.print-target').forEach(el=>el.classList.remove('print-target'));
+  // 해당 탭의 카드들에 print-target 추가
+  tab.querySelectorAll('.card').forEach(el=>el.classList.add('print-target'));
+  // 서명란도 포함
+  const sigTbl = tab.querySelector('.sig-tbl');
+  if(sigTbl) sigTbl.classList.add('print-target');
+  window.print();
+  // 인쇄 후 클래스 제거
+  setTimeout(()=>{
+    document.querySelectorAll('.print-target').forEach(el=>el.classList.remove('print-target'));
+  }, 1000);
+}
 // ════ INIT ════
 function init(){
   // Supabase 클라이언트 미리 초기화 (로그인 전 비번 확인용)
