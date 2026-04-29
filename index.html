@@ -156,9 +156,16 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
   @media print {
     body * { visibility: hidden !important; }
     .print-target, .print-target * { visibility: visible !important; }
-    .print-target { position: fixed !important; left: 0 !important; top: 0 !important; width: 100% !important; background: white !important; }
+    .print-target {
+      position: fixed !important; left: 0 !important; top: 0 !important;
+      width: 100% !important; background: white !important;
+      page-break-after: avoid !important; break-after: avoid !important;
+    }
+    .print-target + .print-target { page-break-before: avoid !important; break-before: avoid !important; }
     .no-print { display: none !important; }
-    @page { size: A4 landscape; margin: 10mm; }
+    nav, header, footer, .tab-bar { display: none !important; }
+    @page { size: A4 portrait; margin: 12mm; }
+    html, body { height: auto !important; overflow: visible !important; }
   }
 </style>
 </head>
@@ -2540,22 +2547,25 @@ function exportDanchaExcel(){
   toast(`✅ 단과 등록인원 ${rows.length}명 다운로드 완료`);
 }
 function printDash(type){
-  // 인쇄 전 해당 대시보드 카드에 print-target 클래스 추가
   const tabId = type==='reg' ? 'tab-dash' : 'tab-dash2';
   const tab = document.getElementById(tabId);
   if(!tab) return;
-  // 모든 print-target 제거
+  // 파일명용 제목 설정
+  const date = (type==='reg' ? S.cfg.dashDate : S.cfg.dashDate2) || todayStr();
+  const label = type==='reg' ? '정규' : '단과';
+  const origTitle = document.title;
+  document.title = `등록_${label}_${date}`;
+  // print-target 설정
   document.querySelectorAll('.print-target').forEach(el=>el.classList.remove('print-target'));
-  // 해당 탭의 카드들에 print-target 추가
   tab.querySelectorAll('.card').forEach(el=>el.classList.add('print-target'));
-  // 서명란도 포함
   const sigTbl = tab.querySelector('.sig-tbl');
   if(sigTbl) sigTbl.classList.add('print-target');
   window.print();
-  // 인쇄 후 클래스 제거
+  // 원복
   setTimeout(()=>{
     document.querySelectorAll('.print-target').forEach(el=>el.classList.remove('print-target'));
-  }, 1000);
+    document.title = origTitle;
+  }, 1500);
 }
 // ════ INIT ════
 function init(){
