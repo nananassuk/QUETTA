@@ -47,49 +47,102 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .tab-content{display:none;}
 .tab-content.active{display:block;}
 
-.schedule-wrap{padding:12px;}
-.legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;font-size:11px;color:var(--text2);}
+/* ── CALENDAR SCHEDULE ── */
+.schedule-wrap{padding:12px 14px;}
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;font-size:11px;color:var(--text2);align-items:center;}
 .leg-item{display:flex;align-items:center;gap:4px;}
-.leg-dot{width:13px;height:13px;border-radius:2px;border:1px solid rgba(0,0,0,.12);}
+.leg-dot{width:12px;height:12px;border-radius:2px;border:1px solid rgba(0,0,0,.12);}
 
-.week-block{margin-bottom:16px;background:var(--surface);border:1px solid var(--border);border-radius:6px;overflow:hidden;}
-.schedule-tbl{border-collapse:collapse;min-width:780px;font-size:11px;table-layout:auto;}
-.schedule-tbl th,.schedule-tbl td{border:1px solid #ddd;padding:2px;text-align:center;vertical-align:middle;}
-.day-th{background:var(--primary);color:#fff;font-size:11.5px;padding:4px 2px;white-space:nowrap;}
-.day-th.sat{background:var(--sat-hd);}
-.day-th.sun,.day-th.hoff{background:var(--sun-hd);}
-.day-th .dow{font-weight:700;}
-.dept-th{background:#e8f0eb;color:#333;font-size:10px;padding:2px 1px;font-weight:600;}
-.dept-th.cm{background:#f0e8f5;color:#5c2d7a;}
-.dept-th.wkend{background:#e4e8f8;}
-.shift-td{background:var(--surface-alt);font-size:10px;color:var(--text2);padding:2px 4px;min-width:54px;white-space:nowrap;}
-.shift-td.s0{background:var(--shift0);}
-.shift-td.s1{background:var(--shift1);}
-.shift-td.s2{background:var(--shift2);}
-.cell{min-width:20px;height:24px;padding:1px 2px;position:relative;cursor:default;}
-.cell.s0{background:var(--shift0);}
-.cell.s1{background:var(--shift1);}
-.cell.s2{background:var(--shift2);}
-.cell.hoff{background:var(--off-bg);}
-.cell.sat{background:var(--sat-bg);}
-.cell.can-edit:hover{background:rgba(184,145,42,.1)!important;cursor:pointer;}
+/* 요일 헤더 */
+.cal-header{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:3px;}
+.cal-dow{text-align:center;font-size:11px;font-weight:700;padding:5px 0;border-radius:4px;}
+.cal-dow.mon,.cal-dow.tue,.cal-dow.wed,.cal-dow.thu,.cal-dow.fri{background:var(--primary);color:#fff;}
+.cal-dow.sat{background:var(--sat-hd);color:#fff;}
+.cal-dow.sun{background:var(--sun-hd);color:#fff;}
+
+/* 주간 행 */
+.cal-week{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:3px;}
+
+/* 날짜 셀 */
+.cal-cell{background:var(--surface);border:1px solid var(--border);border-radius:6px;min-height:145px;display:flex;flex-direction:column;overflow:hidden;transition:box-shadow .12s;cursor:default;}
+.cal-cell:not(.empty):not(.is-hoff):hover{box-shadow:0 2px 8px rgba(0,0,0,.1);}
+.cal-cell.empty{background:transparent;border:none;}
+.cal-cell.other-month{opacity:.35;}
+.cal-cell.is-today{border:2px solid var(--gold);box-shadow:0 0 0 1px var(--gold);}
+.cal-cell.is-hoff{background:#fff5f5;}
+.cal-cell.is-sat{background:#f0f3ff;}
+.cal-cell.is-duty{background:#f0f5ff;}
+
+/* 셀 상단 날짜 바 */
+.cell-hd{display:flex;align-items:center;justify-content:space-between;padding:4px 6px;border-bottom:1px solid var(--border-lt);}
+.cell-date{font-size:13px;font-weight:700;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:50%;}
+.is-today .cell-date{background:var(--gold);color:#fff;}
+.cal-cell.is-hoff .cell-date{color:#cc3333;}
+.cal-cell.is-sat .cell-date{color:var(--sat-hd);}
+.cal-cell.is-duty .cell-date{color:var(--sat-hd);}
+.cell-label{font-size:9px;font-weight:700;padding:1px 5px;border-radius:3px;}
+.cell-label.lbl-off{background:#ffdddd;color:#cc0000;}
+.cell-label.lbl-duty{background:#dde5ff;color:#2244aa;}
+.cell-label.lbl-hwork{background:#fff0cc;color:#996600;}
+.cell-hd-note{font-size:9px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60px;}
+
+/* 셀 바디 */
+.cell-body{flex:1;padding:4px 5px;display:flex;flex-direction:column;gap:2px;overflow:hidden;}
+
+/* 당직 섹션 (토/일/공휴일) */
+.duty-section{display:flex;flex-direction:column;gap:2px;}
+.duty-lbl{font-size:9px;font-weight:700;color:var(--sat-hd);margin-bottom:1px;}
+.duty-names{display:flex;flex-wrap:wrap;gap:2px;}
+.duty-tag{background:#dde5ff;color:#1a3399;font-size:11px;font-weight:700;padding:2px 8px;border-radius:3px;white-space:nowrap;}
+.duty-tag.is-ov{outline:1px dashed var(--gold);}
+
+/* 평일 근무 섹션 */
+.shift-group{margin-bottom:3px;}
+.shift-time{font-size:8px;color:var(--text3);font-weight:600;margin-bottom:1px;padding-left:1px;}
+.staff-row{display:flex;flex-wrap:wrap;gap:2px;}
+.staff-tag{display:inline-flex;align-items:center;gap:1px;font-size:10px;font-weight:700;padding:1px 4px;border-radius:3px;white-space:nowrap;cursor:default;}
+.staff-tag.regular{background:#e8f0eb;color:var(--primary);}
+.staff-tag.cm-tag{background:#f3e5f5;color:#6a1b9a;}
+.staff-tag.leave-연차{background:var(--leave-연차);color:var(--leave-연차t);}
+.staff-tag.leave-공가{background:var(--leave-공가);color:var(--leave-공가t);}
+.staff-tag.leave-반차{background:var(--leave-반차);color:var(--leave-반차t);}
+.staff-tag.leave-조퇴{background:var(--leave-조퇴);color:var(--leave-조퇴t);}
+.staff-tag.is-ov{outline:1px dashed var(--gold);}
+.staff-tag.clickable{cursor:pointer;}
+.staff-tag.clickable:hover{filter:brightness(.92);}
+.dept-badge{font-size:8px;opacity:.7;margin-left:1px;}
+.leave-badge{font-size:8px;font-weight:700;}
+
+/* 휴무자 */
+.off-section{display:flex;flex-wrap:wrap;gap:2px;margin-top:2px;padding-top:2px;border-top:1px dashed #eee;}
+.off-tag{font-size:9px;color:#cc3333;background:#fff0f0;padding:1px 3px;border-radius:2px;}
+
+/* 셀 하단 비고 */
+.cell-ft{border-top:1px solid var(--border-lt);padding:2px 5px;min-height:18px;}
+.cell-note{font-size:9px;color:var(--text2);width:100%;outline:none;border:none;background:transparent;font-family:inherit;}
+.cell-note:focus{background:#fffef0;}
+.cell-note[readonly]{cursor:default;}
+
+/* 추가 버튼 (관리자) */
+.cell-add{position:absolute;bottom:22px;right:4px;background:var(--gold);color:#fff;border:none;width:16px;height:16px;border-radius:50%;font-size:11px;cursor:pointer;display:none;align-items:center;justify-content:center;line-height:1;}
+.cal-cell:hover .cell-add{display:flex;}
+
+/* 주간 근무시간 바 */
+.week-hrs-bar{background:var(--primary-dk);border-radius:5px;margin-bottom:10px;padding:5px 10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+.wh-lbl{font-size:10px;color:rgba(255,255,255,.5);font-weight:600;margin-right:2px;}
+.wh-item{display:flex;align-items:center;gap:3px;font-size:10px;color:rgba(255,255,255,.85);}
+.wh-name{font-weight:700;}
+.wh-h{background:rgba(255,255,255,.18);padding:1px 5px;border-radius:3px;font-size:10px;}
+.wh-h.over52{background:#c62828;}
+.wh-h.near52{background:#e65100;}
+
 .wb{display:inline-block;font-size:11px;font-weight:600;padding:1px 2px;border-radius:2px;line-height:1.3;color:var(--primary);}
 .wb.연차{background:var(--leave-연차);color:var(--leave-연차t);}
 .wb.공가{background:var(--leave-공가);color:var(--leave-공가t);}
 .wb.반차{background:var(--leave-반차);color:var(--leave-반차t);}
 .wb.조퇴{background:var(--leave-조퇴);color:var(--leave-조퇴t);}
 .wb-tag{font-size:8px;margin-left:1px;}
-.misc-label{background:#f5f4f0;font-size:10px;color:var(--text2);white-space:nowrap;padding:3px 4px;}
-.misc-cell{font-size:11px;padding:3px 4px;text-align:left;min-height:22px;}
-.misc-cell.note[contenteditable="true"]{background:#fffef8;cursor:text;}
-.misc-cell.note[contenteditable="true"]:focus{outline:1px solid var(--gold);background:#fff;}
 .off-text{font-size:10px;color:#cc3333;}
-.week-sum{background:var(--primary-dk);display:flex;flex-wrap:wrap;align-items:center;padding:4px 8px;gap:10px;font-size:10px;color:rgba(255,255,255,.8);}
-.sum-lbl{font-weight:600;opacity:.6;margin-right:2px;}
-.sum-item{display:flex;align-items:center;gap:3px;}
-.sum-name{font-weight:700;}
-.sum-h{background:rgba(255,255,255,.2);padding:1px 5px;border-radius:3px;}
-.sum-h.over52{background:#cc2222;}
 
 .page{padding:16px;max-width:1100px;}
 .page-title{font-size:15px;font-weight:700;color:var(--primary);margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid var(--primary);}
@@ -335,7 +388,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 <!-- 탭 네비게이션 -->
 <nav class="tab-nav">
   <button class="tab-btn active" onclick="switchTab('schedule',this)">📅 근무표</button>
-  <button class="tab-btn" onclick="switchTab('staff',this)">👤 인원 관리</button>
+  <button class="tab-btn" onclick="switchTab('personal',this)">👤 개인 스케줄</button>
+  <button class="tab-btn" onclick="switchTab('staff',this)">🗂️ 인원 관리</button>
   <button class="tab-btn" onclick="switchTab('leave',this)">📝 휴가 관리</button>
   <button class="tab-btn" onclick="switchTab('holiday',this)">🗓️ 휴일 설정</button>
   <button class="tab-btn" onclick="switchTab('weekly',this)">⏱️ 주간 현황</button>
@@ -348,15 +402,38 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 <div class="tab-content active" id="tab-schedule">
   <div class="schedule-wrap">
     <div class="legend">
-      <div class="leg-item"><div class="leg-dot" style="background:var(--leave-연차)"></div>연차</div>
-      <div class="leg-item"><div class="leg-dot" style="background:var(--leave-공가)"></div>공가</div>
-      <div class="leg-item"><div class="leg-dot" style="background:var(--leave-반차)"></div>반차</div>
-      <div class="leg-item"><div class="leg-dot" style="background:var(--leave-조퇴)"></div>조퇴</div>
-      <div class="leg-item"><div class="leg-dot" style="background:var(--off-bg)"></div>휴일</div>
-      <div class="leg-item"><div class="leg-dot" style="background:var(--sat-bg)"></div>토요근무</div>
-      <span id="adminScheduleNote" class="hidden" style="margin-left:auto;font-size:11px;color:var(--gold);font-weight:600;">✏ 이름 클릭: 개별 수동편성 | 빈 셀 클릭: 직원 추가</span>
+      <div class="leg-item"><div class="leg-dot" style="background:#e8f0eb;border:1px solid #b0cbb8;"></div>평일 근무</div>
+      <div class="leg-item"><div class="leg-dot" style="background:var(--leave-연차)"></div>연차/공가</div>
+      <div class="leg-item"><div class="leg-dot" style="background:var(--leave-반차)"></div>반차/조퇴</div>
+      <div class="leg-item"><div class="leg-dot" style="background:#dde5ff;border:1px solid #99b0ee;"></div>당직</div>
+      <div class="leg-item"><div class="leg-dot" style="background:#fff5f5;border:1px solid #ffbbbb;"></div>휴일</div>
+      <span id="adminScheduleNote" class="hidden" style="margin-left:auto;font-size:11px;color:var(--gold);font-weight:600;">✏ 이름 클릭: 수동편성 | 날짜 클릭: 직원 추가</span>
+    </div>
+    <!-- 요일 헤더 -->
+    <div class="cal-header">
+      <div class="cal-dow mon">월</div>
+      <div class="cal-dow tue">화</div>
+      <div class="cal-dow wed">수</div>
+      <div class="cal-dow thu">목</div>
+      <div class="cal-dow fri">금</div>
+      <div class="cal-dow sat">토</div>
+      <div class="cal-dow sun">일</div>
     </div>
     <div id="scheduleContainer"></div>
+  </div>
+</div>
+
+<!-- 개인 스케줄 탭 -->
+<div class="tab-content" id="tab-personal">
+  <div class="page">
+    <div class="page-title">👤 개인 스케줄</div>
+    <div class="card" style="padding:10px 14px;">
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+        <span style="font-size:12px;color:var(--text2);">직원 선택:</span>
+        <div id="personalStaffBtns" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+      </div>
+    </div>
+    <div id="personalScheduleContent"></div>
   </div>
 </div>
 
@@ -595,159 +672,216 @@ function getDeptOrOv(staff,ds,ov){
 }
 
 // ═══════════════════════════════════════════════════════
-//  RENDER: 근무표
+//  RENDER: 근무표 (달력형)
 // ═══════════════════════════════════════════════════════
 function renderSchedule(){
   document.getElementById('monthDisplay').textContent=`${S.yr}년 ${S.mo}월`;
-  const container=document.getElementById('scheduleContainer'); container.innerHTML='';
-  const weeks=getWeeksOfMonth(S.yr,S.mo);
-  const depts=S.depts;
-  const shifts=[...S.shifts].sort((a,b)=>a.startTime.localeCompare(b.startTime));
-  const cols=[...depts.map(d=>d.id),'CM'];
+  const container=document.getElementById('scheduleContainer');
+  container.innerHTML='';
   document.getElementById('adminScheduleNote')?.classList.toggle('hidden',!S.isAdmin);
 
-  weeks.forEach(week=>{
-    if(!week.some(d=>d)) return;
-    const block=document.createElement('div'); block.className='week-block';
-    const dayData=week.map(d=>d?computeDay(d):null);
-    const tbl=document.createElement('table'); tbl.className='schedule-tbl';
-    const thead=document.createElement('thead'); const tbody=document.createElement('tbody');
+  const shifts=[...S.shifts].sort((a,b)=>a.startTime.localeCompare(b.startTime));
+  const today=fmtDate(new Date());
 
-    // 날짜 헤더
-    const tr1=document.createElement('tr');
-    const lth=document.createElement('th');
-    lth.rowSpan=2;lth.style.cssText='background:var(--primary);color:#fff;font-size:10px;min-width:52px;';
-    lth.textContent='근무시간';tr1.appendChild(lth);
-    week.forEach((d,wi)=>{
-      const th=document.createElement('th');th.colSpan=cols.length;
-      if(!d){th.className='day-th';th.style.cssText='background:#e0e0e0;opacity:0;';tr1.appendChild(th);return;}
-      const dd=dayData[wi];const raw=d.getDay();
-      let cls='day-th';
-      if(raw===6)cls+=' sat';if(raw===0)cls+=' sun';
-      if(dd?.dayType==='hoff'&&raw!==0)cls+=' hoff';
-      th.className=cls;
-      th.innerHTML=`<span class="dow">${DOW_KR[raw]}</span> <span class="dt">${d.getMonth()+1}/${d.getDate()}</span>${dd?.h?.note?`<br><span style="font-size:9px;opacity:.8;">${dd.h.note}</span>`:''}`;
-      tr1.appendChild(th);
+  // 달력: 해당 월 1일의 요일 기준 (Mon=0)
+  const firstDay=new Date(S.yr,S.mo-1,1);
+  const lastDay=new Date(S.yr,S.mo,0);
+  const firstDow=firstDay.getDay(); // 0=Sun
+  // 월요일 기준으로 offset 계산 (Mon=0, Sun=6)
+  const startOffset=firstDow===0?6:firstDow-1;
+  const totalCells=Math.ceil((startOffset+lastDay.getDate())/7)*7;
+
+  // 주 단위로 렌더링
+  let weekEl=null;
+  for(let i=0;i<totalCells;i++){
+    if(i%7===0){
+      weekEl=document.createElement('div');
+      weekEl.className='cal-week';
+      container.appendChild(weekEl);
+    }
+    const dayNum=i-startOffset+1;
+    if(dayNum<1||dayNum>lastDay.getDate()){
+      const empty=document.createElement('div');empty.className='cal-cell empty';
+      weekEl.appendChild(empty); continue;
+    }
+    const date=new Date(S.yr,S.mo-1,dayNum);
+    const ds=fmtDate(date);
+    const dow=date.getDay(); // 0=Sun,6=Sat
+    const dd=computeDay(date);
+    weekEl.appendChild(buildCalCell(ds,date,dow,dd,shifts,today));
+  }
+}
+
+function buildCalCell(ds,date,dow,dd,shifts,today){
+  const cell=document.createElement('div');
+  const isDuty=dow===6||dow===0||dd?.dayType==='hoff'||dd?.dayType==='hwork';
+  let cls='cal-cell';
+  if(ds===today) cls+=' is-today';
+  if(dow===0||dd?.dayType==='hoff') cls+=' is-hoff';
+  else if(dow===6) cls+=' is-sat';
+  if(isDuty) cls+=' is-duty';
+  cell.className=cls;
+  cell.style.position='relative';
+
+  // ── 셀 헤더 ──
+  const hd=document.createElement('div'); hd.className='cell-hd';
+  const dateNum=document.createElement('div'); dateNum.className='cell-date';
+  dateNum.textContent=date.getDate();
+  hd.appendChild(dateNum);
+
+  // 라벨 (휴무/당직/공휴일명)
+  const labelWrap=document.createElement('div'); labelWrap.style.cssText='display:flex;gap:3px;align-items:center;';
+  if(dow===0){
+    const lb=document.createElement('span');lb.className='cell-label lbl-off';lb.textContent='휴무';labelWrap.appendChild(lb);
+  } else if(dd?.h?.type==='휴무'){
+    const lb=document.createElement('span');lb.className='cell-label lbl-off';lb.textContent='휴무';labelWrap.appendChild(lb);
+    if(dd.h.note){const lb2=document.createElement('span');lb2.className='cell-label lbl-hwork';lb2.textContent=dd.h.note;labelWrap.appendChild(lb2);}
+  } else if(dow===6){
+    const lb=document.createElement('span');lb.className='cell-label lbl-duty';lb.textContent='토요당직';labelWrap.appendChild(lb);
+  } else if(dd?.h?.type==='근무있음'){
+    const lb=document.createElement('span');lb.className='cell-label lbl-duty';lb.textContent='당직';labelWrap.appendChild(lb);
+    if(dd.h.note){const lb2=document.createElement('span');lb2.className='cell-label lbl-hwork';lb2.textContent=dd.h.note;labelWrap.appendChild(lb2);}
+  }
+  hd.appendChild(labelWrap);
+
+  // 관리자: 날짜 클릭으로 수동편성
+  if(S.isAdmin&&dd?.dayType!=='hoff'&&dow!==0){
+    cell.style.cursor='pointer';
+    cell.addEventListener('click',e=>{
+      if(e.target.closest('.cell-ft')) return;
+      openOverrideModal(null,ds);
     });
-    thead.appendChild(tr1);
+  }
 
-    // 부서 서브 헤더
-    const tr2=document.createElement('tr');
-    week.forEach((d,wi)=>{
-      cols.forEach(colId=>{
-        const th=document.createElement('th');
-        if(!d){th.style.cssText='background:#e0e0e0;opacity:0;';tr2.appendChild(th);return;}
-        const raw=d.getDay();
-        let cls='dept-th';if(colId==='CM')cls+=' cm';if(raw===6||raw===0)cls+=' wkend';
-        th.className=cls;
-        if(colId==='CM'){th.textContent='CM';}
-        else{const dep=depts.find(x=>x.id===colId);th.textContent=dep?.short||'?';}
-        tr2.appendChild(th);
-      });
-    });
-    thead.appendChild(tr2);tbl.appendChild(thead);
+  cell.appendChild(hd);
 
-    // 근무시간대 행
-    shifts.forEach((shift,si)=>{
-      const tr=document.createElement('tr');
-      const stl=document.createElement('td');stl.className=`shift-td s${si%3}`;
-      stl.innerHTML=`${shift.startTime}<br>~<br>${shift.endTime}`;tr.appendChild(stl);
-      week.forEach((d,wi)=>{
-        cols.forEach(colId=>{
-          const td=document.createElement('td');
-          if(!d){td.style.cssText='background:#e0e0e0;opacity:0;';tr.appendChild(td);return;}
-          const dd=dayData[wi];const raw=d.getDay();
-          let cls=`cell s${si%3}`;
-          if(dd?.dayType==='hoff')cls+=' hoff';
-          else if(raw===6||dd?.dayType==='saturday')cls+=' sat';
-          if(S.isAdmin&&dd?.dayType!=='hoff')cls+=' can-edit';
-          td.className=cls;
-          const workers=dd?.sched?.[shift.id]?.[colId]||[];
-          workers.forEach(({staff,leave,hasOv})=>{
-            const sp=document.createElement('span');
-            let bc='wb';if(leave)bc+=` ${leave.type}`;
-            sp.className=bc;sp.textContent=staff.shortName;
-            if(leave&&(leave.type==='반차'||leave.type==='조퇴')){
-              const tag=document.createElement('span');tag.className='wb-tag';
-              tag.textContent=leave.type==='반차'?'반':'조';sp.appendChild(tag);
-            }
-            if(leave)sp.title=`${leave.type}: ${leave.reason||''}`;
-            if(hasOv)sp.title=(sp.title?sp.title+' ':'')+'[수동편성]';
-            if(S.isAdmin)sp.addEventListener('click',e=>{e.stopPropagation();openOverrideModal(staff.id,fmtDate(d));});
-            td.appendChild(sp);
-          });
-          if(S.isAdmin&&workers.length===0&&dd?.dayType!=='hoff'){
-            td.addEventListener('click',()=>openOverrideModal(null,fmtDate(d),shift.id,colId));
-          }
-          tr.appendChild(td);
-        });
-      });
-      tbody.appendChild(tr);
-    });
+  // ── 셀 바디 ──
+  const body=document.createElement('div'); body.className='cell-body';
 
-    // 휴무 행
-    const trOff=document.createElement('tr');
-    const offLbl=document.createElement('td');offLbl.className='misc-label';offLbl.textContent='휴무';trOff.appendChild(offLbl);
-    week.forEach((d,wi)=>{
-      const td=document.createElement('td');td.colSpan=cols.length;td.className='misc-cell';
-      if(d){
-        const dd=dayData[wi];
-        if(dd?.offStaff?.length){
-          td.innerHTML=`<span class="off-text">${dd.offStaff.map(x=>`${x.staff.shortName}(${x.leave?.type||'-'})`).join(' ')}</span>`;
-        }
-      }else{td.style.cssText='background:#e0e0e0;opacity:0;';}
-      trOff.appendChild(td);
-    });
-    tbody.appendChild(trOff);
-
-    // 비고 행
-    const trNote=document.createElement('tr');
-    const noteLbl=document.createElement('td');noteLbl.className='misc-label';noteLbl.textContent='비고';trNote.appendChild(noteLbl);
-    week.forEach((d,wi)=>{
-      const td=document.createElement('td');td.colSpan=cols.length;td.className='misc-cell note';
-      if(d){
-        const dd=dayData[wi];td.textContent=dd?.note||'';
+  if(dd?.dayType==='hoff'){
+    // 전원 휴무
+    const offDiv=document.createElement('div');
+    offDiv.style.cssText='display:flex;align-items:center;justify-content:center;flex:1;color:#cc9999;font-size:11px;';
+    offDiv.textContent='전원 휴무';
+    body.appendChild(offDiv);
+  } else if(isDuty){
+    // 당직 전용 표시
+    const dutyWorkers=getDutyWorkers(dd);
+    const dutyDiv=document.createElement('div'); dutyDiv.className='duty-section';
+    if(dutyWorkers.length){
+      const lbl=document.createElement('div'); lbl.className='duty-lbl'; lbl.textContent='당직 근무자';
+      dutyDiv.appendChild(lbl);
+      const namesDiv=document.createElement('div'); namesDiv.className='duty-names';
+      dutyWorkers.forEach(({staff,hasOv})=>{
+        const tag=document.createElement('span'); tag.className='duty-tag'+(hasOv?' is-ov':'');
+        tag.textContent=staff.name;
+        tag.title=staff.shortName;
         if(S.isAdmin){
-          td.contentEditable='true';td.dataset.date=fmtDate(d);
-          td.addEventListener('blur',e=>saveNote(fmtDate(d),e.target.textContent.trim()));
-          td.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();e.target.blur();}});
+          tag.style.cursor='pointer';
+          tag.addEventListener('click',e=>{e.stopPropagation();openOverrideModal(staff.id,ds);});
         }
-      }else{td.style.cssText='background:#e0e0e0;opacity:0;';}
-      trNote.appendChild(td);
-    });
-    tbody.appendChild(trNote);
+        namesDiv.appendChild(tag);
+      });
+      dutyDiv.appendChild(namesDiv);
+    } else {
+      const lbl=document.createElement('div'); lbl.className='duty-lbl'; lbl.textContent='당직자 미배정';
+      lbl.style.color='#cc9999';
+      dutyDiv.appendChild(lbl);
+    }
+    // 당직날 휴가자
+    if(dd?.offStaff?.length){
+      const offDiv=document.createElement('div'); offDiv.className='off-section';
+      dd.offStaff.forEach(({staff,leave})=>{
+        const tag=document.createElement('span'); tag.className='off-tag';
+        tag.textContent=`${staff.shortName}(${leave?.type||'휴'})`;
+        tag.title=leave?.reason||'';
+        offDiv.appendChild(tag);
+      });
+      dutyDiv.appendChild(offDiv);
+    }
+    body.appendChild(dutyDiv);
+  } else {
+    // 평일 근무 — 시간대별 그룹
+    const shiftIds=Object.keys(dd?.sched||{});
+    const sortedShifts=[...shifts].filter(s=>shiftIds.includes(s.id));
+    if(sortedShifts.length===0){
+      const empty=document.createElement('div');
+      empty.style.cssText='font-size:10px;color:var(--text3);padding:4px 0;';
+      empty.textContent='배치 없음';
+      body.appendChild(empty);
+    } else {
+      sortedShifts.forEach(shift=>{
+        const deptMap=dd.sched[shift.id]||{};
+        const allWorkers=Object.values(deptMap).flat();
+        if(!allWorkers.length) return;
+        const grp=document.createElement('div'); grp.className='shift-group';
+        const timeLbl=document.createElement('div'); timeLbl.className='shift-time';
+        timeLbl.textContent=`${shift.startTime}~${shift.endTime}`;
+        grp.appendChild(timeLbl);
+        const row=document.createElement('div'); row.className='staff-row';
+        allWorkers.forEach(({staff,leave,hasOv})=>{
+          const tag=document.createElement('span');
+          let cls='staff-tag '+(staff.type==='CM'?'cm-tag':'regular');
+          if(leave) cls='staff-tag leave-'+leave.type;
+          if(hasOv) cls+=' is-ov';
+          if(S.isAdmin) cls+=' clickable';
+          tag.className=cls;
+          // 부서 약자
+          const assign=getAssign(staff.id,ds);
+          const ov=getOverride(staff.id,ds);
+          const deptId=ov?.deptId||assign?.deptId;
+          const dept=S.depts.find(d=>d.id===deptId);
+          tag.innerHTML=`${staff.shortName}<span class="dept-badge">${deptId==='CM'?'CM':dept?.short||''}</span>`;
+          if(leave&&(leave.type==='반차'||leave.type==='조퇴')){
+            tag.innerHTML+=`<span class="leave-badge">${leave.type==='반차'?'반':'조'}</span>`;
+          }
+          tag.title=`${staff.name} | ${shift.startTime}~${shift.endTime}${leave?` | ${leave.type}:${leave.reason||''}`:''}`
+          if(S.isAdmin) tag.addEventListener('click',e=>{e.stopPropagation();openOverrideModal(staff.id,ds);});
+          row.appendChild(tag);
+        });
+        grp.appendChild(row);
+        body.appendChild(grp);
+      });
+    }
+    // 휴무자
+    if(dd?.offStaff?.length){
+      const offDiv=document.createElement('div'); offDiv.className='off-section';
+      dd.offStaff.forEach(({staff,leave})=>{
+        const tag=document.createElement('span'); tag.className='off-tag';
+        tag.textContent=`${staff.shortName}(${leave?.type||'휴'})`;
+        tag.title=leave?.reason||'';
+        offDiv.appendChild(tag);
+      });
+      body.appendChild(offDiv);
+    }
+  }
+  cell.appendChild(body);
 
-    tbl.appendChild(tbody);block.appendChild(tbl);
-    block.appendChild(buildWeekSummaryBar(week,dayData,shifts));
-    container.appendChild(block);
-  });
+  // ── 셀 하단 비고 ──
+  const ft=document.createElement('div'); ft.className='cell-ft';
+  const noteEl=document.createElement('input'); noteEl.className='cell-note'; noteEl.type='text';
+  noteEl.placeholder='비고...'; noteEl.value=dd?.note||'';
+  if(!S.isAdmin) noteEl.readOnly=true;
+  if(S.isAdmin){
+    noteEl.addEventListener('change',e=>saveNote(ds,e.target.value.trim()));
+    noteEl.addEventListener('click',e=>e.stopPropagation());
+  }
+  ft.appendChild(noteEl);
+  cell.appendChild(ft);
+
+  return cell;
 }
 
-function buildWeekSummaryBar(week,dayData,shifts){
-  const bar=document.createElement('div');bar.className='week-sum';
-  const lbl=document.createElement('span');lbl.className='sum-lbl';lbl.textContent='주간근무:';bar.appendChild(lbl);
-  const shMap={};shifts.forEach(s=>shMap[s.id]=s.hours||8);
-  const hrs={};
-  week.forEach((d,wi)=>{
-    if(!d||d.getMonth()+1!==S.mo) return;
-    const dd=dayData[wi];if(!dd||dd.dayType==='hoff') return;
-    Object.entries(dd.sched).forEach(([shId,deptMap])=>{
-      const h=shMap[shId]||8;
-      Object.values(deptMap).forEach(workers=>{workers.forEach(({staff})=>{hrs[staff.id]=(hrs[staff.id]||0)+h;});});
-    });
+// 당직 근무자 추출 (토/공휴일 로테이션 or 수동)
+function getDutyWorkers(dd){
+  if(!dd) return [];
+  const workers=[];
+  Object.values(dd.sched).forEach(deptMap=>{
+    Object.values(deptMap).forEach(ws=>{ws.forEach(w=>workers.push(w));});
   });
-  const mo1=`${S.yr}-${String(S.mo).padStart(2,'0')}-01`;
-  const moEnd=fmtDate(new Date(S.yr,S.mo,0));
-  S.staff.filter(s=>(!s.hireDate||s.hireDate<=moEnd)&&(!s.leaveDate||s.leaveDate>mo1)).forEach(staff=>{
-    const h=hrs[staff.id]||0;
-    const item=document.createElement('div');item.className='sum-item';
-    const n=document.createElement('span');n.className='sum-name';n.textContent=staff.shortName;
-    const hsp=document.createElement('span');hsp.className='sum-h'+(h>52?' over52':'');hsp.textContent=h+'h';
-    hsp.title=`${staff.name}: ${h}h / 계약 ${staff.contractHours||'?'}h`;
-    item.appendChild(n);item.appendChild(hsp);bar.appendChild(item);
-  });
-  return bar;
+  return workers;
 }
+
 
 // ═══════════════════════════════════════════════════════
 //  RENDER: 인원 관리
@@ -953,6 +1087,122 @@ function renderWeeklyTab(){
     if(maxW>52)tr.style.background='#fff5f5';
     tbody.appendChild(tr);
   });
+}
+
+// ═══════════════════════════════════════════════════════
+//  RENDER: 개인 스케줄
+// ═══════════════════════════════════════════════════════
+let _selectedStaffId=null;
+function renderPersonalTab(){
+  const btnsEl=document.getElementById('personalStaffBtns');
+  const contentEl=document.getElementById('personalScheduleContent');
+  const today=fmtDate(new Date());
+  const activeStaff=S.staff.filter(s=>(!s.hireDate||s.hireDate<=fmtDate(new Date(S.yr,S.mo,0)))&&(!s.leaveDate||s.leaveDate>fmtDate(new Date(S.yr,S.mo-1,1))));
+
+  // 직원 버튼
+  btnsEl.innerHTML='';
+  activeStaff.forEach(st=>{
+    const btn=document.createElement('button');
+    btn.className='btn btn-ghost btn-sm';
+    btn.textContent=st.name;
+    btn.style.cssText=`border-radius:20px;font-size:12px;${st.id===_selectedStaffId?'background:var(--primary);color:#fff;border-color:var(--primary);':''}`;
+    btn.addEventListener('click',()=>{
+      _selectedStaffId=st.id;
+      renderPersonalTab();
+    });
+    btnsEl.appendChild(btn);
+  });
+
+  if(!_selectedStaffId||!activeStaff.find(s=>s.id===_selectedStaffId)){
+    contentEl.innerHTML='<div class="empty-state" style="margin-top:20px;">위에서 직원을 선택하세요</div>';
+    return;
+  }
+
+  const staff=S.staff.find(s=>s.id===_selectedStaffId);
+  const shifts=[...S.shifts].sort((a,b)=>a.startTime.localeCompare(b.startTime));
+  const shMap={};shifts.forEach(s=>shMap[s.id]=s);
+  const total=new Date(S.yr,S.mo,0).getDate();
+  const rows=[];
+  let totalHours=0;
+
+  for(let d=1;d<=total;d++){
+    const date=new Date(S.yr,S.mo-1,d);
+    const ds=fmtDate(date);
+    const dow=date.getDay();
+    if(!activeStaffOn(ds).find(s=>s.id===_selectedStaffId)) continue;
+
+    const dd=computeDay(date);
+    if(!dd) continue;
+
+    // 휴가 체크
+    const leave=getLeave(_selectedStaffId,ds);
+    if(leave&&(leave.type==='연차'||leave.type==='공가')){
+      rows.push({ds,dow,type:'leave',leave,hours:0,dept:'-',shift:'-'});
+      continue;
+    }
+
+    // 근무 없는 날 (hoff)
+    if(dd.dayType==='hoff') continue;
+
+    // 당직 체크
+    if(dd.dayType==='saturday'||dd.dayType==='hwork'){
+      // 당직자인지 확인
+      const isDuty=Object.values(dd.sched).some(dm=>Object.values(dm).flat().some(w=>w.staff.id===_selectedStaffId));
+      if(!isDuty) continue;
+    }
+
+    // 근무 정보 찾기
+    let shiftInfo=null; let deptName='-';
+    Object.entries(dd.sched).forEach(([shId,deptMap])=>{
+      Object.entries(deptMap).forEach(([deptId,workers])=>{
+        if(workers.find(w=>w.staff.id===_selectedStaffId)){
+          shiftInfo=shMap[shId];
+          const dept=S.depts.find(d=>d.id===deptId);
+          deptName=deptId==='CM'?'CM':dept?.name||deptId;
+        }
+      });
+    });
+
+    if(!shiftInfo) continue;
+    totalHours+=shiftInfo.hours||8;
+    rows.push({ds,dow,type:dd.dayType,leave,hours:shiftInfo.hours||8,
+      dept:deptName,shift:`${shiftInfo.startTime}~${shiftInfo.endTime}`,note:dd.note||''});
+  }
+
+  if(!rows.length){
+    contentEl.innerHTML=`<div class="card"><div class="empty-state">${staff.name}님의 이번 달 근무 일정이 없습니다.</div></div>`;
+    return;
+  }
+
+  let html=`<div class="card">
+    <div class="card-title" style="justify-content:space-between;">
+      <span>${staff.name} (${staff.shortName}) — ${S.yr}년 ${S.mo}월</span>
+      <span style="font-size:12px;color:var(--text2);font-weight:400;">총 <strong style="color:var(--primary);">${totalHours}h</strong> / 계약 ${staff.contractHours||'?'}h/주</span>
+    </div>
+    <table class="dtbl">
+      <thead><tr><th style="width:110px;">날짜</th><th>근무시간대</th><th>부서</th><th>유형</th><th>비고</th></tr></thead>
+      <tbody>`;
+
+  rows.forEach(r=>{
+    const dt=parseD(r.ds);
+    const dowStr=DOW_KR[dt.getDay()];
+    const isSun=dt.getDay()===0; const isSat=dt.getDay()===6;
+    const dateColor=isSun?'color:#cc3333;':isSat?'color:var(--sat-hd);':'';
+    let typeBadge='';
+    if(r.type==='saturday'||r.type==='hwork') typeBadge='<span class="chip" style="background:#dde5ff;color:#2244aa;font-size:10px;">당직</span>';
+    else if(r.leave) typeBadge=`<span class="chip chip-${r.leave.type}">${r.leave.type}</span>`;
+    else typeBadge='<span class="chip chip-조교">정상</span>';
+    const bgStyle=(r.type==='saturday'||r.type==='hwork')?'background:#f5f8ff;':'';
+    html+=`<tr style="${bgStyle}">
+      <td style="${dateColor}font-weight:600;">${r.ds} (${dowStr})</td>
+      <td style="font-family:monospace;font-size:12px;">${r.leave&&(r.leave.type==='연차'||r.leave.type==='공가')?'-':r.shift}</td>
+      <td>${r.leave&&(r.leave.type==='연차'||r.leave.type==='공가')?'-':r.dept}</td>
+      <td>${typeBadge}${r.leave&&r.leave.reason?`<span style="font-size:10px;color:var(--text2);margin-left:4px;">${r.leave.reason}</span>`:''}</td>
+      <td style="font-size:11px;color:var(--text2);">${r.note||''}</td>
+    </tr>`;
+  });
+  html+='</tbody></table></div>';
+  contentEl.innerHTML=html;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1309,17 +1559,18 @@ document.getElementById('loginPw').addEventListener('keydown',e=>{if(e.key==='En
 //  TAB / MONTH NAV
 // ═══════════════════════════════════════════════════════
 let _activeTab='schedule';
+const TAB_RENDERERS={schedule:renderSchedule,personal:renderPersonalTab,staff:renderStaffTab,leave:renderLeaveTab,holiday:renderHolidayTab,weekly:renderWeeklyTab,settings:renderSettingsTab};
 function switchTab(name,btn){
   document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   btn?.classList.add('active');_activeTab=name;
-  ({schedule:renderSchedule,staff:renderStaffTab,leave:renderLeaveTab,holiday:renderHolidayTab,weekly:renderWeeklyTab,settings:renderSettingsTab})[name]?.();
+  TAB_RENDERERS[name]?.();
 }
 function changeMonth(delta){
   S.mo+=delta;if(S.mo>12){S.mo=1;S.yr++;}if(S.mo<1){S.mo=12;S.yr--;}
   document.getElementById('monthDisplay').textContent=`${S.yr}년 ${S.mo}월`;
-  reload().then(()=>({schedule:renderSchedule,staff:renderStaffTab,leave:renderLeaveTab,holiday:renderHolidayTab,weekly:renderWeeklyTab,settings:renderSettingsTab})[_activeTab]?.());
+  reload().then(()=>TAB_RENDERERS[_activeTab]?.());
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1354,6 +1605,7 @@ async function init(){
   }
   document.getElementById('monthDisplay').textContent=`${S.yr}년 ${S.mo}월`;
   renderSchedule();
+  renderPersonalTab();
   document.getElementById('loading').classList.add('hidden');
 }
 
