@@ -713,7 +713,7 @@ function computeDay(date){
       if(leave&&(leave.type==='연차'||leave.type==='공가')){offStaff.push({staff,leave});return;}
       if(ov&&ov.isAbsent){offStaff.push({staff,ov});return;}
 
-      const assign=getDeptOrOv(staff,ds,ov);
+      const assign=getDeptOrOv(staff,ds,ov,isDutyDay);
       if(isDutyDay){
         if(assign){
           const{shiftId,deptId}=assign;
@@ -733,10 +733,24 @@ function computeDay(date){
   }
   return{ds,date,dow,dayType,sched,dutyWorkers,offStaff,note:S.notes[ds]||'',h};
 }
-function getDeptOrOv(staff,ds,ov){
-  const shiftId=ov?.shiftTypeId||getAssign(staff.id,ds)?.shiftTypeId;
-  const deptId=ov?.deptId||getAssign(staff.id,ds)?.deptId;
-  return(shiftId&&deptId)?{shiftId,deptId}:null;
+function getDefaultDutyShift(){
+  // 08:00~17:00 우선, 없으면 첫 번째 시간대
+  return S.shifts.find(s=>s.startTime==='08:00'&&s.endTime==='17:00')
+      || S.shifts.find(s=>s.startTime==='07:30')
+      || S.shifts[0]
+      || null;
+}
+function getDeptOrOv(staff,ds,ov,isDuty=false){
+  const assign=getAssign(staff.id,ds);
+  const shiftId=ov?.shiftTypeId||assign?.shiftTypeId;
+  const deptId=ov?.deptId||assign?.deptId;
+  if(shiftId&&deptId) return{shiftId,deptId};
+  // 당직날: 배치 없어도 기본 shift으로 포함
+  if(isDuty){
+    const defShift=getDefaultDutyShift();
+    if(defShift) return{shiftId:defShift.id,deptId:deptId||'DUTY'};
+  }
+  return null;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1460,58 +1474,88 @@ function openHolidayModal(ds){
   S._holidayDate=ds;
   const dt=parseD(ds);const dow=dt.getDay();const h=getHoliday(ds);
   document.getElementById('holidayModalTitle').textContent=`${ds} (${DOW_KR[dow]}) 설정`;
-  const activeStaff=activeStaffOn(ds); // 전직원 (CM 포함)
+  const activeStaff=activeStaffOn(ds);
   const curType=h?.type||((dow===6||dow===0)?'근무있음':'정상');
-  const useRot=h?.useRotation!==false;
-  const wCnt=h?.workerCount||2;
   const manIds=h?.workerIds||[];
+  const useRot=h?(h.useRotation!==false):true;
+  const isAll=!useRot&&manIds.length>0&&activeStaff.every(s=>manIds.includes(s.id));
+  const wCnt=h?.workerCount||2;
+
+  const staffCheckboxes=activeStaff.map(s=>`
+    <label style="display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:13px;">
+      <input type="checkbox" class="hman-cb" value="${s.id}"${manIds.includes(s.id)?' checked':''}>
+      <span class="chip chip-${s.type}" style="font-size:10px;">${s.type}</span>
+      ${s.name} (${s.shortName})
+    </label>`).join('');
+
+  let rotSelVal = useRot ? '1' : (isAll ? 'all' : '0');
+
   document.getElementById('holidayModalBody').innerHTML=`
     <div class="fg mb8"><label class="fl">이 날 설정</label>
-      <select class="fs" id="hType" onchange="updateHModal()">
+      <select class="fs" id="hType">
         <option value="정상"${curType==='정상'?' selected':''}>정상 근무 (기본)</option>
         <option value="근무있음"${curType==='근무있음'?' selected':''}>휴일 근무있음</option>
         <option value="휴무"${curType==='휴무'?' selected':''}>전원 휴무</option>
       </select></div>
     <div id="hWorkArea" style="${curType==='근무있음'?'':'display:none;'}">
       <div class="fg mb8"><label class="fl">근무자 지정 방식</label>
-        <select class="fs" id="hRotSel" onchange="updateHModal()">
-          <option value="1"${useRot?' selected':''}>로테이션 자동</option>
-          <option value="0"${!useRot?' selected':''}>직접 선택</option>
+        <select class="fs" id="hRotSel">
+          <option value="all"${rotSelVal==='all'?' selected':''}>전원 근무 (전 직원)</option>
+          <option value="1"${rotSelVal==='1'?' selected':''}>로테이션 자동</option>
+          <option value="0"${rotSelVal==='0'?' selected':''}>직접 선택</option>
         </select></div>
-      <div id="hRotCnt" style="${useRot?'':'display:none;'}">
+      <div id="hAllArea" style="${rotSelVal==='all'?'':'display:none;'}">
+        <div class="alert alert-info" style="font-size:12px;">등록된 전 직원 <strong>${activeStaff.length}명</strong>이 근무합니다.</div>
+      </div>
+      <div id="hRotCnt" style="${rotSelVal==='1'?'':'display:none;'}">
         <div class="fg mb8"><label class="fl">근무 인원</label>
-          <input type="number" class="fi" id="hWCount" value="${wCnt}" min="1" max="10" style="max-width:90px;" oninput="updateHModal()"></div>
+          <input type="number" class="fi" id="hWCount" value="${wCnt}" min="1" max="10" style="max-width:90px;"></div>
         <div id="hRotPreview" class="alert alert-info" style="font-size:12px;"></div>
       </div>
-      <div id="hManArea" style="${!useRot?'':'display:none;'}">
-        <label class="fl mb8">근무자 선택</label>
-        ${activeStaff.map(s=>`<label style="display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:13px;"><input type="checkbox" class="hman-cb" value="${s.id}"${manIds.includes(s.id)?' checked':''}>${s.name} (${s.shortName})</label>`).join('')}
+      <div id="hManArea" style="${rotSelVal==='0'?'':'display:none;'}">
+        <div style="display:flex;gap:6px;margin-bottom:6px;">
+          <button type="button" class="btn btn-ghost btn-xs" onclick="document.querySelectorAll('.hman-cb').forEach(c=>c.checked=true)">전체선택</button>
+          <button type="button" class="btn btn-ghost btn-xs" onclick="document.querySelectorAll('.hman-cb').forEach(c=>c.checked=false)">전체해제</button>
+        </div>
+        ${staffCheckboxes}
       </div>
     </div>
     <div class="fg mt8"><label class="fl">비고</label><input type="text" class="fi" id="hNote" value="${h?.note||''}" placeholder="예: 어린이날"></div>`;
+
   document.getElementById('holidayModalFooter').innerHTML=`
     <button class="btn btn-ghost" onclick="closeModal('holidayModal')">취소</button>
     ${h?`<button class="btn btn-danger btn-sm" onclick="delHoliday('${ds}')">초기화</button>`:''}
     <button class="btn btn-primary" onclick="saveHoliday()">저장</button>`;
-  document.getElementById('hType').addEventListener('change',updateHModal);
-  document.getElementById('hRotSel')?.addEventListener('change',updateHModal);
-  openModal('holidayModal');
-  setTimeout(updateHModal,50);
-}
-function updateHModal(){
-  const type=document.getElementById('hType')?.value;
-  const useRot=document.getElementById('hRotSel')?.value==='1';
-  const wa=document.getElementById('hWorkArea');if(wa)wa.style.display=type==='근무있음'?'':'none';
-  const rc=document.getElementById('hRotCnt');if(rc)rc.style.display=useRot?'':'none';
-  const ma=document.getElementById('hManArea');if(ma)ma.style.display=!useRot?'':'none';
-  if(useRot&&S._holidayDate){
-    const cnt=parseInt(document.getElementById('hWCount')?.value||2);
-    const ids=rotWorkers(S._holidayDate,cnt);
-    const names=ids.map(id=>S.staff.find(s=>s.id===id)?.name||id).join(', ');
-    const pv=document.getElementById('hRotPreview');
-    if(pv)pv.innerHTML=`예상 근무자: <strong>${names||'(순서 미설정)'}</strong>`;
+
+  document.getElementById('hType').addEventListener('change',function(){
+    document.getElementById('hWorkArea').style.display=this.value==='근무있음'?'':'none';
+  });
+  document.getElementById('hRotSel').addEventListener('change',function(){
+    const v=this.value;
+    document.getElementById('hAllArea').style.display=v==='all'?'':'none';
+    document.getElementById('hRotCnt').style.display=v==='1'?'':'none';
+    document.getElementById('hManArea').style.display=v==='0'?'':'none';
+    if(v==='1'){
+      const cnt=parseInt(document.getElementById('hWCount')?.value||2);
+      const ids=rotWorkers(S._holidayDate,cnt);
+      const names=ids.map(id=>S.staff.find(s=>s.id===id)?.name||id).join(', ');
+      const pv=document.getElementById('hRotPreview');
+      if(pv)pv.innerHTML=`예상 근무자: <strong>${names||'(순서 미설정)'}</strong>`;
+    }
+  });
+  // 초기 로테이션 미리보기
+  if(rotSelVal==='1'){
+    setTimeout(()=>{
+      const cnt=parseInt(document.getElementById('hWCount')?.value||2);
+      const ids=rotWorkers(S._holidayDate,cnt);
+      const names=ids.map(id=>S.staff.find(s=>s.id===id)?.name||id).join(', ');
+      const pv=document.getElementById('hRotPreview');
+      if(pv)pv.innerHTML=`예상 근무자: <strong>${names||'(순서 미설정)'}</strong>`;
+    },50);
   }
+  openModal('holidayModal');
 }
+// updateHModal → openHolidayModal 내부에서 처리
 function openOverrideModal(staffId,ds,defShiftId=null,defDeptId=null){
   if(!S.isAdmin)return;
   S._ovStaffId=staffId;S._ovDate=ds;
@@ -1609,9 +1653,12 @@ async function saveHoliday(){
   const ds=S._holidayDate;if(!ds)return;
   const type=v('hType');
   if(type==='정상'){await delHoliday(ds);return;}
-  const useRotation=document.getElementById('hRotSel')?.value==='1';
+  const rotSel=document.getElementById('hRotSel')?.value||'1';
+  const useRotation=rotSel==='1';
   const workerCount=parseInt(document.getElementById('hWCount')?.value||2);
-  const workerIds=Array.from(document.querySelectorAll('.hman-cb:checked')).map(c=>c.value);
+  // 전원근무: 현재 활성 직원 전체 ID
+  const allActive=activeStaffOn(S._holidayDate).map(s=>s.id);
+  const workerIds=rotSel==='all'?allActive:Array.from(document.querySelectorAll('.hman-cb:checked')).map(c=>c.value);
   const note=v('hNote');
   // 세션 확인
   const {data:{session}}=await sb.auth.getSession();
