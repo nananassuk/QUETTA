@@ -676,27 +676,34 @@ function computeDay(date){
   const isDutyDay=(dayType==='saturday'||dayType==='hwork');
   if(dayType!=='hoff'){
     activeStaffOn(ds).forEach(staff=>{
-      // CM: 정상근무일 또는 직접선택 당직에 지정된 경우만 포함
-      if(staff.type==='CM'){
-        if(dayType==='regular'){/* CM 정상 포함 */}
-        else if(dayType==='hwork'&&h?.useRotation===false&&manIds.includes(staff.id)){/* CM 직접선택 포함 */}
-        else return;
+      // ── override 먼저 확인 (수동편성은 모든 필터 우선) ──
+      const ov=getOverride(staff.id,ds);
+      const hasManualOv=ov&&!ov.isAbsent; // 수동 배치 override
+
+      if(!hasManualOv){
+        // override 없을 때만 일반 필터 적용
+        // CM: 정상근무일 또는 직접선택 당직에 지정된 경우만
+        if(staff.type==='CM'){
+          if(dayType==='regular'){/* CM 정상 포함 */}
+          else if(dayType==='hwork'&&h?.useRotation===false&&manIds.includes(staff.id)){/* CM 직접선택 */}
+          else return;
+        }
+        // 로테이션 당직날: rotIds 조교만
+        if((dayType==='saturday'||(dayType==='hwork'&&h?.useRotation!==false))&&staff.type==='조교'){
+          if(!rotIds.includes(staff.id)) return;
+        }
+        // 직접선택 당직날: manIds에 없으면 제외
+        if(dayType==='hwork'&&h?.useRotation===false){
+          if(!manIds.includes(staff.id)) return;
+        }
       }
-      // 로테이션 당직날: rotIds 조교만
-      if((dayType==='saturday'||(dayType==='hwork'&&h?.useRotation!==false))&&staff.type==='조교'){
-        if(!rotIds.includes(staff.id)) return;
-      }
-      // 직접선택 당직날: manIds에 없으면 제외
-      if(dayType==='hwork'&&h?.useRotation===false){
-        if(!manIds.includes(staff.id)) return;
-      }
+
       const leave=getLeave(staff.id,ds);
       if(leave&&(leave.type==='연차'||leave.type==='공가')){offStaff.push({staff,leave});return;}
-      const ov=getOverride(staff.id,ds);
       if(ov&&ov.isAbsent){offStaff.push({staff,ov});return;}
+
       const assign=getDeptOrOv(staff,ds,ov);
       if(isDutyDay){
-        // 당직날: 배치 없어도 dutyWorkers에 추가 (이름만 표시)
         if(assign){
           const{shiftId,deptId}=assign;
           if(!sched[shiftId]) sched[shiftId]={};
