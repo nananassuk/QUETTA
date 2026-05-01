@@ -509,7 +509,11 @@ window.onerror = function(msg, src, line){
 <div class="tab-content" id="tab-holiday">
   <div class="page">
     <div class="page-title">🗓️ 휴일 설정</div>
-    <div class="alert alert-info">날짜를 클릭하여 <strong>전원 휴무</strong> 또는 <strong>근무있는 휴일</strong>로 설정하세요.<br>기본: 일요일 전원 휴무 | 토요일 로테이션 2명 근무</div>
+    <div class="alert alert-info">날짜를 클릭하여 휴일 근무를 설정하세요.<br>
+    <strong>일요일</strong>: 기본 휴무 — 클릭해서 근무있음 설정 가능<br>
+    <strong>토요일</strong>: 기본 로테이션 2명 근무 — 클릭해서 변경 가능<br>
+    <span style="color:#c62828;">⚠ 설정 없이 저장하면 DB에 기록이 남습니다. 초기화 버튼으로 삭제하세요.</span>
+  </div>
     <div class="card">
       <div class="card-title">달력</div>
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center;margin-bottom:5px;">
@@ -1053,12 +1057,25 @@ function renderStaffTab(){
       if(S.isAdmin){
         const hist=S.assigns.filter(a=>a.staffId===st.id).sort((a,b)=>(b.startDate||'').localeCompare(a.startDate||''));
         if(hist.length){
-          html+=`<tr><td colspan="${S.isAdmin?7:6}" style="padding:3px 10px;background:#fafaf8;font-size:11px;color:var(--text2);">배치이력: `;
-          hist.forEach(a=>{
-            const d=S.depts.find(x=>x.id===a.deptId);const s=S.shifts.find(x=>x.id===a.shiftTypeId);
-            html+=`<span class="assign-badge">${a.deptId==='CM'?'CM':d?.name||a.deptId} ${s?.startTime||'?'} (${a.startDate}~${a.endDate||'현재'}) <button onclick="delAssign('${a.id}')" style="background:none;border:none;cursor:pointer;color:#c62828;font-size:12px;">×</button></span>`;
-          });
-          html+='</td></tr>';
+          const latest=hist[0];
+          const ld=S.depts.find(x=>x.id===latest.deptId);const ls=S.shifts.find(x=>x.id===latest.shiftTypeId);
+          const latestTxt=`${latest.deptId==='CM'?'CM':ld?.name||latest.deptId} ${ls?.startTime||'?'}~${ls?.endTime||'?'} (${latest.startDate}~${latest.endDate||'현재'})`;
+          html+=`<tr><td colspan="7" style="padding:3px 10px;background:#fafaf8;">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+              <span style="font-size:11px;color:var(--text2);">현재배치:</span>
+              <span class="assign-badge">${latestTxt}
+                <button onclick="delAssign('${latest.id}')" style="background:none;border:none;cursor:pointer;color:#c62828;font-size:12px;margin-left:2px;">×</button>
+              </span>
+              ${hist.length>1?`<button class="btn btn-ghost btn-xs" onclick="toggleAssignHist(this,'hist-${st.id}')">이력 ${hist.length-1}건 ▼</button>`:''}
+            </div>
+            <div id="hist-${st.id}" style="display:none;max-height:120px;overflow-y:auto;margin-top:4px;border-top:1px solid var(--border-lt);padding-top:4px;">
+              ${hist.slice(1).map(a=>{
+                const d=S.depts.find(x=>x.id===a.deptId);const s=S.shifts.find(x=>x.id===a.shiftTypeId);
+                return `<span class="assign-badge" style="opacity:.7;">${a.deptId==='CM'?'CM':d?.name||a.deptId} ${s?.startTime||'?'}~${s?.endTime||'?'} (${a.startDate}~${a.endDate||'현재'})
+                  <button onclick="delAssign('${a.id}')" style="background:none;border:none;cursor:pointer;color:#c62828;font-size:12px;">×</button></span>`;
+              }).join('')}
+            </div>
+          </td></tr>`;
         }
       }
     });
@@ -1461,7 +1478,7 @@ function openHolidayModal(ds){
   const dt=parseD(ds);const dow=dt.getDay();const h=getHoliday(ds);
   document.getElementById('holidayModalTitle').textContent=`${ds} (${DOW_KR[dow]}) 설정`;
   const activeStaff=activeStaffOn(ds);
-  const curType=h?.type||((dow===6||dow===0)?'근무있음':'정상');
+  const curType=h?.type||(dow===6?'근무있음':dow===0?'휴무':'정상'); // 일요일 기본=휴무, 토요일 기본=근무있음
   const manIds=h?.workerIds||[];
   const useRot=h?(h.useRotation!==false):true;
   const isAll=!useRot&&manIds.length>0&&activeStaff.every(s=>manIds.includes(s.id));
@@ -1474,6 +1491,7 @@ function openHolidayModal(ds){
       ${s.name} (${s.shortName})
     </label>`).join('');
 
+  // 일요일+holiday없음: 기본 직접선택으로
   let rotSelVal = useRot ? '1' : (isAll ? 'all' : '0');
 
   document.getElementById('holidayModalBody').innerHTML=`
