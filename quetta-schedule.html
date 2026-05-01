@@ -1682,41 +1682,16 @@ function applyAuthUI(isAdmin){
   document.querySelectorAll('.admin-tab').forEach(t=>t.classList.toggle('hidden',!isAdmin));
 }
 
+function hideLoading(){
+  document.getElementById('loading').classList.add('hidden');
+}
+
 async function init(){
-  const loadingEl=document.getElementById('loading');
+  // 안전장치: 5초 후에는 무조건 로딩 숨김
+  const safetyTimer=setTimeout(hideLoading, 5000);
 
-  // 1. 먼저 현재 세션 확인 (onAuthStateChange 대기 없이 즉시)
-  try{
-    const {data:{session}}=await sb.auth.getSession();
-    applyAuthUI(!!session);
-  }catch(e){console.error('세션 확인 오류:',e);}
-
-  // 2. 데이터 로딩
-  try{
-    await reload();
-  }catch(e){
-    console.error('초기화 오류:',e);
-    document.getElementById('scheduleContainer').innerHTML=
-      `<div class="alert alert-danger" style="margin:20px;">
-        <strong>연결 오류</strong><br>Supabase URL과 API Key를 확인해주세요.<br>
-        <small>${e.message}</small>
-      </div>`;
-  }
-
-  // 3. 화면 렌더링 & 로딩 숨김 (에러 여부 무관)
-  try{
-    document.getElementById('monthDisplay').textContent=`${S.yr}년 ${S.mo}월`;
-    const pDisp=document.getElementById('personalMonthDisplay');
-    if(pDisp) pDisp.textContent=`${S.pYr}년 ${S.pMo}월`;
-    renderSchedule();
-  }catch(e){console.error('렌더링 오류:',e);}
-  finally{
-    loadingEl.classList.add('hidden');
-  }
-
-  // 4. 이후 로그인/로그아웃 감지 (초기 로딩과 분리)
-  sb.auth.onAuthStateChange(async(event,session)=>{
-    if(event==='INITIAL_SESSION') return; // 이미 처리함
+  // 로그인/로그아웃 이벤트 감지
+  sb.auth.onAuthStateChange((event,session)=>{
     applyAuthUI(!!session);
     if(event==='SIGNED_OUT'&&!['schedule','personal'].includes(_activeTab)){
       document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
@@ -1726,9 +1701,34 @@ async function init(){
       _activeTab='schedule';
     }
     if(event==='SIGNED_IN'||event==='SIGNED_OUT'){
-      try{ TAB_RENDERERS[_activeTab]?.(); }catch(e){console.error(e);}
+      reload().then(()=>{ try{TAB_RENDERERS[_activeTab]?.();}catch(e){console.error(e);} });
     }
   });
+
+  // 데이터 로딩
+  try{
+    await reload();
+  }catch(e){
+    console.error('데이터 로딩 오류:',e);
+    document.getElementById('scheduleContainer').innerHTML=
+      `<div class="alert alert-danger" style="margin:20px;">
+        <strong>연결 오류</strong><br>Supabase URL 또는 API Key를 확인해주세요.<br>
+        <small>${e.message}</small>
+      </div>`;
+  }
+
+  // 렌더링
+  try{
+    document.getElementById('monthDisplay').textContent=`${S.yr}년 ${S.mo}월`;
+    const pDisp=document.getElementById('personalMonthDisplay');
+    if(pDisp) pDisp.textContent=`${S.pYr}년 ${S.pMo}월`;
+    renderSchedule();
+  }catch(e){
+    console.error('렌더링 오류:',e);
+  }
+
+  clearTimeout(safetyTimer);
+  hideLoading();
 }
 
 init();
