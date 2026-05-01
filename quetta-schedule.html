@@ -631,7 +631,11 @@ function allRotDates(from,to){
   const cur=parseD(from),end=parseD(to);
   while(cur<=end){
     const ds=fmtDate(cur); const dow=cur.getDay(); const h=getHoliday(ds);
-    if(dow===6&&h?.type!=='휴무') res.push(ds);
+    // 토요일: holidays가 '휴무'가 아니면 로테이션 날 (설정 없어도 기본 포함)
+    if(dow===6){
+      if(!h||h.type!=='휴무') res.push(ds);
+    }
+    // 평일/일요일: holidays에 '근무있음' + 로테이션 설정된 경우만
     else if(h?.type==='근무있음'&&h?.useRotation!==false) res.push(ds);
     cur.setDate(cur.getDate()+1);
   }
@@ -669,10 +673,17 @@ function computeDay(date){
   const sched={};const offStaff=[];
   if(dayType!=='hoff'){
     activeStaffOn(ds).forEach(staff=>{
-      if(staff.type==='CM'&&dayType!=='regular') return;
+      // CM은 정상근무일 또는 직접선택 당직에 지정된 경우만 포함
+      if(staff.type==='CM'){
+        if(dayType==='regular') {/* CM 정상근무 포함 */}
+        else if(dayType==='hwork'&&h?.useRotation===false&&manIds.includes(staff.id)){/* 직접선택에 포함된 CM */}
+        else return;
+      }
+      // 로테이션 당직날: 로테이션 대상 조교만
       if((dayType==='saturday'||(dayType==='hwork'&&h?.useRotation!==false))&&staff.type==='조교'){
         if(!rotIds.includes(staff.id)) return;
       }
+      // 직접선택 당직날: manIds에 없으면 제외 (CM 포함 전직원)
       if(dayType==='hwork'&&h?.useRotation===false){
         if(!manIds.includes(staff.id)) return;
       }
@@ -748,6 +759,11 @@ function renderSchedule(){
 }
 
 function buildWeekHrsBar(weekDates,shMap){
+  // 관리자만 주간 근무시간 바 표시
+  const bar=document.createElement('div');
+  bar.className='week-hrs-bar';
+  if(!S.isAdmin){bar.style.display='none';return bar;}
+
   const hrs={};
   weekDates.forEach(({dd})=>{
     if(!dd||dd.dayType==='hoff') return;
@@ -758,8 +774,6 @@ function buildWeekHrsBar(weekDates,shMap){
       });
     });
   });
-  const bar=document.createElement('div');
-  bar.className='week-hrs-bar';
   const lbl=document.createElement('span');lbl.className='wh-lbl';lbl.textContent='주간:';bar.appendChild(lbl);
   const mo1=fmtDate(new Date(S.yr,S.mo-1,1));
   const moEnd=fmtDate(new Date(S.yr,S.mo,0));
@@ -1389,7 +1403,7 @@ function openHolidayModal(ds){
   S._holidayDate=ds;
   const dt=parseD(ds);const dow=dt.getDay();const h=getHoliday(ds);
   document.getElementById('holidayModalTitle').textContent=`${ds} (${DOW_KR[dow]}) 설정`;
-  const activeStaff=activeStaffOn(ds).filter(s=>s.type==='조교');
+  const activeStaff=activeStaffOn(ds); // 전직원 (CM 포함)
   const curType=h?.type||((dow===6||dow===0)?'근무있음':'정상');
   const useRot=h?.useRotation!==false;
   const wCnt=h?.workerCount||2;
