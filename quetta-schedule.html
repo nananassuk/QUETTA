@@ -31,8 +31,9 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .app-logo em{color:var(--gold);font-style:normal;}
 .spacer{flex:1;}
 .month-nav{display:flex;align-items:center;gap:6px;}
-.mnav-btn{background:rgba(255,255,255,.15);border:none;color:#fff;width:28px;height:28px;border-radius:4px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;}
-.mnav-btn:hover{background:rgba(255,255,255,.28);}
+.mnav-btn{background:rgba(255,255,255,.15);border:none;color:#fff;width:28px;height:28px;border-radius:4px;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.mnav-btn:hover:not(:disabled){background:rgba(255,255,255,.28);}
+.mnav-btn:disabled{opacity:.25;cursor:not-allowed;}
 .month-display{font-size:14px;font-weight:600;min-width:84px;text-align:center;}
 .admin-badge{background:var(--gold);color:#fff;font-size:10px;padding:2px 7px;border-radius:3px;font-weight:700;}
 .auth-btn{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);color:#fff;padding:4px 11px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:12px;}
@@ -563,6 +564,20 @@ window.onerror = function(msg, src, line){
   <div class="page">
     <div class="page-title">⚙️ 설정</div>
     <div class="card">
+      <div class="card-title">📅 노출 월 관리
+        <span style="font-size:11px;color:var(--text2);font-weight:400;">뷰어에게 보여줄 달을 선택하세요</span>
+      </div>
+      <div class="alert alert-info mb8" style="font-size:12px;">
+        설정한 월만 일반 뷰어에게 보입니다. 비어있으면 모든 월 이동 가능. 관리자는 항상 모든 월 이동 가능.
+      </div>
+      <div id="visibleMonthList" class="mb8"></div>
+      <div class="fr" style="gap:8px;flex-wrap:wrap;">
+        <input type="month" class="fi" id="addVisibleMonth" style="max-width:180px;">
+        <button class="btn btn-primary btn-sm" onclick="addVisibleMonth()">+ 월 추가</button>
+        <button class="btn btn-danger btn-sm" onclick="clearVisibleMonths()">전체 초기화</button>
+      </div>
+    </div>
+    <div class="card">
       <div class="card-title">근무 시간대
         <button class="btn btn-primary btn-sm hidden" id="addShiftBtn" onclick="openAddShift()">+ 추가</button>
       </div>
@@ -599,6 +614,7 @@ const S = {
   staff: [], shifts: [], depts: [], assigns: [],
   overrides: [], leaves: [], holidays: [], notes: {},
   rotation: { order:[], startDate:'2025-05-01', startIndex:0 },
+  visibleMonths: [], // ["2026-05","2026-06"] 형식
   _staffId:null, _assignStaffId:null, _assignId:null,
   _leaveId:null, _shiftId:null, _deptId:null,
   _ovDate:null, _ovStaffId:null, _holidayDate:null,
@@ -648,9 +664,11 @@ function allRotDates(from,to){
   const cur=parseD(from),end=parseD(to);
   while(cur<=end){
     const ds=fmtDate(cur); const dow=cur.getDay(); const h=getHoliday(ds);
-    // 토요일: holidays가 '휴무'가 아니면 로테이션 날 (설정 없어도 기본 포함)
+    // 토요일: 기본 로테이션 (휴무 설정이거나 직접선택이면 제외)
     if(dow===6){
-      if(!h||h.type!=='휴무') res.push(ds);
+      if(!h) res.push(ds); // 설정 없으면 기본 로테이션
+      else if(h.type!=='휴무'&&h.useRotation!==false) res.push(ds); // 근무있음+로테이션
+      // h.type==='휴무' 또는 h.useRotation===false이면 로테이션 제외
     }
     // 평일/일요일: holidays에 '근무있음' + 로테이션 설정된 경우만
     else if(h?.type==='근무있음'&&h?.useRotation!==false) res.push(ds);
@@ -681,8 +699,13 @@ function computeDay(date){
     // holidays 설정이 있으면 요일 무관하게 우선 적용
     dayType=h.type==='휴무'?'hoff':'hwork';
     if(dayType==='hwork'){
-      if(h.useRotation!==false) rotIds=rotWorkers(ds,h.workerCount||2);
-      else manIds=h.workerIds||[];
+      if(h.useRotation!==false){
+        rotIds=rotWorkers(ds,h.workerCount||2);
+        // 추가 근무자 (로테이션 외): workerIds에 저장된 ID
+        manIds=h.workerIds||[]; // 로테이션 외 추가 근무자
+      } else {
+        manIds=h.workerIds||[];
+      }
     }
   } else if(dow===0){dayType='hoff';} // 일요일 기본 휴무
   else if(dow===6){dayType='saturday';rotIds=rotWorkers(ds,2);} // 토요일 기본 로테이션
@@ -703,11 +726,17 @@ function computeDay(date){
           else if(dayType==='hwork'&&h?.useRotation===false&&manIds.includes(staff.id)){/* CM 직접선택 */}
           else return;
         }
-        // 로테이션 당직날: rotIds 조교만
-        if((dayType==='saturday'||(dayType==='hwork'&&h?.useRotation!==false))&&staff.type==='조교'){
-          if(!rotIds.includes(staff.id)) return;
+        // 로테이션 당직날
+        if((dayType==='saturday'||(dayType==='hwork'&&h?.useRotation!==false))){
+          if(staff.type==='조교'){
+            // 조교: rotIds에 있어야 함
+            if(!rotIds.includes(staff.id)) return;
+          } else {
+            // 비조교(CM 등): manIds(추가근무자)에 있어야 함
+            if(!manIds.includes(staff.id)) return;
+          }
         }
-        // 직접선택 당직날: manIds에 없으면 제외
+        // 직접선택 당직날: manIds에 없으면 제외 (전체)
         if(dayType==='hwork'&&h?.useRotation===false){
           if(!manIds.includes(staff.id)) return;
         }
@@ -746,14 +775,20 @@ function getDefaultDutyShift(){
 }
 function getDeptOrOv(staff,ds,ov,isDuty=false){
   const assign=getAssign(staff.id,ds);
-  const shiftId=ov?.shiftTypeId||assign?.shiftTypeId;
   const deptId=ov?.deptId||assign?.deptId;
-  if(shiftId&&deptId) return{shiftId,deptId};
-  // 당직날: 배치 없어도 기본 shift으로 포함
+
   if(isDuty){
+    // 당직날: override에 명시된 shift가 있으면 그것 사용, 없으면 기본 08:00~17:00
+    const shiftId=ov?.shiftTypeId||null; // override만 허용 (배치 shift 무시)
     const defShift=getDefaultDutyShift();
-    if(defShift) return{shiftId:defShift.id,deptId:deptId||'DUTY'};
+    const dutyShiftId=shiftId||defShift?.id;
+    if(dutyShiftId) return{shiftId:dutyShiftId,deptId:deptId||'DUTY'};
+    return null;
   }
+
+  // 평일: override 또는 배치 그대로
+  const shiftId=ov?.shiftTypeId||assign?.shiftTypeId;
+  if(shiftId&&deptId) return{shiftId,deptId};
   return null;
 }
 
@@ -905,8 +940,8 @@ function buildCalCell(ds,date,dow,dd,shifts,today){
       const makeTag=(w,cls)=>{
         const defShift=getDefaultDutyShift();
         const ov=getOverride(w.staff.id,ds);
-        const assign=getAssign(w.staff.id,ds);
-        const shiftId=ov?.shiftTypeId||assign?.shiftTypeId||defShift?.id;
+        // 당직: override shift 있으면 그것, 없으면 기본 08:00~17:00
+        const shiftId=ov?.shiftTypeId||defShift?.id;
         const shift=S.shifts.find(s=>s.id===shiftId)||defShift;
         const tag=document.createElement('span');
         tag.className='duty-tag '+cls+(w.hasOv?' is-ov':'');
@@ -1401,6 +1436,30 @@ function _renderPersonalContent(activeStaff){
 function renderSettingsTab(){
   document.getElementById('addShiftBtn').classList.toggle('hidden',!S.isAdmin);
   document.getElementById('addDeptBtn').classList.toggle('hidden',!S.isAdmin);
+
+  // 노출 월 목록 렌더
+  const vmEl=document.getElementById('visibleMonthList');
+  if(vmEl){
+    const months=S.visibleMonths||[];
+    if(!months.length){
+      vmEl.innerHTML='<div style="font-size:12px;color:var(--text3);padding:4px 0;">설정된 노출 월 없음 (모든 월 이동 가능)</div>';
+    } else {
+      vmEl.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:6px;">'+
+        months.map((m,i)=>{
+          const [y,mo]=m.split('-');
+          return `<span style="display:inline-flex;align-items:center;gap:5px;background:var(--primary);color:#fff;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;">
+            ${y}년 ${parseInt(mo)}월
+            <button onclick="removeVisibleMonth(${i})" style="background:none;border:none;color:rgba(255,255,255,.7);cursor:pointer;font-size:14px;padding:0;line-height:1;">×</button>
+          </span>`;
+        }).join('')+
+      '</div>';
+    }
+    // 기본값: 현재 년월
+    const addInput=document.getElementById('addVisibleMonth');
+    if(addInput&&!addInput.value){
+      addInput.value=`${S.yr}-${String(S.mo).padStart(2,'0')}`;
+    }
+  }
   const sl=document.getElementById('shiftList');
   if(!S.shifts.length){sl.innerHTML='<div class="empty-state">근무시간대가 없습니다.</div>';}
   else{
@@ -1472,6 +1531,13 @@ function showLeaveDetail(id){
   if(S.isAdmin)ft.innerHTML+=`<button class="btn btn-danger btn-sm" onclick="delLeave('${id}')">삭제</button>`;
   openModal('leaveDetailModal');
 }
+function updateRotPreview(){
+  const cnt=parseInt(document.getElementById('hWCount')?.value||2);
+  const ids=rotWorkers(S._holidayDate,cnt);
+  const names=ids.map(id=>S.staff.find(s=>s.id===id)?.name||id).join(', ');
+  const pv=document.getElementById('hRotPreview');
+  if(pv)pv.innerHTML='로테이션 자동 배정: <strong>'+(names||'(순서 미설정)')+'</strong>';
+}
 function openHolidayModal(ds){
   if(!S.isAdmin)return;
   S._holidayDate=ds;
@@ -1512,9 +1578,18 @@ function openHolidayModal(ds){
         <div class="alert alert-info" style="font-size:12px;">등록된 전 직원 <strong>${activeStaff.length}명</strong>이 근무합니다.</div>
       </div>
       <div id="hRotCnt" style="${rotSelVal==='1'?'':'display:none;'}">
-        <div class="fg mb8"><label class="fl">근무 인원</label>
-          <input type="number" class="fi" id="hWCount" value="${wCnt}" min="1" max="10" style="max-width:90px;"></div>
-        <div id="hRotPreview" class="alert alert-info" style="font-size:12px;"></div>
+        <div class="fg mb8"><label class="fl">로테이션 인원</label>
+          <input type="number" class="fi" id="hWCount" value="${wCnt}" min="1" max="10" style="max-width:90px;" oninput="updateRotPreview()"></div>
+        <div id="hRotPreview" class="alert alert-info mb8" style="font-size:12px;"></div>
+        <div style="border-top:1px solid #e5e5e5;padding-top:8px;margin-top:2px;">
+          <div style="font-size:12px;font-weight:600;color:var(--primary);margin-bottom:4px;">+ 추가 근무자 (로테이션 외)</div>
+          <div style="font-size:11px;color:#888;margin-bottom:6px;">CM 직원 등 추가로 근무할 인원</div>
+          <div style="display:flex;gap:6px;margin-bottom:6px;">
+            <button type="button" class="btn btn-ghost btn-xs" onclick="document.querySelectorAll('.hextra-cb').forEach(c=>c.checked=true)">전체선택</button>
+            <button type="button" class="btn btn-ghost btn-xs" onclick="document.querySelectorAll('.hextra-cb').forEach(c=>c.checked=false)">전체해제</button>
+          </div>
+          ${activeStaff.map(s=>`<label style="display:flex;align-items:center;gap:6px;margin-bottom:4px;font-size:13px;"><input type="checkbox" class="hextra-cb" value="${s.id}"${manIds.includes(s.id)?' checked':''}><span class="chip chip-${s.type}" style="font-size:10px;">${s.type}</span>${s.name} (${s.shortName})</label>`).join('')}
+        </div>
       </div>
       <div id="hManArea" style="${rotSelVal==='0'?'':'display:none;'}">
         <div style="display:flex;gap:6px;margin-bottom:6px;">
@@ -1539,23 +1614,11 @@ function openHolidayModal(ds){
     document.getElementById('hAllArea').style.display=v==='all'?'':'none';
     document.getElementById('hRotCnt').style.display=v==='1'?'':'none';
     document.getElementById('hManArea').style.display=v==='0'?'':'none';
-    if(v==='1'){
-      const cnt=parseInt(document.getElementById('hWCount')?.value||2);
-      const ids=rotWorkers(S._holidayDate,cnt);
-      const names=ids.map(id=>S.staff.find(s=>s.id===id)?.name||id).join(', ');
-      const pv=document.getElementById('hRotPreview');
-      if(pv)pv.innerHTML=`예상 근무자: <strong>${names||'(순서 미설정)'}</strong>`;
-    }
+    if(v==='1') setTimeout(updateRotPreview,50);
   });
   // 초기 로테이션 미리보기
   if(rotSelVal==='1'){
-    setTimeout(()=>{
-      const cnt=parseInt(document.getElementById('hWCount')?.value||2);
-      const ids=rotWorkers(S._holidayDate,cnt);
-      const names=ids.map(id=>S.staff.find(s=>s.id===id)?.name||id).join(', ');
-      const pv=document.getElementById('hRotPreview');
-      if(pv)pv.innerHTML=`예상 근무자: <strong>${names||'(순서 미설정)'}</strong>`;
-    },50);
+    setTimeout(()=>updateRotPreview(),50);
   }
   openModal('holidayModal');
 }
@@ -1660,9 +1723,12 @@ async function saveHoliday(){
   const rotSel=document.getElementById('hRotSel')?.value||'1';
   const useRotation=rotSel==='1';
   const workerCount=parseInt(document.getElementById('hWCount')?.value||2);
-  // 전원근무: 현재 활성 직원 전체 ID
   const allActive=activeStaffOn(S._holidayDate).map(s=>s.id);
-  const workerIds=rotSel==='all'?allActive:Array.from(document.querySelectorAll('.hman-cb:checked')).map(c=>c.value);
+  // 직접선택: hman-cb / 로테이션: hextra-cb(추가근무자) / 전원: 전체
+  let workerIds=[];
+  if(rotSel==='all') workerIds=allActive;
+  else if(rotSel==='1') workerIds=Array.from(document.querySelectorAll('.hextra-cb:checked')).map(c=>c.value);
+  else workerIds=Array.from(document.querySelectorAll('.hman-cb:checked')).map(c=>c.value);
   const note=v('hNote');
   // 세션 확인
   const {data:{session}}=await sb.auth.getSession();
@@ -1787,6 +1853,8 @@ async function reload(){
   S.notes={};(r8.data||[]).forEach(n=>S.notes[n.date]=n.note);
   const rotRow=(r9.data||[]).find(s=>s.key==='rotation');
   if(rotRow?.value) S.rotation=rotRow.value;
+  const vmRow=(r9.data||[]).find(s=>s.key==='visibleMonths');
+  S.visibleMonths=vmRow?.value||[];
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1818,9 +1886,32 @@ function switchTab(name,btn){
   TAB_RENDERERS[name]?.();
 }
 function changeMonth(delta){
-  S.mo+=delta;if(S.mo>12){S.mo=1;S.yr++;}if(S.mo<1){S.mo=12;S.yr--;}
+  if(!S.isAdmin&&S.visibleMonths.length>0){
+    // 뷰어: 노출 월 목록 내에서만 이동
+    const cur=`${S.yr}-${String(S.mo).padStart(2,'0')}`;
+    const idx=S.visibleMonths.indexOf(cur);
+    const next=idx+delta;
+    if(next<0||next>=S.visibleMonths.length) return;
+    const [ny,nm]=S.visibleMonths[next].split('-').map(Number);
+    S.yr=ny;S.mo=nm;
+  } else {
+    S.mo+=delta;if(S.mo>12){S.mo=1;S.yr++;}if(S.mo<1){S.mo=12;S.yr--;}
+  }
   document.getElementById('monthDisplay').textContent=`${S.yr}년 ${S.mo}월`;
+  updateMonthNavBtns();
   reload().then(()=>TAB_RENDERERS[_activeTab]?.());
+}
+
+function updateMonthNavBtns(){
+  if(S.isAdmin||!S.visibleMonths.length) {
+    document.querySelectorAll('.mnav-btn').forEach(b=>b.disabled=false);
+    return;
+  }
+  const cur=`${S.yr}-${String(S.mo).padStart(2,'0')}`;
+  const idx=S.visibleMonths.indexOf(cur);
+  const btns=document.querySelectorAll('.mnav-btn');
+  if(btns[0]) btns[0].disabled=idx<=0;
+  if(btns[1]) btns[1].disabled=idx>=S.visibleMonths.length-1;
 }
 
 // ═══════════════════════════════════════════════════════
