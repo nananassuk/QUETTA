@@ -1565,10 +1565,23 @@ async function saveHoliday(){
   const workerCount=parseInt(document.getElementById('hWCount')?.value||2);
   const workerIds=Array.from(document.querySelectorAll('.hman-cb:checked')).map(c=>c.value);
   const note=v('hNote');
+  // 세션 확인
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){toast('로그인이 필요합니다','err');return;}
+  const payload={date:ds,type,use_rotation:useRotation,worker_count:workerCount,worker_ids:workerIds,note};
+  console.log('[saveHoliday] payload:', JSON.stringify(payload));
   try{
-    sbCheck(await sb.from('holidays').upsert({date:ds,type,use_rotation:useRotation,worker_count:workerCount,worker_ids:workerIds,note},{onConflict:'date'}));
-    await reload();renderHolidayTab();renderSchedule();closeModal('holidayModal');toast('저장됨');
-  }catch(e){toast('오류: '+e.message,'err');}
+    // delete 후 insert (upsert 대신)
+    const del=await sb.from('holidays').delete().eq('date',ds);
+    console.log('[saveHoliday] delete result:', del.error||'OK');
+    const ins=await sb.from('holidays').insert(payload);
+    console.log('[saveHoliday] insert result:', ins.error||'OK', ins.data);
+    if(ins.error) throw new Error(ins.error.message+' (code:'+ins.error.code+')');
+    await reload();renderHolidayTab();renderSchedule();closeModal('holidayModal');toast('저장됨 ✓');
+  }catch(e){
+    console.error('[saveHoliday] 오류:', e);
+    toast('저장 오류: '+e.message,'err');
+  }
 }
 async function delHoliday(ds){
   try{sbCheck(await sb.from('holidays').delete().eq('date',ds));await reload();renderHolidayTab();renderSchedule();closeModal('holidayModal');toast('초기화됨');}
@@ -1579,16 +1592,23 @@ async function saveOverride(){
   const isAbsent=document.getElementById('ovType').value==='absent';
   const deptId=isAbsent?null:v('ovDept');
   const shiftTypeId=isAbsent?null:v('ovShift');
+  // 세션 확인
+  const {data:{session}}=await sb.auth.getSession();
+  console.log('[saveOverride] session:', session?.user?.email||'없음');
+  if(!session){toast('로그인이 필요합니다','err');return;}
+  const payload={staff_id:staffId,date:S._ovDate,is_absent:isAbsent,dept_id:deptId,shift_type_id:shiftTypeId};
+  console.log('[saveOverride] payload:', JSON.stringify(payload));
   try{
-    // upsert 대신 delete→insert (Supabase composite unique 충돌 우회)
-    await sb.from('schedule_overrides').delete().eq('staff_id',staffId).eq('date',S._ovDate);
-    const ins=await sb.from('schedule_overrides').insert({
-      staff_id:staffId, date:S._ovDate,
-      is_absent:isAbsent, dept_id:deptId, shift_type_id:shiftTypeId
-    });
-    if(ins.error) throw new Error(ins.error.message);
-    await reload(); renderSchedule(); closeModal('overrideModal'); toast('수동편성 저장');
-  }catch(e){toast('오류: '+e.message,'err');console.error('override 오류:',e);}
+    const del=await sb.from('schedule_overrides').delete().eq('staff_id',staffId).eq('date',S._ovDate);
+    console.log('[saveOverride] delete:', del.error||'OK');
+    const ins=await sb.from('schedule_overrides').insert(payload);
+    console.log('[saveOverride] insert:', ins.error||'OK', ins.data);
+    if(ins.error) throw new Error(ins.error.message+' (code:'+ins.error.code+')');
+    await reload(); renderSchedule(); closeModal('overrideModal'); toast('수동편성 저장 ✓');
+  }catch(e){
+    console.error('[saveOverride] 오류:', e);
+    toast('저장 오류: '+e.message,'err');
+  }
 }
 async function deleteOverride(){
   try{
