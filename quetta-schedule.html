@@ -896,54 +896,40 @@ function buildCalCell(ds,date,dow,dd,shifts,today){
     const dutyWorkers=getDutyWorkers(dd);
     const dutyDiv=document.createElement('div'); dutyDiv.className='duty-section';
     if(dutyWorkers.length){
-      // 조교/CM 분리
-      const 조교Workers=dutyWorkers.filter(w=>w.staff.type==='조교');
       const cmWorkers=dutyWorkers.filter(w=>w.staff.type==='CM');
-
-      function makeDutyGroup(workers, groupCls, groupLabel){
-        if(!workers.length) return null;
-        const grp=document.createElement('div'); grp.className='duty-group '+groupCls;
-        const glbl=document.createElement('div'); glbl.className='duty-group-lbl'; glbl.textContent=groupLabel;
-        grp.appendChild(glbl);
-        const namesDiv=document.createElement('div'); namesDiv.className='duty-names';
-        workers.forEach(({staff,hasOv,hasAssign})=>{
-          // 근무시간 찾기
-          const ov=getOverride(staff.id,ds);
-          const assign=getAssign(staff.id,ds);
-          const shiftId=ov?.shiftTypeId||assign?.shiftTypeId;
-          const shift=S.shifts.find(s=>s.id===shiftId);
-          const tag=document.createElement('span');
-          tag.className='duty-tag '+(groupCls)+( hasOv?' is-ov':'')+(hasAssign===false?' no-assign':'');
-          const nameSpan=document.createElement('span'); nameSpan.textContent=staff.name;
-          tag.appendChild(nameSpan);
-          if(shift){
-            const timeSpan=document.createElement('span'); timeSpan.className='duty-time';
-            timeSpan.textContent=`${shift.startTime}~${shift.endTime}`;
-            tag.appendChild(timeSpan);
-          }
-          tag.title=`${staff.name} ${shift?shift.startTime+'~'+shift.endTime:'(배치 미설정)'}`;
-          if(S.isAdmin){
-            tag.style.cursor='pointer';
-            tag.addEventListener('click',e=>{e.stopPropagation();openOverrideModal(staff.id,ds);});
-          }
-          namesDiv.appendChild(tag);
-        });
-        grp.appendChild(namesDiv);
-        return grp;
-      }
-
+      const 조교Workers=dutyWorkers.filter(w=>w.staff.type==='조교');
+      const makeTag=(w,cls)=>{
+        const defShift=getDefaultDutyShift();
+        const ov=getOverride(w.staff.id,ds);
+        const assign=getAssign(w.staff.id,ds);
+        const shiftId=ov?.shiftTypeId||assign?.shiftTypeId||defShift?.id;
+        const shift=S.shifts.find(s=>s.id===shiftId)||defShift;
+        const tag=document.createElement('span');
+        tag.className='duty-tag '+cls+(w.hasOv?' is-ov':'');
+        const nm=document.createElement('span'); nm.textContent=w.staff.name; tag.appendChild(nm);
+        if(shift){
+          const tm=document.createElement('span'); tm.className='duty-time';
+          tm.textContent=shift.startTime+'~'+shift.endTime; tag.appendChild(tm);
+        }
+        tag.title=w.staff.name+(shift?' '+shift.startTime+'~'+shift.endTime:'');
+        if(S.isAdmin){ tag.style.cursor='pointer'; tag.addEventListener('click',e=>{e.stopPropagation();openOverrideModal(w.staff.id,ds);}); }
+        return tag;
+      };
       if(cmWorkers.length){
-        const cmGrp=makeDutyGroup(cmWorkers,'duty-cm','CM 직원');
-        if(cmGrp) dutyDiv.appendChild(cmGrp);
+        const grp=document.createElement('div'); grp.className='duty-group duty-cm';
+        const lbl=document.createElement('div'); lbl.className='duty-group-lbl'; lbl.textContent='CM 직원'; grp.appendChild(lbl);
+        const row=document.createElement('div'); row.className='duty-names';
+        cmWorkers.forEach(w=>row.appendChild(makeTag(w,'duty-cm'))); grp.appendChild(row); dutyDiv.appendChild(grp);
       }
       if(조교Workers.length){
-        const 조교Grp=makeDutyGroup(조교Workers,'duty-조교','조교');
-        if(조교Grp) dutyDiv.appendChild(조교Grp);
+        const grp=document.createElement('div'); grp.className='duty-group duty-조교';
+        const lbl=document.createElement('div'); lbl.className='duty-group-lbl'; lbl.textContent='조교'; grp.appendChild(lbl);
+        const row=document.createElement('div'); row.className='duty-names';
+        조교Workers.forEach(w=>row.appendChild(makeTag(w,'duty-조교'))); grp.appendChild(row); dutyDiv.appendChild(grp);
       }
     } else {
       const lbl=document.createElement('div'); lbl.className='duty-lbl'; lbl.textContent='당직자 미배정';
-      lbl.style.color='#cc9999';
-      dutyDiv.appendChild(lbl);
+      lbl.style.color='#cc9999'; dutyDiv.appendChild(lbl);
     }
     // 당직날 휴가자
     if(dd?.offStaff?.length){
