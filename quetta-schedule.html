@@ -95,6 +95,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .duty-names{display:flex;flex-wrap:wrap;gap:2px;}
 .duty-tag{background:#dde5ff;color:#1a3399;font-size:11px;font-weight:700;padding:2px 8px;border-radius:3px;white-space:nowrap;}
 .duty-tag.is-ov{outline:1px dashed var(--gold);}
+.duty-tag.no-assign{background:#ffe4e4;color:#cc2222;border:1px dashed #cc8888;}
 
 /* 평일 근무 섹션 */
 .shift-group{margin-bottom:3px;}
@@ -132,7 +133,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .wh-lbl{font-size:10px;color:rgba(255,255,255,.5);font-weight:600;margin-right:2px;}
 .wh-item{display:flex;align-items:center;gap:3px;font-size:10px;color:rgba(255,255,255,.85);}
 .wh-name{font-weight:700;}
-.wh-h{background:rgba(255,255,255,.18);padding:1px 5px;border-radius:3px;font-size:10px;}
+.wh-h{background:rgba(255,255,255,.2);color:rgba(255,255,255,.95);padding:1px 5px;border-radius:3px;font-size:10px;}
 .wh-h.over52{background:#c62828;}
 .wh-h.near52{background:#e65100;}
 
@@ -208,7 +209,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .rot-list{display:flex;flex-direction:column;gap:5px;}
 .rot-item{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--surface-alt);border:1px solid var(--border);border-radius:4px;}
 .rot-rank{width:22px;height:22px;background:var(--primary);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;}
-.over52{color:var(--danger)!important;background:#fff5f5!important;font-weight:700;}
+.over52{color:#ffcccc!important;background:rgba(180,0,0,.6)!important;font-weight:700;}
+.wh-h.near52{color:#ffe066!important;background:rgba(180,100,0,.5)!important;}
 .near52{color:#e65100;}
 .assign-badge{display:inline-flex;align-items:center;gap:3px;background:#e8f0eb;border:1px solid #c0d4c8;border-radius:4px;padding:2px 6px;font-size:11px;margin:2px;}
 .leave-list{display:flex;flex-direction:column;gap:5px;}
@@ -670,20 +672,21 @@ function computeDay(date){
   } else if(dow===0){dayType='hoff';} // 일요일 기본 휴무
   else if(dow===6){dayType='saturday';rotIds=rotWorkers(ds,2);} // 토요일 기본 로테이션
 
-  const sched={};const offStaff=[];
+  const sched={};const offStaff=[];const dutyWorkers=[];
+  const isDutyDay=(dayType==='saturday'||dayType==='hwork');
   if(dayType!=='hoff'){
     activeStaffOn(ds).forEach(staff=>{
-      // CM은 정상근무일 또는 직접선택 당직에 지정된 경우만 포함
+      // CM: 정상근무일 또는 직접선택 당직에 지정된 경우만 포함
       if(staff.type==='CM'){
-        if(dayType==='regular') {/* CM 정상근무 포함 */}
-        else if(dayType==='hwork'&&h?.useRotation===false&&manIds.includes(staff.id)){/* 직접선택에 포함된 CM */}
+        if(dayType==='regular'){/* CM 정상 포함 */}
+        else if(dayType==='hwork'&&h?.useRotation===false&&manIds.includes(staff.id)){/* CM 직접선택 포함 */}
         else return;
       }
-      // 로테이션 당직날: 로테이션 대상 조교만
+      // 로테이션 당직날: rotIds 조교만
       if((dayType==='saturday'||(dayType==='hwork'&&h?.useRotation!==false))&&staff.type==='조교'){
         if(!rotIds.includes(staff.id)) return;
       }
-      // 직접선택 당직날: manIds에 없으면 제외 (CM 포함 전직원)
+      // 직접선택 당직날: manIds에 없으면 제외
       if(dayType==='hwork'&&h?.useRotation===false){
         if(!manIds.includes(staff.id)) return;
       }
@@ -692,14 +695,25 @@ function computeDay(date){
       const ov=getOverride(staff.id,ds);
       if(ov&&ov.isAbsent){offStaff.push({staff,ov});return;}
       const assign=getDeptOrOv(staff,ds,ov);
-      if(!assign) return;
-      const{shiftId,deptId}=assign;
-      if(!sched[shiftId]) sched[shiftId]={};
-      if(!sched[shiftId][deptId]) sched[shiftId][deptId]=[];
-      sched[shiftId][deptId].push({staff,leave,hasOv:!!ov});
+      if(isDutyDay){
+        // 당직날: 배치 없어도 dutyWorkers에 추가 (이름만 표시)
+        if(assign){
+          const{shiftId,deptId}=assign;
+          if(!sched[shiftId]) sched[shiftId]={};
+          if(!sched[shiftId][deptId]) sched[shiftId][deptId]=[];
+          sched[shiftId][deptId].push({staff,leave,hasOv:!!ov});
+        }
+        dutyWorkers.push({staff,leave,hasOv:!!ov,hasAssign:!!assign});
+      } else {
+        if(!assign) return;
+        const{shiftId,deptId}=assign;
+        if(!sched[shiftId]) sched[shiftId]={};
+        if(!sched[shiftId][deptId]) sched[shiftId][deptId]=[];
+        sched[shiftId][deptId].push({staff,leave,hasOv:!!ov});
+      }
     });
   }
-  return{ds,date,dow,dayType,sched,offStaff,note:S.notes[ds]||'',h};
+  return{ds,date,dow,dayType,sched,dutyWorkers,offStaff,note:S.notes[ds]||'',h};
 }
 function getDeptOrOv(staff,ds,ov){
   const shiftId=ov?.shiftTypeId||getAssign(staff.id,ds)?.shiftTypeId;
@@ -826,7 +840,7 @@ function buildCalCell(ds,date,dow,dd,shifts,today){
   hd.appendChild(labelWrap);
 
   // 관리자: 날짜 클릭으로 수동편성
-  if(S.isAdmin&&dd?.dayType!=='hoff'&&dow!==0){
+  if(S.isAdmin&&dd?.dayType!=='hoff'){
     cell.style.cursor='pointer';
     cell.addEventListener('click',e=>{
       if(e.target.closest('.cell-ft')) return;
@@ -953,14 +967,9 @@ function buildCalCell(ds,date,dow,dd,shifts,today){
   return cell;
 }
 
-// 당직 근무자 추출 (토/공휴일 로테이션 or 수동)
+// 당직 근무자 추출 - computeDay에서 미리 계산된 dutyWorkers 사용
 function getDutyWorkers(dd){
-  if(!dd) return [];
-  const workers=[];
-  Object.values(dd.sched).forEach(deptMap=>{
-    Object.values(deptMap).forEach(ws=>{ws.forEach(w=>workers.push(w));});
-  });
-  return workers;
+  return dd?.dutyWorkers||[];
 }
 
 
@@ -1571,9 +1580,15 @@ async function saveOverride(){
   const deptId=isAbsent?null:v('ovDept');
   const shiftTypeId=isAbsent?null:v('ovShift');
   try{
-    sbCheck(await sb.from('schedule_overrides').upsert({staff_id:staffId,date:S._ovDate,is_absent:isAbsent,dept_id:deptId,shift_type_id:shiftTypeId},{onConflict:'staff_id,date'}));
-    await reload();renderSchedule();closeModal('overrideModal');toast('수동편성 저장');
-  }catch(e){toast('오류: '+e.message,'err');}
+    // upsert 대신 delete→insert (Supabase composite unique 충돌 우회)
+    await sb.from('schedule_overrides').delete().eq('staff_id',staffId).eq('date',S._ovDate);
+    const ins=await sb.from('schedule_overrides').insert({
+      staff_id:staffId, date:S._ovDate,
+      is_absent:isAbsent, dept_id:deptId, shift_type_id:shiftTypeId
+    });
+    if(ins.error) throw new Error(ins.error.message);
+    await reload(); renderSchedule(); closeModal('overrideModal'); toast('수동편성 저장');
+  }catch(e){toast('오류: '+e.message,'err');console.error('override 오류:',e);}
 }
 async function deleteOverride(){
   try{
