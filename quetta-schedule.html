@@ -93,7 +93,18 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
 .duty-section{display:flex;flex-direction:column;gap:2px;}
 .duty-lbl{font-size:9px;font-weight:700;color:var(--sat-hd);margin-bottom:1px;}
 .duty-names{display:flex;flex-wrap:wrap;gap:2px;}
-.duty-tag{background:#dde5ff;color:#1a3399;font-size:11px;font-weight:700;padding:2px 8px;border-radius:3px;white-space:nowrap;}
+.duty-section{display:flex;flex-direction:column;gap:4px;flex:1;}
+.duty-group{border-radius:5px;padding:4px 6px;}
+.duty-group.duty-cm{background:#f3e8ff;border-left:3px solid #9b59b6;}
+.duty-group.duty-조교{background:#e8f4fd;border-left:3px solid #3498db;}
+.duty-group-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px;opacity:.7;}
+.duty-group.duty-cm .duty-group-lbl{color:#7b1fa2;}
+.duty-group.duty-조교 .duty-group-lbl{color:#1565c0;}
+.duty-names{display:flex;flex-wrap:wrap;gap:3px;}
+.duty-tag{display:inline-flex;flex-direction:column;align-items:center;border-radius:4px;padding:2px 6px;font-size:11px;font-weight:700;white-space:nowrap;cursor:default;}
+.duty-tag.duty-cm{background:#e1bee7;color:#6a1b9a;}
+.duty-tag.duty-조교{background:#bbdefb;color:#0d47a1;}
+.duty-time{font-size:9px;font-weight:400;opacity:.8;margin-top:1px;}
 .duty-tag.is-ov{outline:1px dashed var(--gold);}
 .duty-tag.no-assign{background:#ffe4e4;color:#cc2222;border:1px dashed #cc8888;}
 
@@ -871,20 +882,50 @@ function buildCalCell(ds,date,dow,dd,shifts,today){
     const dutyWorkers=getDutyWorkers(dd);
     const dutyDiv=document.createElement('div'); dutyDiv.className='duty-section';
     if(dutyWorkers.length){
-      const lbl=document.createElement('div'); lbl.className='duty-lbl'; lbl.textContent='당직 근무자';
-      dutyDiv.appendChild(lbl);
-      const namesDiv=document.createElement('div'); namesDiv.className='duty-names';
-      dutyWorkers.forEach(({staff,hasOv})=>{
-        const tag=document.createElement('span'); tag.className='duty-tag'+(hasOv?' is-ov':'');
-        tag.textContent=staff.name;
-        tag.title=staff.shortName;
-        if(S.isAdmin){
-          tag.style.cursor='pointer';
-          tag.addEventListener('click',e=>{e.stopPropagation();openOverrideModal(staff.id,ds);});
-        }
-        namesDiv.appendChild(tag);
-      });
-      dutyDiv.appendChild(namesDiv);
+      // 조교/CM 분리
+      const 조교Workers=dutyWorkers.filter(w=>w.staff.type==='조교');
+      const cmWorkers=dutyWorkers.filter(w=>w.staff.type==='CM');
+
+      function makeDutyGroup(workers, groupCls, groupLabel){
+        if(!workers.length) return null;
+        const grp=document.createElement('div'); grp.className='duty-group '+groupCls;
+        const glbl=document.createElement('div'); glbl.className='duty-group-lbl'; glbl.textContent=groupLabel;
+        grp.appendChild(glbl);
+        const namesDiv=document.createElement('div'); namesDiv.className='duty-names';
+        workers.forEach(({staff,hasOv,hasAssign})=>{
+          // 근무시간 찾기
+          const ov=getOverride(staff.id,ds);
+          const assign=getAssign(staff.id,ds);
+          const shiftId=ov?.shiftTypeId||assign?.shiftTypeId;
+          const shift=S.shifts.find(s=>s.id===shiftId);
+          const tag=document.createElement('span');
+          tag.className='duty-tag '+(groupCls)+( hasOv?' is-ov':'')+(hasAssign===false?' no-assign':'');
+          const nameSpan=document.createElement('span'); nameSpan.textContent=staff.name;
+          tag.appendChild(nameSpan);
+          if(shift){
+            const timeSpan=document.createElement('span'); timeSpan.className='duty-time';
+            timeSpan.textContent=`${shift.startTime}~${shift.endTime}`;
+            tag.appendChild(timeSpan);
+          }
+          tag.title=`${staff.name} ${shift?shift.startTime+'~'+shift.endTime:'(배치 미설정)'}`;
+          if(S.isAdmin){
+            tag.style.cursor='pointer';
+            tag.addEventListener('click',e=>{e.stopPropagation();openOverrideModal(staff.id,ds);});
+          }
+          namesDiv.appendChild(tag);
+        });
+        grp.appendChild(namesDiv);
+        return grp;
+      }
+
+      if(cmWorkers.length){
+        const cmGrp=makeDutyGroup(cmWorkers,'duty-cm','CM 직원');
+        if(cmGrp) dutyDiv.appendChild(cmGrp);
+      }
+      if(조교Workers.length){
+        const 조교Grp=makeDutyGroup(조교Workers,'duty-조교','조교');
+        if(조교Grp) dutyDiv.appendChild(조교Grp);
+      }
     } else {
       const lbl=document.createElement('div'); lbl.className='duty-lbl'; lbl.textContent='당직자 미배정';
       lbl.style.color='#cc9999';
