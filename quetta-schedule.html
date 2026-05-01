@@ -1917,6 +1917,47 @@ function updateMonthNavBtns(){
 // ═══════════════════════════════════════════════════════
 //  UTILS
 // ═══════════════════════════════════════════════════════
+// ── 노출 월 관리 ──
+async function saveVisibleMonths(months){
+  try{
+    await sb.from('settings').delete().eq('key','visibleMonths');
+    if(months.length>0) await sb.from('settings').insert({key:'visibleMonths',value:months});
+    S.visibleMonths=months;
+    updateMonthNavBtns();
+    renderSettingsTab();
+    toast('노출 월 저장됨');
+  }catch(e){toast('오류: '+e.message,'err');console.error(e);}
+}
+async function addVisibleMonth(){
+  const input=document.getElementById('addVisibleMonth');
+  const val=input?.value;
+  if(!val){toast('월을 선택해주세요','err');return;}
+  const months=[...new Set([...(S.visibleMonths||[]),val])].sort();
+  await saveVisibleMonths(months);
+}
+async function removeVisibleMonth(idx){
+  const months=[...(S.visibleMonths||[])];
+  months.splice(idx,1);
+  await saveVisibleMonths(months);
+  const cur=`${S.yr}-${String(S.mo).padStart(2,'0')}`;
+  if(months.length>0&&!months.includes(cur)){
+    const [ny,nm]=months[0].split('-').map(Number);
+    S.yr=ny;S.mo=nm;
+    document.getElementById('monthDisplay').textContent=`${S.yr}년 ${S.mo}월`;
+    reload().then(()=>TAB_RENDERERS[_activeTab]?.());
+  }
+}
+async function clearVisibleMonths(){
+  if(!confirm('노출 월 설정을 모두 초기화할까요?'))return;
+  await saveVisibleMonths([]);
+}
+function toggleAssignHist(btn,id){
+  const el=document.getElementById(id);if(!el)return;
+  const isOpen=el.style.display!=='none';
+  el.style.display=isOpen?'none':'block';
+  const n=btn.textContent.match(/\d+/)?.[0]||'';
+  btn.textContent=isOpen?`이력 ${n}건 ▼`:`이력 ${n}건 ▲`;
+}
 function v(id){return document.getElementById(id)?.value||'';}
 function toast(msg,type='ok'){
   const w=document.getElementById('toastWrap');
