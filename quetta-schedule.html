@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>QUETTA 조교 근무표</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -239,6 +239,20 @@ body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text
   <div class="spinner"></div>
   <div style="color:var(--text2);font-size:13px;">데이터 불러오는 중...</div>
 </div>
+<script>
+// 어떤 오류가 나도 8초 후 무조건 로딩 숨김
+window._safetyTimer = setTimeout(function(){
+  var el = document.getElementById('loading');
+  if(el) el.classList.add('hidden');
+}, 8000);
+window.onerror = function(msg, src, line){
+  console.error('전역 오류:', msg, src, line);
+  var el = document.getElementById('loading');
+  if(el) el.classList.add('hidden');
+  var sc = document.getElementById('scheduleContainer');
+  if(sc && sc.innerHTML === '') sc.innerHTML = '<div style="margin:20px;padding:14px;background:#ffebee;border-radius:6px;color:#c62828;"><strong>스크립트 오류</strong><br>' + msg + '</div>';
+};
+</script>
 <div class="toast-wrap" id="toastWrap"></div>
 
 <!-- 로그인 모달 -->
@@ -1210,7 +1224,6 @@ function _renderPersonalContent(activeStaff){
   const shifts=[...S.shifts].sort((a,b)=>a.startTime.localeCompare(b.startTime));
   const shMap={};shifts.forEach(s=>shMap[s.id]=s);
   const total=new Date(S.pYr,S.pMo,0).getDate();
-  const staff=S.staff.find(s=>s.id===_selectedStaffId);
   const rows=[];
   let totalHours=0;
 
@@ -1687,9 +1700,6 @@ function hideLoading(){
 }
 
 async function init(){
-  // 안전장치: 5초 후에는 무조건 로딩 숨김
-  const safetyTimer=setTimeout(hideLoading, 5000);
-
   // 로그인/로그아웃 이벤트 감지
   sb.auth.onAuthStateChange((event,session)=>{
     applyAuthUI(!!session);
@@ -1727,11 +1737,18 @@ async function init(){
     console.error('렌더링 오류:',e);
   }
 
-  clearTimeout(safetyTimer);
+  clearTimeout(window._safetyTimer);
   hideLoading();
 }
 
-init();
+// Supabase 로드 확인 후 실행
+if(typeof window.supabase === 'undefined'){
+  document.getElementById('loading').classList.add('hidden');
+  document.getElementById('scheduleContainer').innerHTML =
+    '<div style="margin:20px;padding:14px;background:#ffebee;border-radius:6px;color:#c62828;"><strong>라이브러리 로드 실패</strong><br>페이지를 새로고침 해주세요.</div>';
+} else {
+  init();
+}
 </script>
 </body>
 </html>
