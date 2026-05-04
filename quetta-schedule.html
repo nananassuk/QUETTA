@@ -769,8 +769,16 @@ function computeDay(date){
   }
   return{ds,date,dow,dayType,sched,dutyWorkers,offStaff,note:S.notes[ds]||'',h};
 }
-function getDefaultDutyShift(){
-  // 08:00~17:00 우선, 없으면 첫 번째 시간대
+function getDefaultDutyShift(ds){
+  // holidays에 설정된 duty_shift_id가 있으면 우선 사용
+  if(ds){
+    const h=getHoliday(ds);
+    if(h?.dutyShiftId){
+      const hShift=S.shifts.find(s=>s.id===h.dutyShiftId);
+      if(hShift) return hShift;
+    }
+  }
+  // 기본: 08:00~17:00
   return S.shifts.find(s=>s.startTime==='08:00'&&s.endTime==='17:00')
       || S.shifts.find(s=>s.startTime==='07:30')
       || S.shifts[0]
@@ -783,7 +791,7 @@ function getDeptOrOv(staff,ds,ov,isDuty=false){
   if(isDuty){
     // 당직날: override에 명시된 shift가 있으면 그것 사용, 없으면 기본 08:00~17:00
     const shiftId=ov?.shiftTypeId||null; // override만 허용 (배치 shift 무시)
-    const defShift=getDefaultDutyShift();
+    const defShift=getDefaultDutyShift(ds);
     const dutyShiftId=shiftId||defShift?.id;
     if(dutyShiftId) return{shiftId:dutyShiftId,deptId:deptId||'DUTY'};
     return null;
@@ -941,9 +949,9 @@ function buildCalCell(ds,date,dow,dd,shifts,today){
       const cmWorkers=dutyWorkers.filter(w=>w.staff.type==='CM');
       const 조교Workers=dutyWorkers.filter(w=>w.staff.type==='조교');
       const makeTag=(w,cls)=>{
-        const defShift=getDefaultDutyShift();
+        const defShift=getDefaultDutyShift(ds);
         const ov=getOverride(w.staff.id,ds);
-        // 당직: override shift 있으면 그것, 없으면 기본 08:00~17:00
+        // 당직: override shift 있으면 그것, 없으면 holidays 설정 또는 기본 08:00~17:00
         const shiftId=ov?.shiftTypeId||defShift?.id;
         const shift=S.shifts.find(s=>s.id===shiftId)||defShift;
         const tag=document.createElement('span');
@@ -1381,13 +1389,23 @@ function _renderPersonalContent(activeStaff){
     }
 
     // 근무 정보 찾기
+    const isDutyDay=(dd.dayType==='saturday'||dd.dayType==='hwork');
     let shiftInfo=null; let deptName='-';
     Object.entries(dd.sched).forEach(([shId,deptMap])=>{
       Object.entries(deptMap).forEach(([deptId,workers])=>{
         if(workers.find(w=>w.staff.id===_selectedStaffId)){
-          shiftInfo=shMap[shId];
+          // 당직날: override shift 또는 기본 08:00~17:00
+          if(isDutyDay){
+            const ov=S._pOverrides?.find(o=>o.staffId===_selectedStaffId&&o.date===ds);
+            const dutyShift=ov?.shiftTypeId
+              ? S.shifts.find(s=>s.id===ov.shiftTypeId)
+              : getDefaultDutyShift(ds);
+            shiftInfo=dutyShift||shMap[shId];
+          } else {
+            shiftInfo=shMap[shId];
+          }
           const dept=S.depts.find(d=>d.id===deptId);
-          deptName=deptId==='CM'?'CM':dept?.name||deptId;
+          deptName=deptId==='CM'?'CM':deptId==='DUTY'?'당직':dept?.name||deptId;
         }
       });
     });
@@ -1603,6 +1621,11 @@ function openHolidayModal(ds){
         ${staffCheckboxes}
       </div>
     </div>
+    <div class="fg mt8"><label class="fl">당직 근무시간</label>
+      <select class="fs" id="hDutyShift">
+        <option value="">기본 (08:00~17:00)</option>
+        ${[...S.shifts].sort((a,b)=>a.startTime.localeCompare(b.startTime)).map(s=>`<option value="${s.id}"${h?.dutyShiftId===s.id?' selected':''}>${s.startTime}~${s.endTime}</option>`).join('')}
+      </select></div>
     <div class="fg mt8"><label class="fl">비고</label><input type="text" class="fi" id="hNote" value="${h?.note||''}" placeholder="예: 어린이날"></div>`;
 
   document.getElementById('holidayModalFooter').innerHTML=`
@@ -1634,7 +1657,7 @@ function openOverrideModal(staffId,ds,defShiftId=null,defDeptId=null){
   document.getElementById('overrideTitle').textContent=`수동 편성 – ${ds}`;
   document.getElementById('overrideDelBtn').classList.toggle('hidden',!existing);
   const activeStaff=activeStaffOn(ds);
-  const defShift=getDefaultDutyShift();
+  const defShift=getDefaultDutyShift(ds);
   const dd=computeDay(parseD(ds));
   const isDuty=dd?.dayType==='saturday'||dd?.dayType==='hwork';
   const deptOpts=
@@ -1756,7 +1779,8 @@ async function saveHoliday(){
   const note=v('hNote');
   const {data:{session}}=await sb.auth.getSession();
   if(!session){toast('로그인이 필요합니다','err');return;}
-  const payload={date:ds,type,use_rotation:useRotation,worker_count:workerCount,worker_ids:workerIds,note};
+  const dutyShiftId=document.getElementById('hDutyShift')?.value||null;
+  const payload={date:ds,type,use_rotation:useRotation,worker_count:workerCount,worker_ids:workerIds,note,duty_shift_id:dutyShiftId||null};
   console.log('[saveHoliday] payload:', JSON.stringify(payload));
   try{
     const del=await sb.from('holidays').delete().eq('date',ds);
@@ -1895,7 +1919,7 @@ async function reload(){
   S.assigns=(r4.data||[]).map(a=>({id:a.id,staffId:a.staff_id,deptId:a.dept_id,shiftTypeId:a.shift_type_id,startDate:a.start_date,endDate:a.end_date}));
   S.overrides=(r5.data||[]).map(o=>({id:o.id,staffId:o.staff_id,date:o.date,isAbsent:o.is_absent,deptId:o.dept_id,shiftTypeId:o.shift_type_id}));
   S.leaves=(r6.data||[]).map(l=>({id:l.id,staffId:l.staff_id,date:l.date,type:l.type,reason:l.reason}));
-  S.holidays=(r7.data||[]).map(h=>({id:h.id,date:h.date,type:h.type,useRotation:h.use_rotation,workerCount:h.worker_count,workerIds:h.worker_ids||[],note:h.note}));
+  S.holidays=(r7.data||[]).map(h=>({id:h.id,date:h.date,type:h.type,useRotation:h.use_rotation,workerCount:h.worker_count,workerIds:h.worker_ids||[],note:h.note,dutyShiftId:h.duty_shift_id||null}));
   S.notes={};(r8.data||[]).forEach(n=>S.notes[n.date]=n.note);
   const rotRow=(r9.data||[]).find(s=>s.key==='rotation');
   if(rotRow?.value) S.rotation=rotRow.value;
