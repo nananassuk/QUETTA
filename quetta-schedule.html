@@ -786,18 +786,19 @@ function getDefaultDutyShift(ds){
 }
 function getDeptOrOv(staff,ds,ov,isDuty=false){
   const assign=getAssign(staff.id,ds);
-  const deptId=ov?.deptId||assign?.deptId;
 
   if(isDuty){
-    // 당직날: override에 명시된 shift가 있으면 그것 사용, 없으면 기본 08:00~17:00
-    const shiftId=ov?.shiftTypeId||null; // override만 허용 (배치 shift 무시)
+    // 당직날: 부서는 override에 명시된 경우만, 없으면 항상 'DUTY' (배치 부서 무시)
+    const deptId=ov?.deptId||'DUTY';
+    const shiftId=ov?.shiftTypeId||null;
     const defShift=getDefaultDutyShift(ds);
     const dutyShiftId=shiftId||defShift?.id;
-    if(dutyShiftId) return{shiftId:dutyShiftId,deptId:deptId||'DUTY'};
+    if(dutyShiftId) return{shiftId:dutyShiftId,deptId};
     return null;
   }
 
   // 평일: override 또는 배치 그대로
+  const deptId=ov?.deptId||assign?.deptId;
   const shiftId=ov?.shiftTypeId||assign?.shiftTypeId;
   if(shiftId&&deptId) return{shiftId,deptId};
   return null;
