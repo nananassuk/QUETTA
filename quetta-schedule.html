@@ -1674,6 +1674,101 @@ function toggleOvMode(mode){
 }
 
 
+// ── Supabase 에러 체크 헬퍼 ──
+function sbCheck(res){if(res.error)throw new Error(res.error.message||JSON.stringify(res.error));return res;}
+
+async function saveStaff(){
+  const name=v('sName'),shortName=v('sShort'),type=v('sType'),
+    contractHours=parseFloat(v('sContract'))||null,
+    hireDate=v('sHire')||null,leaveDate=v('sLeave')||null;
+  if(!name||!shortName||!hireDate){toast('이름, 약자, 입사일은 필수입니다','err');return;}
+  try{
+    const data={name,short_name:shortName,type,contract_hours:contractHours,hire_date:hireDate,leave_date:leaveDate};
+    if(S._staffId){sbCheck(await sb.from('staff').update(data).eq('id',S._staffId));}
+    else{sbCheck(await sb.from('staff').insert(data));}
+    await reload();renderStaffTab();renderSchedule();
+    closeModal('staffModal');toast('저장되었습니다');
+  }catch(e){toast('오류: '+e.message,'err');console.error(e);}
+}
+
+async function saveAssignment(){
+  const deptId=v('aDept'),shiftTypeId=v('aShift'),startDate=v('aStart'),endDate=v('aEnd')||null;
+  if(!deptId||!shiftTypeId||!startDate){toast('필수 항목을 입력하세요','err');return;}
+  try{
+    const open=S.assigns.find(a=>a.staffId===S._assignStaffId&&!a.endDate);
+    if(open){
+      const prev=new Date(parseD(startDate));prev.setDate(prev.getDate()-1);
+      sbCheck(await sb.from('dept_assignments').update({end_date:fmtDate(prev)}).eq('id',open.id));
+    }
+    sbCheck(await sb.from('dept_assignments').insert({staff_id:S._assignStaffId,dept_id:deptId,shift_type_id:shiftTypeId,start_date:startDate,end_date:endDate}));
+    await reload();renderStaffTab();renderSchedule();
+    closeModal('assignModal');toast('배치 저장');
+  }catch(e){toast('오류: '+e.message,'err');console.error(e);}
+}
+
+async function delAssign(id){
+  if(!confirm('이 배치 내역을 삭제하시겠습니까?'))return;
+  try{sbCheck(await sb.from('dept_assignments').delete().eq('id',id));await reload();renderStaffTab();renderSchedule();toast('삭제됨');}
+  catch(e){toast('오류: '+e.message,'err');console.error(e);}
+}
+
+async function saveLeave(){
+  const staffId=v('lStaff'),date=v('lDate'),type=v('lType'),reason=v('lReason').trim();
+  if(!staffId||!date||!type){toast('필수 항목을 입력하세요','err');return;}
+  try{
+    const dup=S.leaves.find(l=>l.staffId===staffId&&l.date===date);
+    const data={staff_id:staffId,date,type,reason};
+    if(dup){if(!confirm('이 날 기록이 이미 있습니다. 덮어쓸까요?'))return;sbCheck(await sb.from('leave_records').update(data).eq('id',dup.id));}
+    else{sbCheck(await sb.from('leave_records').insert(data));}
+    await reload();renderLeaveTab();renderSchedule();closeModal('leaveModal');toast('저장됨');
+  }catch(e){toast('오류: '+e.message,'err');console.error(e);}
+}
+
+async function delLeave(id){
+  if(!confirm('삭제하시겠습니까?'))return;
+  try{sbCheck(await sb.from('leave_records').delete().eq('id',id));await reload();renderLeaveTab();renderSchedule();closeModal('leaveDetailModal');toast('삭제됨');}
+  catch(e){toast('오류: '+e.message,'err');console.error(e);}
+}
+
+async function saveNote(ds,text){
+  try{
+    if(text){sbCheck(await sb.from('date_notes').upsert({date:ds,note:text},{onConflict:'date'}));S.notes[ds]=text;}
+    else{sbCheck(await sb.from('date_notes').delete().eq('date',ds));delete S.notes[ds];}
+  }catch(e){console.error('비고 저장 오류:',e);}
+}
+
+async function saveHoliday(){
+  const ds=S._holidayDate;if(!ds)return;
+  const type=v('hType');
+  if(type==='정상'){await delHoliday(ds);return;}
+  const rotSel=document.getElementById('hRotSel')?.value||'1';
+  const useRotation=rotSel==='1';
+  const workerCount=parseInt(document.getElementById('hWCount')?.value||2);
+  const allActive=activeStaffOn(ds).map(s=>s.id);
+  let workerIds=[];
+  if(rotSel==='all') workerIds=allActive;
+  else if(rotSel==='1') workerIds=Array.from(document.querySelectorAll('.hextra-cb:checked')).map(c=>c.value);
+  else workerIds=Array.from(document.querySelectorAll('.hman-cb:checked')).map(c=>c.value);
+  const note=v('hNote');
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){toast('로그인이 필요합니다','err');return;}
+  const payload={date:ds,type,use_rotation:useRotation,worker_count:workerCount,worker_ids:workerIds,note};
+  console.log('[saveHoliday] payload:', JSON.stringify(payload));
+  try{
+    const del=await sb.from('holidays').delete().eq('date',ds);
+    console.log('[saveHoliday] delete:', del.error||'OK');
+    const ins=await sb.from('holidays').insert(payload);
+    console.log('[saveHoliday] insert:', ins.error||'OK');
+    if(ins.error) throw new Error(ins.error.message+' (code:'+ins.error.code+')');
+    await reload();renderHolidayTab();renderSchedule();closeModal('holidayModal');toast('저장됨 ✓');
+  }catch(e){console.error('[saveHoliday] 오류:',e);toast('저장 오류: '+e.message,'err');}
+}
+
+async function delHoliday(ds){
+  try{await sb.from('holidays').delete().eq('date',ds);await reload();renderHolidayTab();renderSchedule();closeModal('holidayModal');toast('초기화됨');}
+  catch(e){toast('오류: '+e.message,'err');console.error(e);}
+}
+
 async function saveOverride(){
   const mode=document.getElementById('ovMode')?.value||'assign';
   const {data:{session}}=await sb.auth.getSession();
