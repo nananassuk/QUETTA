@@ -1016,7 +1016,8 @@ function buildCalCell(ds,date,dow,dd,shifts,today){
           const ov=getOverride(staff.id,ds);
           const deptId=ov?.deptId||assign?.deptId;
           const dept=S.depts.find(d=>d.id===deptId);
-          tag.innerHTML=`${staff.shortName}<span class="dept-badge">${deptId==='CM'?'CM':dept?.short||''}</span>`;
+          const deptLabel=deptId==='CM'?'CM':deptId==='DUTY'?'당직':dept?.short||'';
+          tag.innerHTML=`${staff.shortName}<span class="dept-badge">${deptLabel}</span>`;
           if(leave&&(leave.type==='반차'||leave.type==='조퇴')){
             tag.innerHTML+=`<span class="leave-badge">${leave.type==='반차'?'반':'조'}</span>`;
           }
@@ -1636,7 +1637,10 @@ function openOverrideModal(staffId,ds,defShiftId=null,defDeptId=null){
   const defShift=getDefaultDutyShift();
   const dd=computeDay(parseD(ds));
   const isDuty=dd?.dayType==='saturday'||dd?.dayType==='hwork';
-  const deptOpts=S.depts.map(d=>`<option value="${d.id}"${defDeptId===d.id?' selected':''}>${d.name}</option>`).join('')+`<option value="CM"${defDeptId==='CM'?' selected':''}>CM</option>`;
+  const deptOpts=
+    `<option value="DUTY"${(!defDeptId||defDeptId==='DUTY')?' selected':''}>휴일근무 (부서 없음)</option>`+
+    S.depts.map(d=>`<option value="${d.id}"${defDeptId===d.id?' selected':''}>${d.name}</option>`).join('')+
+    `<option value="CM"${defDeptId==='CM'?' selected':''}>CM</option>`;
   const dutyShiftId=defShiftId||defShift?.id||'';
   const shiftOpts=[...S.shifts].sort((a,b)=>a.startTime.localeCompare(b.startTime)).map(s=>`<option value="${s.id}"${s.id===dutyShiftId?' selected':''}>${s.startTime}~${s.endTime}</option>`).join('');
   const curMode=existing?.isAbsent?'absent':(staffId&&isDuty&&!existing?'replace':'assign');
