@@ -154,18 +154,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
 .info-box{background:#F0F7F4;border-left:4px solid var(--g3);padding:8px 12px;border-radius:0 5px 5px 0;font-size:11.5px;color:#2D6A4F;line-height:1.6;margin-bottom:10px;}
 @media print{.no-print{display:none!important;}.tab-pane{display:block!important;padding:0;}.card{box-shadow:none;border:1px solid #ccc;}.daily-grid{grid-template-columns:1fr 1fr;}}
   @media print {
-    body * { visibility: hidden !important; }
-    .print-target, .print-target * { visibility: visible !important; }
-    .print-target {
-      position: fixed !important; left: 0 !important; top: 0 !important;
-      width: 100% !important; background: white !important;
-      page-break-after: avoid !important; break-after: avoid !important;
-    }
-    .print-target + .print-target { page-break-before: avoid !important; break-before: avoid !important; }
+    body > * { display: none !important; }
+    body > #print-wrapper { display: block !important; }
+    #print-wrapper { padding: 0; margin: 0; background: white; }
     .no-print { display: none !important; }
-    nav, header, footer, .tab-bar { display: none !important; }
     @page { size: A4 portrait; margin: 12mm; }
-    html, body { height: auto !important; overflow: visible !important; }
   }
 </style>
 </head>
@@ -2550,20 +2543,27 @@ function printDash(type){
   const tabId = type==='reg' ? 'tab-dash' : 'tab-dash2';
   const tab = document.getElementById(tabId);
   if(!tab) return;
-  // 파일명용 제목 설정
   const date = (type==='reg' ? S.cfg.dashDate : S.cfg.dashDate2) || todayStr();
   const label = type==='reg' ? '정규' : '단과';
   const origTitle = document.title;
-  document.title = `등록_${label}_${date}`;
-  // print-target 설정
-  document.querySelectorAll('.print-target').forEach(el=>el.classList.remove('print-target'));
-  tab.querySelectorAll('.card').forEach(el=>el.classList.add('print-target'));
-  const sigTbl = tab.querySelector('.sig-tbl');
-  if(sigTbl) sigTbl.classList.add('print-target');
+  document.title = `등록_${label}_${date.replace(/-/g,'')}`;
+  // 기존 wrapper 제거
+  const oldW = document.getElementById('print-wrapper');
+  if(oldW) oldW.remove();
+  // 인쇄용 wrapper 생성 - 해당 탭 카드 HTML 복사
+  const wrapper = document.createElement('div');
+  wrapper.id = 'print-wrapper';
+  wrapper.style.cssText = 'position:absolute;top:0;left:0;width:100%;background:white;z-index:99999;';
+  tab.querySelectorAll('.card').forEach(card=>{
+    const clone = card.cloneNode(true);
+    // 버튼 숨기기
+    clone.querySelectorAll('button,.no-print').forEach(el=>el.style.display='none');
+    wrapper.appendChild(clone);
+  });
+  document.body.appendChild(wrapper);
   window.print();
-  // 원복
   setTimeout(()=>{
-    document.querySelectorAll('.print-target').forEach(el=>el.classList.remove('print-target'));
+    wrapper.remove();
     document.title = origTitle;
   }, 1500);
 }
