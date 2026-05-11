@@ -1282,8 +1282,9 @@ function saveSnapshot(){
     snapUnpaidByMonth[cm]=[...snapPmIds].filter(id=>!snapCmIds.has(id)&&!snapExcludeSet.has(id)).length;
   }
   snap._unpaidByMonth=snapUnpaidByMonth;
-  const snapLatestMonth=snapAllMonths.length>0?snapAllMonths[snapAllMonths.length-1]:0;
-  snap._unpaidCnt=snapUnpaidByMonth[snapLatestMonth]||0;
+  // _unpaidCnt: 반수 제외 최신 월 기준
+  const snapNonBansuLatest=snapNonBansuMonths.length>0?snapNonBansuMonths[snapNonBansuMonths.length-1]:0;
+  snap._unpaidCnt=snapUnpaidByMonth[snapNonBansuLatest]||0;
   // grandTotal 스냅샷 저장 (정규 최신월 등록 + 미납 + 반수 등록)
   const snapCurrIds=new Set(snapActive.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
   const snapBansuIds=new Set(snapActive.filter(p=>(S.cfg.bansuTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
