@@ -1100,11 +1100,13 @@ function renderDash(){
     const map={};
     for(let i=1;i<allMonths.length;i++){
       const pm=allMonths[i-1],cm=allMonths[i];
-      const pmIds=new Set(active.filter(p=>extractMonth(p.내역)===pm&&p.환불금액===0).map(p=>p.수험번호));
+      const isLatest=(i===allMonths.length-1);
       const cmIds=new Set(active.filter(p=>extractMonth(p.내역)===cm&&p.환불금액===0).map(p=>p.수험번호));
-      // 이전 쌍: 미납퇴소 제외 (처리 완료된 기수) / 최신 쌍: 미납퇴소 적용 안 함 (현재 진행 중)
-      // 미납퇴소: targetMonth 기준으로 해당 cm에만 적용
-      // targetMonth 없으면 pm(이전 월) 기준 → 이미 지난 쌍에만 제외됨, 최신 쌍에서는 제외 안 됨
+      // 최신 쌍: 이전 모든 월 active 학생 누적 포함 (4→5월 미납자도 6월 미납에 포함)
+      // 이전 쌍: 해당 전월만
+      const pmIds=isLatest
+        ? new Set(active.filter(p=>extractMonth(p.내역)>0&&extractMonth(p.내역)<=pm&&p.환불금액===0).map(p=>p.수험번호))
+        : new Set(active.filter(p=>extractMonth(p.내역)===pm&&p.환불금액===0).map(p=>p.수험번호));
       const unpaidExcludeSet=new Set((S.미납퇴소||[]).filter(r=>{
         const tm=r.targetMonth||pm;
         return tm===cm;
@@ -1268,14 +1270,16 @@ function saveSnapshot(){
   const snapUnpaidByMonth={};
   for(let i=1;i<snapAllMonths.length;i++){
     const pm=snapAllMonths[i-1],cm=snapAllMonths[i];
-    const pmIds=new Set(snapActive.filter(p=>extractMonth(p.내역)===pm&&p.환불금액===0).map(p=>p.수험번호));
-    const cmIds=new Set(snapActive.filter(p=>extractMonth(p.내역)===cm&&p.환불금액===0).map(p=>p.수험번호));
-    const snapLatestCm=snapAllMonths[snapAllMonths.length-1];
+    const isLatestSnap=(i===snapAllMonths.length-1);
+    const snapCmIds=new Set(snapActive.filter(p=>extractMonth(p.내역)===cm&&p.환불금액===0).map(p=>p.수험번호));
+    const snapPmIds=isLatestSnap
+      ? new Set(snapActive.filter(p=>extractMonth(p.내역)>0&&extractMonth(p.내역)<=pm&&p.환불금액===0).map(p=>p.수험번호))
+      : new Set(snapActive.filter(p=>extractMonth(p.내역)===pm&&p.환불금액===0).map(p=>p.수험번호));
     const snapExcludeSet=new Set((S.미납퇴소||[]).filter(r=>{
       const tm=r.targetMonth||pm;
       return tm===cm;
     }).map(r=>r.수험번호));
-    snapUnpaidByMonth[cm]=[...pmIds].filter(id=>!cmIds.has(id)&&!snapExcludeSet.has(id)).length;
+    snapUnpaidByMonth[cm]=[...snapPmIds].filter(id=>!snapCmIds.has(id)&&!snapExcludeSet.has(id)).length;
   }
   snap._unpaidByMonth=snapUnpaidByMonth;
   const snapLatestMonth=snapAllMonths.length>0?snapAllMonths[snapAllMonths.length-1]:0;
