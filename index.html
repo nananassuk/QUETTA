@@ -1162,7 +1162,9 @@ function renderDash(){
     const sPrev=datas.reduce((a,d)=>a+d.prevDay,0),sIn=datas.reduce((a,d)=>a+d.todayIn,0),sOut=datas.reduce((a,d)=>a+d.todayOut,0),sTotal=datas.reduce((a,d)=>a+d.total,0);
     if(isLastMonth) grandTotal=calcGrandTotal();
     // 계 행: 마지막 달만 전체 총인원 표시, 그 외는 해당 달 소계
-    const 비고셀=isLastMonth?`총인원:${grandTotal.toLocaleString()}명`:`소계:${sTotal.toLocaleString()}명`;
+    // 소계 = 등록인원 + 해당 월 미납인원 (4→5월 미납은 5월 소계에 포함)
+    const 해당월미납=(!isLastMonth&&unpaidByMonth[mo])||0;
+    const 비고셀=isLastMonth?`총인원:${grandTotal.toLocaleString()}명`:`소계:${(sTotal+해당월미납).toLocaleString()}명`;
     html+=`<tr class="row-sub"><td>계</td><td>${sPrev.toLocaleString()}</td><td>${sIn>0?sIn.toLocaleString():'0'}</td><td>${sOut<0?sOut.toLocaleString():''}</td><td>${sTotal.toLocaleString()}</td><td>${비고셀}</td></tr>`;
   }
   if(!html)html=`<tr><td colspan="6" style="text-align:center;color:#bbb;padding:24px;">납부 데이터를 입력하면 표시됩니다</td></tr>`;
