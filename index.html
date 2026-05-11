@@ -1116,7 +1116,9 @@ function renderDash(){
   const unpaidByMonth=(snaps[today]&&snaps[today]._unpaidByMonth)
     ? snaps[today]._unpaidByMonth
     : calcUnpaidByMonth();
-  const latestMonth=allMonths.length>0?allMonths[allMonths.length-1]:0;
+  // latestMonth: 반수 제외한 최신 월 기준
+  const nonBansuMonthsForUnpaid=[...new Set(active.filter(p=>!p.내역.includes('반수')).map(p=>p.내역).filter(Boolean).map(t=>extractMonth(t)).filter(m=>m>0))].sort((a,b)=>a-b);
+  const latestMonth=nonBansuMonthsForUnpaid.length>0?nonBansuMonthsForUnpaid[nonBansuMonthsForUnpaid.length-1]:0;
   const unpaidCnt=unpaidByMonth[latestMonth]||0;
   const currIds=new Set(active.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
   function calcGrandTotal(){
