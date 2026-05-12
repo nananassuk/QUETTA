@@ -303,13 +303,12 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
       <button class="btn btn-d" onclick="exportDailyExcel2()">⬇️ 엑셀</button>
     </div>
     <div class="refund-input-area dancha-area">
-      <label>❌ 취소 처리 (단과) — 엑셀 업로드 (수험번호/내역)</label>
-      <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center;">
-        <button class="btn btn-d btn-sm" onclick="document.getElementById('cancelExcelInput').click()">📂 취소 파일 선택</button>
-        <input type="file" id="cancelExcelInput" accept=".xlsx,.xls" style="display:none">
-        <span style="font-size:11px;color:var(--muted);">수험번호·내역(키워드) 컬럼 포함 엑셀</span>
+      <label>❌ 취소 처리 (단과) — 학번 입력 후 취소할 과목 선택</label>
+      <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;">
+        <input type="text" id="danchaStudentInput" class="inp" placeholder="학번 입력..." style="width:160px;" onkeydown="if(event.key==='Enter')lookupDanchaStudent()">
+        <button class="btn btn-d btn-sm" onclick="lookupDanchaStudent()">조회</button>
       </div>
-      <div id="cancelExcelResult" style="margin-top:7px;"></div>
+      <div id="danchaLookupResult" style="margin-top:10px;"></div>
     </div>
   </div>
   <div class="card">
@@ -2123,6 +2122,58 @@ function processRefundExcel(e){
 }
 
 // ════ CANCEL (단과) ════
+
+// ════ 단과 취소 — 학번 조회 방식 ════
+function lookupDanchaStudent(){
+  const val=document.getElementById('danchaStudentInput').value.trim();
+  if(!val){toast('학번 또는 수험번호를 입력하세요');return;}
+  const recs=S.dancha.filter(p=>p.status==='active'&&p.환불금액===0&&(p.번호===val||p.수험번호===val||p.이름===val));
+  const el=document.getElementById('danchaLookupResult');
+  if(!recs.length){
+    el.innerHTML=`<div style="color:var(--muted);font-size:13px;">등록된 단과 내역이 없습니다 (${h(val)})</div>`;
+    return;
+  }
+  const student=recs[0];
+  let html=`<div style="font-size:13px;font-weight:700;margin-bottom:8px;">${h(student.이름)} (${h(student.수험번호)}) — 취소할 과목을 선택하세요</div>`;
+  html+=`<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">`;
+  recs.forEach((r,i)=>{
+    html+=`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:7px 10px;background:#F8F8F8;border:1px solid var(--border);border-radius:6px;">
+      <input type="checkbox" data-idx="${i}" style="width:15px;height:15px;cursor:pointer;">
+      <span style="font-size:13px;"><strong>${h(r.내역)}</strong>${r.장학?` <span style="color:var(--g1);font-size:11px;">${h(r.장학)}</span>`:''}</span>
+    </label>`;
+  });
+  html+=`</div>`;
+  html+=`<button class="btn btn-d btn-sm" onclick="cancelSelectedDancha()">선택 취소 처리</button>`;
+  el.innerHTML=html;
+  // 학생 데이터 임시 저장
+  el._recs=recs;
+}
+
+function cancelSelectedDancha(){
+  const el=document.getElementById('danchaLookupResult');
+  const recs=el._recs;
+  if(!recs||!recs.length)return;
+  const checked=[...el.querySelectorAll('input[type=checkbox]:checked')];
+  if(!checked.length){toast('취소할 과목을 선택하세요');return;}
+  const date=document.getElementById('dailyDate2').value||todayStr();
+  let count=0;
+  checked.forEach(cb=>{
+    const r=recs[parseInt(cb.dataset.idx)];
+    if(!r)return;
+    r.status='취소';r.cancelledAt=Date.now();
+    S.danchaRefunds.push({
+      id:Date.now()+Math.random(),processedAt:Date.now(),processedDate:date,
+      수험번호:r.수험번호,이름:r.이름,반:r.반,번호:r.번호,장학:r.장학||'',
+      removedTerms:[r.내역]
+    });
+    count++;
+  });
+  save();
+  renderDailyDancha();renderDash2();
+  el.innerHTML=`<div style="color:var(--success);font-size:13px;font-weight:700;">✅ ${count}개 과목 취소 완료</div>`;
+  document.getElementById('danchaStudentInput').value='';
+  toast(`✅ ${recs[0].이름} 단과 ${count}개 취소 완료`);
+}
 function processCancelExcel(e){
   const date=document.getElementById('dailyDate2').value||todayStr();
   const file=e.target.files[0];if(!file)return;
@@ -2593,7 +2644,6 @@ function init(){
   document.getElementById('refundInput').addEventListener('keydown',e=>{if(e.key==='Enter')processRefundInput();});
   document.getElementById('refundInputBunho').addEventListener('keydown',e=>{if(e.key==='Enter')processRefundInput();});
   document.getElementById('refundExcelInput').addEventListener('change',processRefundExcel);
-  document.getElementById('cancelExcelInput').addEventListener('change',processCancelExcel);
   document.getElementById('payExcelInput').addEventListener('change',importPayExcel);
   document.getElementById('loginPw').focus();
 }
