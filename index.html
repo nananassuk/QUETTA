@@ -2164,10 +2164,12 @@ function cancelSelectedDancha(){
     });
     count++;
   });
-  save();closeModal();
-  renderDailyDancha();renderDash2();
+  // UI 먼저 즉시 업데이트, save는 백그라운드
+  closeModal();
   document.getElementById('danchaStudentInput').value='';
   toast(`✅ ${_danchaLookupRecs[0].이름} 단과 ${count}개 취소 완료`);
+  renderDailyDancha();renderDash2();
+  save();
 }
 function processCancelExcel(e){
   const date=document.getElementById('dailyDate2').value||todayStr();
