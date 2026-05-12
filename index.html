@@ -2124,41 +2124,37 @@ function processRefundExcel(e){
 // ════ CANCEL (단과) ════
 
 // ════ 단과 취소 — 학번 조회 방식 ════
+let _danchaLookupRecs=[];
 function lookupDanchaStudent(){
   const val=document.getElementById('danchaStudentInput').value.trim();
   if(!val){toast('학번 또는 수험번호를 입력하세요');return;}
   const recs=S.dancha.filter(p=>p.status==='active'&&p.환불금액===0&&(p.번호===val||p.수험번호===val||p.이름===val));
-  const el=document.getElementById('danchaLookupResult');
-  if(!recs.length){
-    el.innerHTML=`<div style="color:var(--muted);font-size:13px;">등록된 단과 내역이 없습니다 (${h(val)})</div>`;
-    return;
-  }
+  if(!recs.length){toast(`등록된 단과 내역이 없습니다 (${val})`);return;}
+  _danchaLookupRecs=recs;
   const student=recs[0];
-  let html=`<div style="font-size:13px;font-weight:700;margin-bottom:8px;">${h(student.이름)} (${h(student.수험번호)}) — 취소할 과목을 선택하세요</div>`;
-  html+=`<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;">`;
+  let body=`<div style="font-size:13px;color:var(--muted);margin-bottom:12px;">${h(student.이름)} (${h(student.수험번호)}) — 취소할 과목을 선택하세요</div>`;
+  body+=`<div style="display:flex;flex-direction:column;gap:8px;" id="danchaCheckList">`;
   recs.forEach((r,i)=>{
-    html+=`<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:7px 10px;background:#F8F8F8;border:1px solid var(--border);border-radius:6px;">
-      <input type="checkbox" data-idx="${i}" style="width:15px;height:15px;cursor:pointer;">
-      <span style="font-size:13px;"><strong>${h(r.내역)}</strong>${r.장학?` <span style="color:var(--g1);font-size:11px;">${h(r.장학)}</span>`:''}</span>
+    body+=`<label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:9px 12px;background:#F8F8F8;border:1px solid var(--border);border-radius:7px;transition:background 0.15s;" onmouseenter="this.style.background='#EEF6F0'" onmouseleave="this.style.background='#F8F8F8'">
+      <input type="checkbox" data-idx="${i}" style="width:16px;height:16px;cursor:pointer;accent-color:var(--d1);">
+      <span style="font-size:13px;font-weight:600;">${h(r.내역)}</span>
+      ${r.장학?`<span style="font-size:11px;color:var(--g1);margin-left:auto;">${h(r.장학)}</span>`:''}
     </label>`;
   });
-  html+=`</div>`;
-  html+=`<button class="btn btn-d btn-sm" onclick="cancelSelectedDancha()">선택 취소 처리</button>`;
-  el.innerHTML=html;
-  // 학생 데이터 임시 저장
-  el._recs=recs;
+  body+=`</div>`;
+  openModal(`❌ 단과 취소 처리`,body,[
+    {label:'취소 처리',cls:'btn-d',fn:cancelSelectedDancha},
+    {label:'닫기',cls:'btn-ghost',fn:closeModal}
+  ]);
 }
 
 function cancelSelectedDancha(){
-  const el=document.getElementById('danchaLookupResult');
-  const recs=el._recs;
-  if(!recs||!recs.length)return;
-  const checked=[...el.querySelectorAll('input[type=checkbox]:checked')];
+  const checked=[...document.querySelectorAll('#danchaCheckList input[type=checkbox]:checked')];
   if(!checked.length){toast('취소할 과목을 선택하세요');return;}
   const date=document.getElementById('dailyDate2').value||todayStr();
   let count=0;
   checked.forEach(cb=>{
-    const r=recs[parseInt(cb.dataset.idx)];
+    const r=_danchaLookupRecs[parseInt(cb.dataset.idx)];
     if(!r)return;
     r.status='취소';r.cancelledAt=Date.now();
     S.danchaRefunds.push({
@@ -2168,11 +2164,10 @@ function cancelSelectedDancha(){
     });
     count++;
   });
-  save();
+  save();closeModal();
   renderDailyDancha();renderDash2();
-  el.innerHTML=`<div style="color:var(--success);font-size:13px;font-weight:700;">✅ ${count}개 과목 취소 완료</div>`;
   document.getElementById('danchaStudentInput').value='';
-  toast(`✅ ${recs[0].이름} 단과 ${count}개 취소 완료`);
+  toast(`✅ ${_danchaLookupRecs[0].이름} 단과 ${count}개 취소 완료`);
 }
 function processCancelExcel(e){
   const date=document.getElementById('dailyDate2').value||todayStr();
