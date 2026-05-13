@@ -997,7 +997,7 @@ function autoDetectTerms(refDate){
   const allTerms=[...new Set(S.pays.map(p=>p.내역).filter(Boolean))];
   if(!S.cfg.manualOverride){
     // 반수 term 제외한 월 목록으로 prevTerms/currTerms 결정
-    const nonBansuTerms=allTerms.filter(t=>!t.includes('반수'));
+    const nonBansuTerms=allTerms.filter(t=>!isSpecialTerm(t));
     const months=[...new Set(nonBansuTerms.map(t=>extractMonth(t)).filter(m=>m>0))].sort((a,b)=>a-b);
     if(months.length===0){S.cfg.prevTerms=[];S.cfg.currTerms=[];}
     else if(months.length===1){
@@ -1010,7 +1010,7 @@ function autoDetectTerms(refDate){
       S.cfg.currTerms=nonBansuTerms.filter(t=>extractMonth(t)===cm);
     }
     // 반수 terms는 별도 보관
-    S.cfg.bansuTerms=allTerms.filter(t=>t.includes('반수'));
+    S.cfg.bansuTerms=allTerms.filter(t=>isSpecialTerm(t));
   }
   const danchaTerms=[...new Set(S.dancha.map(p=>p.내역).filter(Boolean))];
   S.cfg.danchaTerms=danchaTerms;
@@ -1098,12 +1098,18 @@ function renderDash(){
   const allMonths=[...new Set(S.pays.map(p=>p.내역).filter(Boolean).map(t=>extractMonth(t)).filter(m=>m>0))].sort((a,b)=>a-b);
   function calcUnpaidByMonth(){
     const map={};
-    // 반수 term 제외한 월 목록만 사용 (반수는 미납 흐름과 무관)
-    const nonBansuMonths=[...new Set(active.filter(p=>!p.내역.includes('반수')).map(p=>p.내역).filter(Boolean).map(t=>extractMonth(t)).filter(m=>m>0))].sort((a,b)=>a-b);
-    for(let i=1;i<nonBansuMonths.length;i++){
-      const pm=nonBansuMonths[i-1],cm=nonBansuMonths[i];
-      const pmIds=new Set(active.filter(p=>extractMonth(p.내역)===pm&&!p.내역.includes('반수')&&p.환불금액===0).map(p=>p.수험번호));
-      const cmIds=new Set(active.filter(p=>extractMonth(p.내역)===cm&&!p.내역.includes('반수')&&p.환불금액===0).map(p=>p.수험번호));
+    const nonSpecialMonths=[...new Set(active.filter(p=>!isSpecialTerm(p.내역)).map(p=>p.내역).filter(Boolean).map(t=>extractMonth(t)).filter(m=>m>0))].sort((a,b)=>a-b);
+    for(let i=1;i<nonSpecialMonths.length;i++){
+      const pm=nonSpecialMonths[i-1],cm=nonSpecialMonths[i];
+      const isLatest=(i===nonSpecialMonths.length-1);
+      // 일반 pm 학생
+      const pmIdsReg=new Set(active.filter(p=>extractMonth(p.내역)===pm&&!isSpecialTerm(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
+      // 최신 쌍: special term 중 month < cm인 학생도 포함 (다음 정규기수 미납에 반영)
+      const pmIdsSpecial=isLatest
+        ? new Set(active.filter(p=>isSpecialTerm(p.내역)&&extractMonth(p.내역)<cm&&p.환불금액===0).map(p=>p.수험번호))
+        : new Set();
+      const pmIds=new Set([...pmIdsReg,...pmIdsSpecial]);
+      const cmIds=new Set(active.filter(p=>extractMonth(p.내역)===cm&&!isSpecialTerm(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
       const unpaidExcludeSet=new Set((S.미납퇴소||[]).filter(r=>{
         const tm=r.targetMonth||pm;
         return tm===cm;
@@ -1115,9 +1121,9 @@ function renderDash(){
   const unpaidByMonth=(snaps[today]&&snaps[today]._unpaidByMonth)
     ? snaps[today]._unpaidByMonth
     : calcUnpaidByMonth();
-  // latestMonth: 반수 제외한 최신 월 기준
-  const nonBansuMonthsForUnpaid=[...new Set(active.filter(p=>!p.내역.includes('반수')).map(p=>p.내역).filter(Boolean).map(t=>extractMonth(t)).filter(m=>m>0))].sort((a,b)=>a-b);
-  const latestMonth=nonBansuMonthsForUnpaid.length>0?nonBansuMonthsForUnpaid[nonBansuMonthsForUnpaid.length-1]:0;
+  // latestMonth: special term 제외 최신 월 기준
+  const nonSpecialMonthsForUnpaid=[...new Set(active.filter(p=>!isSpecialTerm(p.내역)).map(p=>p.내역).filter(Boolean).map(t=>extractMonth(t)).filter(m=>m>0))].sort((a,b)=>a-b);
+  const latestMonth=nonSpecialMonthsForUnpaid.length>0?nonSpecialMonthsForUnpaid[nonSpecialMonthsForUnpaid.length-1]:0;
   const unpaidCnt=unpaidByMonth[latestMonth]||0;
   const currIds=new Set(active.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
   function calcGrandTotal(){
@@ -1160,13 +1166,15 @@ function renderDash(){
     const isLastMonth=mi===moKeys.length-1;
     const datas=monthMap[mo].map(calcTerm);
     for(const d of datas){
-      html+=`<tr class="${d.isCurr?'row-curr':''}"><td style="text-align:left;padding-left:16px;">${h(d.term)}</td><td>${d.prevDay>0?d.prevDay.toLocaleString():'0'}</td><td>${d.todayIn>0?`<span class="pos">${d.todayIn.toLocaleString()}</span>`:''}</td><td>${d.todayOut<0?`<span class="neg">${d.todayOut.toLocaleString()}</span>`:''}</td><td><strong>${d.total>0?d.total.toLocaleString():'0'}</strong></td><td>${(()=>{const tm=extractMonth(d.term);const tu=unpaidByMonth[tm]||0;return tu>0?`미납인원:${tu}명`:'';})()}</td></tr>`;
+      html+=`<tr class="${d.isCurr?'row-curr':''}"><td style="text-align:left;padding-left:16px;">${h(d.term)}</td><td>${d.prevDay>0?d.prevDay.toLocaleString():'0'}</td><td>${d.todayIn>0?`<span class="pos">${d.todayIn.toLocaleString()}</span>`:''}</td><td>${d.todayOut<0?`<span class="neg">${d.todayOut.toLocaleString()}</span>`:''}</td><td><strong>${d.total>0?d.total.toLocaleString():'0'}</strong></td><td>${(()=>{if(isSpecialTerm(d.term))return '';const tm=extractMonth(d.term);const tu=unpaidByMonth[tm]||0;return tu>0?`미납인원:${tu}명`:'';})()}</td></tr>`;
     }
     const sPrev=datas.reduce((a,d)=>a+d.prevDay,0),sIn=datas.reduce((a,d)=>a+d.todayIn,0),sOut=datas.reduce((a,d)=>a+d.todayOut,0),sTotal=datas.reduce((a,d)=>a+d.total,0);
     if(isLastMonth) grandTotal=calcGrandTotal();
     // 계 행: 마지막 달만 전체 총인원 표시, 그 외는 해당 달 소계
     // 소계 = 등록인원 + 해당 월 미납인원 (4→5월 미납은 5월 소계에 포함)
-    const 해당월미납=(!isLastMonth&&unpaidByMonth[mo])||0;
+    // special term 그룹은 미납인원 표시 안 함, 정규 term만 소계에 미납 포함
+    const isSpecialGroup=datas.every(d=>isSpecialTerm(d.term));
+    const 해당월미납=(!isLastMonth&&!isSpecialGroup&&unpaidByMonth[mo])||0;
     const 비고셀=isLastMonth?`총인원:${grandTotal.toLocaleString()}명`:`소계:${(sTotal+해당월미납).toLocaleString()}명`;
     html+=`<tr class="row-sub"><td>계</td><td>${sPrev.toLocaleString()}</td><td>${sIn>0?sIn.toLocaleString():'0'}</td><td>${sOut<0?sOut.toLocaleString():''}</td><td>${sTotal.toLocaleString()}</td><td>${비고셀}</td></tr>`;
   }
@@ -1268,12 +1276,17 @@ function saveSnapshot(){
   const snap미납퇴소Set=new Set((S.미납퇴소||[]).map(r=>r.수험번호));
   const snapActive=S.pays.filter(p=>p.status==='active');
   const snapAllMonths=[...new Set(S.pays.map(p=>p.내역).filter(Boolean).map(t=>extractMonth(t)).filter(m=>m>0))].sort((a,b)=>a-b);
+  const snapNonSpecialMonths=[...new Set(snapActive.filter(p=>!isSpecialTerm(p.내역)).map(p=>p.내역).filter(Boolean).map(t=>extractMonth(t)).filter(m=>m>0))].sort((a,b)=>a-b);
   const snapUnpaidByMonth={};
-  const snapNonBansuMonths=[...new Set(snapActive.filter(p=>!p.내역.includes('반수')).map(p=>p.내역).filter(Boolean).map(t=>extractMonth(t)).filter(m=>m>0))].sort((a,b)=>a-b);
-  for(let i=1;i<snapNonBansuMonths.length;i++){
-    const pm=snapNonBansuMonths[i-1],cm=snapNonBansuMonths[i];
-    const snapCmIds=new Set(snapActive.filter(p=>extractMonth(p.내역)===cm&&!p.내역.includes('반수')&&p.환불금액===0).map(p=>p.수험번호));
-    const snapPmIds=new Set(snapActive.filter(p=>extractMonth(p.내역)===pm&&!p.내역.includes('반수')&&p.환불금액===0).map(p=>p.수험번호));
+  for(let i=1;i<snapNonSpecialMonths.length;i++){
+    const pm=snapNonSpecialMonths[i-1],cm=snapNonSpecialMonths[i];
+    const isLatestSnap=(i===snapNonSpecialMonths.length-1);
+    const snapPmIdsReg=new Set(snapActive.filter(p=>extractMonth(p.내역)===pm&&!isSpecialTerm(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
+    const snapPmIdsSpecial=isLatestSnap
+      ? new Set(snapActive.filter(p=>isSpecialTerm(p.내역)&&extractMonth(p.내역)<cm&&p.환불금액===0).map(p=>p.수험번호))
+      : new Set();
+    const snapPmIds=new Set([...snapPmIdsReg,...snapPmIdsSpecial]);
+    const snapCmIds=new Set(snapActive.filter(p=>extractMonth(p.내역)===cm&&!isSpecialTerm(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
     const snapExcludeSet=new Set((S.미납퇴소||[]).filter(r=>{
       const tm=r.targetMonth||pm;
       return tm===cm;
@@ -1281,9 +1294,9 @@ function saveSnapshot(){
     snapUnpaidByMonth[cm]=[...snapPmIds].filter(id=>!snapCmIds.has(id)&&!snapExcludeSet.has(id)).length;
   }
   snap._unpaidByMonth=snapUnpaidByMonth;
-  // _unpaidCnt: 반수 제외 최신 월 기준
-  const snapNonBansuLatest=snapNonBansuMonths.length>0?snapNonBansuMonths[snapNonBansuMonths.length-1]:0;
-  snap._unpaidCnt=snapUnpaidByMonth[snapNonBansuLatest]||0;
+  // _unpaidCnt: special term 제외 최신 월 기준
+  const snapNonSpecialLatest=snapNonSpecialMonths.length>0?snapNonSpecialMonths[snapNonSpecialMonths.length-1]:0;
+  snap._unpaidCnt=snapUnpaidByMonth[snapNonSpecialLatest]||0;
   // grandTotal 스냅샷 저장 (정규 최신월 등록 + 미납 + 반수 등록)
   const snapCurrIds=new Set(snapActive.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
   const snapBansuIds=new Set(snapActive.filter(p=>(S.cfg.bansuTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
@@ -1946,6 +1959,9 @@ function removeUnpaidWithdraw(idx){
   S.미납퇴소.splice(idx,1);
   save();renderUnpaid();renderDash();toast('미납퇴소 처리가 취소됐습니다');
 }
+// ════ 특별 기수 판별 (반수, 편입 등 _ 포함 term) ════
+function isSpecialTerm(t){ return !!(t&&t.includes('_')); }
+
 // ════ 날짜 기준 퇴소 대상 기수 계산 ════
 // 업로드 월이 prev월이면: prevTerms + currTerms(있으면)
 // 업로드 월이 curr월이면: currTerms만 (없으면 최근 기수 fallback)
