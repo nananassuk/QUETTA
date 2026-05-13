@@ -1844,19 +1844,23 @@ function exportPayHistoryExcel2(){
 }
 function exportGrandTotalExcel(){
   const active=S.pays.filter(p=>p.status==='active'&&p.환불금액===0);
-  const allMonths=[...new Set(active.map(p=>p.내역).filter(Boolean).map(t=>extractMonth(t)).filter(m=>m>0))].sort((a,b)=>a-b);
-  if(!allMonths.length){toast('데이터가 없습니다');return;}
+  if(!active.length){toast('데이터가 없습니다');return;}
 
-  const cm=allMonths[allMonths.length-1]; // 가장 최신 월(curr)
-  const pm=allMonths.length>=2?allMonths[allMonths.length-2]:null; // 바로 전 월(prev)
+  // 정규 기수 최신 월
+  const nonSpecialMonths=[...new Set(active.filter(p=>!isSpecialTerm(p.내역)).map(p=>p.내역).filter(Boolean).map(t=>extractMonth(t)).filter(m=>m>0))].sort((a,b)=>a-b);
+  if(!nonSpecialMonths.length){toast('데이터가 없습니다');return;}
+  const cm=nonSpecialMonths[nonSpecialMonths.length-1]; // 최신 정규 월
 
-  // 총인원 = prev active ∪ curr active
-  const pmIds=pm?new Set(active.filter(p=>extractMonth(p.내역)===pm).map(p=>p.수험번호)):new Set();
-  const cmIds=new Set(active.filter(p=>extractMonth(p.내역)===cm).map(p=>p.수험번호));
-  const allIds=new Set([...pmIds,...cmIds]);
+  // 총인원 = 정규 최신 월 active + special term active (all)
+  const currRegIds=new Set(active.filter(p=>extractMonth(p.내역)===cm&&!isSpecialTerm(p.내역)).map(p=>p.수험번호));
+  const unpaidIds=new Set(active.filter(p=>{
+    const mo=extractMonth(p.내역);
+    return mo>0&&mo<cm&&!isSpecialTerm(p.내역)&&!currRegIds.has(p.수험번호);
+  }).map(p=>p.수험번호)); // 미납자 (정규 최신 월 미납)
+  const specialIds=new Set(active.filter(p=>isSpecialTerm(p.내역)).map(p=>p.수험번호));
+  const allIds=new Set([...currRegIds,...unpaidIds,...specialIds]);
 
-  // 각 학생의 가장 최신 납부 기수 찾기
-  // 수험번호별 최신 월 기록 추출
+  // 수험번호별 최신 납부 기수 추출
   const latestRecByNum={};
   active.forEach(r=>{
     const mo=extractMonth(r.내역);
@@ -1867,7 +1871,7 @@ function exportGrandTotalExcel(){
     }
   });
 
-  // 총인원 학생만 추출 (prev∪curr)
+  // 총인원 명단 구성
   let rows=[];
   allIds.forEach(suh=>{
     const r=latestRecByNum[suh];
