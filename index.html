@@ -1852,11 +1852,15 @@ function exportGrandTotalExcel(){
   const cm=nonSpecialMonths[nonSpecialMonths.length-1]; // 최신 정규 월
 
   // 총인원 = 정규 최신 월 active + special term active (all)
+  // 정규 최신 월 납부자
   const currRegIds=new Set(active.filter(p=>extractMonth(p.내역)===cm&&!isSpecialTerm(p.내역)).map(p=>p.수험번호));
-  const unpaidIds=new Set(active.filter(p=>{
-    const mo=extractMonth(p.내역);
-    return mo>0&&mo<cm&&!isSpecialTerm(p.내역)&&!currRegIds.has(p.수험번호);
-  }).map(p=>p.수험번호)); // 미납자 (정규 최신 월 미납)
+  // 미납자 = prevMonth(cm-1) active 중 curr 미납 (dashboard와 동일 로직)
+  const prevRegMonths=nonSpecialMonths.slice(0,-1);
+  const pm2=prevRegMonths.length>0?prevRegMonths[prevRegMonths.length-1]:null;
+  const prevRegIds=pm2?new Set(active.filter(p=>extractMonth(p.내역)===pm2&&!isSpecialTerm(p.내역)).map(p=>p.수험번호)):new Set();
+  const 미납퇴소Set=new Set((S.미납퇴소||[]).map(r=>r.수험번호));
+  const unpaidIds=new Set([...prevRegIds].filter(id=>!currRegIds.has(id)&&!미납퇴소Set.has(id)));
+  // special term 학생
   const specialIds=new Set(active.filter(p=>isSpecialTerm(p.내역)).map(p=>p.수험번호));
   const allIds=new Set([...currRegIds,...unpaidIds,...specialIds]);
 
