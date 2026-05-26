@@ -683,10 +683,34 @@ function rotWorkers(ds,count){
   if(!order||!order.length) return [];
   const all=allRotDates(startDate,ds); const idx=all.indexOf(ds);
   if(idx<0) return [];
+
+  // 해당 날짜 기준 재직중인 순번 목록만 추출
+  function activeOrder(dateStr){
+    return order.filter(id=>{
+      const st=S.staff.find(s=>s.id===id);
+      if(!st) return false;
+      if(st.hireDate&&st.hireDate>dateStr) return false;  // 아직 입사 전
+      if(st.leaveDate&&st.leaveDate<=dateStr) return false; // 이미 퇴사
+      return true;
+    });
+  }
+
+  // 각 로테이션 날짜마다 그 날 기준 재직자 순번으로 계산
   let total=(startIndex||0);
-  for(let i=0;i<idx;i++){const h=getHoliday(all[i]);total+=(h?.workerCount||2);}
+  for(let i=0;i<idx;i++){
+    const rotDs=all[i];
+    const h=getHoliday(rotDs);
+    const cnt=h?.workerCount||2;
+    const activeOrd=activeOrder(rotDs);
+    if(activeOrd.length===0) continue;
+    total+=cnt;
+  }
+
+  // 이번 날짜 재직자 순번으로 count명 추출
+  const activeOrd=activeOrder(ds);
+  if(!activeOrd.length) return [];
   const res=[];
-  for(let i=0;i<count;i++) res.push(order[(total+i)%order.length]);
+  for(let i=0;i<count;i++) res.push(activeOrd[(total+i)%activeOrd.length]);
   return res;
 }
 
