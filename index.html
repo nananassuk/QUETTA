@@ -2194,7 +2194,7 @@ function cancelSelectedDancha(){
   closeModal();
   document.getElementById('danchaStudentInput').value='';
   toast(`✅ ${_danchaLookupRecs[0].이름} 단과 ${count}개 취소 완료`);
-  renderDailyDancha();renderDash2();
+  renderDaily2();renderDash2();
   save();
 }
 function processCancelExcel(e){
