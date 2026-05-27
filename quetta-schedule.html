@@ -643,7 +643,7 @@ function getWeeksOfMonth(yr, mo) {
 function activeStaffOn(ds){
   return S.staff.filter(s=>{
     if(s.hireDate&&s.hireDate>ds) return false;
-    if(s.leaveDate&&s.leaveDate<=ds) return false;
+    if(s.leaveDate&&s.leaveDate<ds) return false; // 퇴사일 당일은 근무 포함
     return true;
   });
 }
@@ -687,7 +687,7 @@ function rotWorkers(ds,count){
     const st=S.staff.find(s=>s.id===id);
     if(!st) return false;
     if(st.hireDate&&st.hireDate>ds) return false;   // 아직 입사 전
-    if(st.leaveDate&&st.leaveDate<=ds) return false; // 이미 퇴사
+    if(st.leaveDate&&st.leaveDate<ds) return false; // 퇴사일 당일은 포함
     return true;
   });
   if(!activeOrd.length) return [];
