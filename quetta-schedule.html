@@ -276,8 +276,10 @@ window.onerror = function(msg, src, line){
   <div class="mbox sm">
     <div class="mhd">관리자 로그인<button class="mc-btn" onclick="closeModal('loginModal')">✕</button></div>
     <div class="mbody">
-      <div class="fg mb8"><label class="fl">이메일</label><input type="email" class="fi" id="loginEmail" placeholder="admin@example.com"></div>
-      <div class="fg"><label class="fl">비밀번호</label><input type="password" class="fi" id="loginPw"></div>
+      <input type="email" id="loginEmail" style="display:none;" autocomplete="username">
+      <div class="fg"><label class="fl">비밀번호</label>
+        <input type="password" class="fi" id="loginPw" placeholder="비밀번호 입력" autocomplete="current-password" style="font-size:16px;letter-spacing:2px;">
+      </div>
       <div class="alert alert-danger mt8 hidden" id="loginErr"></div>
     </div>
     <div class="mfooter"><button class="btn btn-ghost" onclick="closeModal('loginModal')">취소</button><button class="btn btn-primary" onclick="doLogin()">로그인</button></div>
@@ -565,6 +567,34 @@ window.onerror = function(msg, src, line){
 <div class="tab-content" id="tab-settings">
   <div class="page">
     <div class="page-title">⚙️ 설정</div>
+    <div class="card">
+      <div class="card-title">🔑 관리자 계정 설정</div>
+      <div class="alert alert-info mb8" style="font-size:12px;">이메일을 저장하면 이후 비밀번호만 입력해도 로그인됩니다.</div>
+
+      <div class="mb12">
+        <div class="fl mb8" style="font-weight:600;">이메일 저장</div>
+        <div class="fr" style="gap:8px;flex-wrap:wrap;">
+          <input type="email" class="fi" id="adminEmailInput" placeholder="관리자 이메일" style="max-width:260px;">
+          <button class="btn btn-primary btn-sm" onclick="saveAdminEmail()">저장</button>
+        </div>
+        <div id="adminEmailStatus" style="font-size:12px;color:var(--text2);margin-top:6px;"></div>
+      </div>
+
+      <div style="border-top:1px solid var(--border-lt);padding-top:12px;">
+        <div class="fl mb8" style="font-weight:600;">로그인 비밀번호 변경</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">지메일 비밀번호와 무관하게 앱 전용 비밀번호를 설정합니다.</div>
+        <div class="fgrid" style="max-width:400px;">
+          <div class="fg"><label class="fl">새 비밀번호</label>
+            <input type="password" class="fi" id="newPwInput" placeholder="새 비밀번호 (6자 이상)" autocomplete="new-password">
+          </div>
+          <div class="fg"><label class="fl">비밀번호 확인</label>
+            <input type="password" class="fi" id="newPwConfirm" placeholder="다시 입력" autocomplete="new-password">
+          </div>
+        </div>
+        <button class="btn btn-primary btn-sm mt8" onclick="changeAdminPw()">비밀번호 변경</button>
+        <div id="pwChangeStatus" style="font-size:12px;margin-top:6px;"></div>
+      </div>
+    </div>
     <div class="card">
       <div class="card-title">📅 노출 월 관리
         <span style="font-size:11px;color:var(--text2);font-weight:400;">뷰어에게 보여줄 달을 선택하세요</span>
@@ -1477,6 +1507,11 @@ function _renderPersonalContent(activeStaff){
 function renderSettingsTab(){
   document.getElementById('addShiftBtn').classList.toggle('hidden',!S.isAdmin);
   document.getElementById('addDeptBtn').classList.toggle('hidden',!S.isAdmin);
+  // 관리자 이메일 표시
+  const emailInput=document.getElementById('adminEmailInput');
+  const emailStatus=document.getElementById('adminEmailStatus');
+  if(emailInput&&S._adminEmail){ emailInput.value=S._adminEmail; }
+  if(emailStatus&&S._adminEmail){ emailStatus.textContent=`현재 저장된 이메일: ${S._adminEmail}`; }
 
   // 노출 월 목록 렌더
   const vmEl=document.getElementById('visibleMonthList');
@@ -1944,6 +1979,8 @@ async function reload(){
   if(rotRow?.value) S.rotation=rotRow.value;
   const vmRow=(r9.data||[]).find(s=>s.key==='visibleMonths');
   S.visibleMonths=vmRow?.value||[];
+  const emailRow=(r9.data||[]).find(s=>s.key==='adminEmail');
+  if(emailRow?.value) S._adminEmail=emailRow.value;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1954,11 +1991,15 @@ function handleAuth(){
   else openModal('loginModal');
 }
 async function doLogin(){
-  const email=v('loginEmail'),pw=v('loginPw');
+  const pw=v('loginPw');
   const errEl=document.getElementById('loginErr');errEl.classList.add('hidden');
-  const{error}=await sb.auth.signInWithPassword({email,password:pw});
-  if(error){errEl.textContent='이메일 또는 비밀번호가 올바르지 않습니다.';errEl.classList.remove('hidden');}
-  else closeModal('loginModal');
+  if(!pw){errEl.textContent='비밀번호를 입력하세요.';errEl.classList.remove('hidden');return;}
+  // 관리자 이메일은 settings에서 로드, 없으면 숨겨진 input 사용
+  const adminEmail=S._adminEmail||v('loginEmail');
+  if(!adminEmail){errEl.textContent='관리자 이메일이 설정되지 않았습니다. 설정 탭에서 먼저 설정해주세요.';errEl.classList.remove('hidden');return;}
+  const{error}=await sb.auth.signInWithPassword({email:adminEmail,password:pw});
+  if(error){errEl.textContent='비밀번호가 올바르지 않습니다.';errEl.classList.remove('hidden');}
+  else{closeModal('loginModal');document.getElementById('loginPw').value='';}
 }
 document.getElementById('loginPw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 
@@ -2016,6 +2057,39 @@ function closeModal(id){
 }
 
 // ── 노출 월 관리 ──
+async function changeAdminPw(){
+  const newPw=document.getElementById('newPwInput')?.value||'';
+  const confirm=document.getElementById('newPwConfirm')?.value||'';
+  const statusEl=document.getElementById('pwChangeStatus');
+  statusEl.textContent='';
+  if(newPw.length<6){statusEl.style.color='var(--danger)';statusEl.textContent='비밀번호는 6자 이상이어야 합니다.';return;}
+  if(newPw!==confirm){statusEl.style.color='var(--danger)';statusEl.textContent='비밀번호가 일치하지 않습니다.';return;}
+  try{
+    const {error}=await sb.auth.updateUser({password:newPw});
+    if(error) throw new Error(error.message);
+    document.getElementById('newPwInput').value='';
+    document.getElementById('newPwConfirm').value='';
+    statusEl.style.color='var(--primary)';
+    statusEl.textContent='✓ 비밀번호가 변경되었습니다. 다음 로그인부터 새 비밀번호를 사용하세요.';
+    toast('비밀번호 변경 완료');
+  }catch(e){
+    statusEl.style.color='var(--danger)';
+    statusEl.textContent='오류: '+e.message;
+  }
+}
+
+async function saveAdminEmail(){
+  const email=document.getElementById('adminEmailInput')?.value?.trim();
+  if(!email){toast('이메일을 입력하세요','err');return;}
+  try{
+    await sb.from('settings').delete().eq('key','adminEmail');
+    await sb.from('settings').insert({key:'adminEmail',value:email});
+    S._adminEmail=email;
+    document.getElementById('adminEmailStatus').textContent=`✓ 저장됨: ${email}`;
+    toast('관리자 이메일 저장됨');
+  }catch(e){toast('오류: '+e.message,'err');}
+}
+
 async function saveVisibleMonths(months){
   try{
     await sb.from('settings').delete().eq('key','visibleMonths');
