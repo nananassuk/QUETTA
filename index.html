@@ -2024,14 +2024,15 @@ async function saveStockIn() {
 
   try {
     showToast('저장 중...', 'w');
-    // 해당 날짜+시간의 기존 이력 삭제 후 덮어쓰기
-    const existing = G.stockInHistory.filter(h => h.date === date && (h.hour === hour || (h.hour === undefined && hour === 0)));
+    // 같은 날짜의 모든 기존 이력 삭제 (hour 필드 유무 관계없이)
+    const existing = G.stockInHistory.filter(h => h.date === date);
     const CHUNK = 400;
     for (let i = 0; i < existing.length; i += CHUNK) {
       const batch = db.batch();
       existing.slice(i, i+CHUNK).forEach(h => batch.delete(db.collection('stock_in_history').doc(h.id)));
       await batch.commit();
     }
+    // 새로 저장 (qty>0인 것만)
     const toSave = updates.filter(u => u.qty > 0);
     for (let i = 0; i < toSave.length; i += CHUNK) {
       const batch = db.batch();
