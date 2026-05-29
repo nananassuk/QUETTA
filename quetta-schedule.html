@@ -276,7 +276,10 @@ window.onerror = function(msg, src, line){
   <div class="mbox sm">
     <div class="mhd">관리자 로그인<button class="mc-btn" onclick="closeModal('loginModal')">✕</button></div>
     <div class="mbody">
-      <input type="email" id="loginEmail" style="display:none;" autocomplete="username">
+      <div id="loginEmailWrap" style="display:none;" class="fg mb8">
+        <label class="fl">이메일 (최초 1회)</label>
+        <input type="email" class="fi" id="loginEmail" placeholder="관리자 이메일" autocomplete="username">
+      </div>
       <div class="fg"><label class="fl">비밀번호</label>
         <input type="password" class="fi" id="loginPw" placeholder="비밀번호 입력" autocomplete="current-password" style="font-size:16px;letter-spacing:2px;">
       </div>
@@ -1996,7 +1999,12 @@ async function doLogin(){
   if(!pw){errEl.textContent='비밀번호를 입력하세요.';errEl.classList.remove('hidden');return;}
   // 관리자 이메일은 settings에서 로드, 없으면 숨겨진 input 사용
   const adminEmail=S._adminEmail||v('loginEmail');
-  if(!adminEmail){errEl.textContent='관리자 이메일이 설정되지 않았습니다. 설정 탭에서 먼저 설정해주세요.';errEl.classList.remove('hidden');return;}
+  if(!adminEmail){
+    // 이메일 입력란 임시 표시
+    const emailWrap=document.getElementById('loginEmailWrap');
+    if(emailWrap) emailWrap.style.display='block';
+    errEl.textContent='이메일을 입력해주세요.';errEl.classList.remove('hidden');return;
+  }
   const{error}=await sb.auth.signInWithPassword({email:adminEmail,password:pw});
   if(error){errEl.textContent='비밀번호가 올바르지 않습니다.';errEl.classList.remove('hidden');}
   else{closeModal('loginModal');document.getElementById('loginPw').value='';}
