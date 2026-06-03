@@ -1955,7 +1955,9 @@ async function delDept(id){
 // ═══════════════════════════════════════════════════════
 async function reload(){
   const mo=`${S.yr}-${String(S.mo).padStart(2,'0')}`;
-  const mo1=mo+'-01', mo31=mo+'-31';
+  const mo1=mo+'-01';
+  const lastDay=new Date(S.yr,S.mo,0).getDate(); // 실제 월 마지막 날
+  const mo31=`${mo}-${String(lastDay).padStart(2,'0')}`;
   const [r1,r2,r3,r4,r5,r6,r7,r8,r9]=await Promise.all([
     sb.from('staff').select('*').order('type').order('hire_date'),
     sb.from('shift_types').select('*').order('start_time'),
