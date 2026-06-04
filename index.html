@@ -288,7 +288,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
     <div style="font-size:12px;color:var(--muted);margin-bottom:12px;" id="dailyKorDate"></div>
     <div class="daily-grid">
       <div><div class="daily-side-ttl reg">✅ 등록</div><div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th>no</th><th>반</th><th>학번</th><th class="copy-hdr" onclick="copyAllSuhum('reg')" title="클릭=전체복사">수험번호 📋</th><th>성명</th><th>등록</th><th>장학</th><th>신규</th></tr></thead><tbody id="regBody"></tbody></table></div></div>
-      <div><div class="daily-side-ttl ref">🔄 환불</div><div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th>반</th><th>학번</th><th class="copy-hdr" onclick="copyAllSuhum('ref')" title="클릭=전체복사">수험번호 📋</th><th>성명</th><th>내역</th><th>환불</th><th>장학</th><th>삭제</th></tr></thead><tbody id="refBody"></tbody></table></div></div>
+      <div><div style="display:flex;align-items:center;justify-content:space-between;"><div class="daily-side-ttl ref">🔄 환불</div><button class="btn btn-sm no-print" style="background:var(--danger);color:#fff;font-size:11px;padding:3px 9px;" onclick="openManualRefundModal()">✏️ 수기 입력</button></div><div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th>반</th><th>학번</th><th class="copy-hdr" onclick="copyAllSuhum('ref')" title="클릭=전체복사">수험번호 📋</th><th>성명</th><th>내역</th><th>환불</th><th>장학</th><th>삭제</th></tr></thead><tbody id="refBody"></tbody></table></div></div>
     </div>
   </div>
 </div>
@@ -2150,6 +2150,53 @@ function processRefundExcel(e){
 // ════ 단과 취소 — 학번 조회 방식 ════
 let _danchaLookupRecs=[];
 let _danchaLookupDate='';
+function openManualRefundModal(){
+  const date=document.getElementById('dailyDate').value||todayStr();
+  const body=`
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div>
+        <label style="font-size:12px;color:var(--muted);">수험번호</label>
+        <input id="mr_suhum" class="inp" style="width:100%;margin-top:4px;" placeholder="수험번호 입력...">
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--muted);">퇴소 기수 (예: 정규4기(6월))</label>
+        <input id="mr_term" class="inp" style="width:100%;margin-top:4px;" placeholder="기수명 정확히 입력...">
+      </div>
+      <div style="font-size:11px;color:var(--danger);">⚠️ 이미 퇴소 처리된 학생의 추가 기수 환불용입니다.</div>
+    </div>`;
+  openModal('✏️ 수기 환불 입력', body, [
+    {label:'입력', cls:'btn-danger', fn:submitManualRefund},
+    {label:'취소', cls:'btn-ghost', fn:closeModal}
+  ]);
+  setTimeout(()=>document.getElementById('mr_suhum')?.focus(),100);
+}
+
+function submitManualRefund(){
+  const suhum=(document.getElementById('mr_suhum')?.value||'').trim();
+  const term=(document.getElementById('mr_term')?.value||'').trim();
+  if(!suhum||!term){toast('수험번호와 기수를 모두 입력하세요');return;}
+  // pays에서 학생 정보 조회
+  const rec=S.pays.find(p=>p.수험번호===suhum)||S.pays.find(p=>p.번호===suhum);
+  if(!rec){toast(`수험번호 ${suhum}을 찾을 수 없습니다`);return;}
+  const date=document.getElementById('dailyDate').value||todayStr();
+  S.refunds.push({
+    id:Date.now()+Math.random(),
+    processedAt:Date.now(),
+    processedDate:date,
+    수험번호:rec.수험번호,
+    이름:rec.이름,
+    반:rec.반||'',
+    번호:rec.번호||'',
+    장학:rec.장학||'',
+    removedTerms:[term],
+    manual:true
+  });
+  closeModal();
+  save();
+  renderDash();renderDaily();
+  toast(`✅ ${rec.이름}(${rec.수험번호}) ${term} 수기 환불 완료`);
+}
+
 function lookupDanchaStudent(){
   const val=document.getElementById('danchaStudentInput').value.trim();
   if(!val){toast('학번 또는 수험번호를 입력하세요');return;}
