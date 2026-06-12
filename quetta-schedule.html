@@ -1295,9 +1295,28 @@ function renderRotation(){
   const list=document.getElementById('rotList');
   if(!order||!order.length){list.innerHTML='<div style="font-size:12px;color:var(--text2);">순서가 설정되지 않았습니다.</div>';}
   else{
-    list.innerHTML=order.map((id,i)=>{
+    const today_rl=fmtDate(new Date());
+    const rotFromDates_rl=S.rotation.rotFromDates||{};
+    let activeNum_rl=0;
+    list.innerHTML=order.map((id)=>{
       const st=S.staff.find(s=>s.id===id);
-      return `<div class="rot-item"><div class="rot-rank">${i+1}</div><span style="font-weight:600;">${st?.name||'?'}</span><span style="font-size:11px;color:var(--text2);">(${st?.shortName||'?'})</span></div>`;
+      if(!st) return '';
+      const retired=st.leaveDate&&st.leaveDate<today_rl;
+      const rotFrom=rotFromDates_rl[id];
+      const notYet=rotFrom&&rotFrom>today_rl;
+      if(!retired) activeNum_rl++;
+      const numBg=retired?'#bbb':notYet?'#90a4ae':'var(--primary)';
+      const badge=retired
+        ?'<span style="font-size:10px;color:#c62828;background:#ffeaea;padding:1px 5px;border-radius:3px;margin-left:4px;">퇴사</span>'
+        :notYet
+          ?`<span style="font-size:10px;color:#1565c0;background:#e3f2fd;padding:1px 5px;border-radius:3px;margin-left:4px;">배치: ${rotFrom}</span>`
+          :'';
+      return `<div class="rot-item" style="opacity:${retired?.4:1};">
+        <div class="rot-rank" style="background:${numBg};">${retired?'X':activeNum_rl}</div>
+        <span style="font-weight:600;${retired?'text-decoration:line-through;':''}">${st.name}</span>
+        <span style="font-size:11px;color:var(--text2);">(${st.shortName})</span>
+        ${badge}
+      </div>`;
     }).join('');
   }
   // 다음 근무 예정 미리보기
@@ -1341,16 +1360,25 @@ function renderRotation(){
       const rotFromDates=S.rotation.rotFromDates||{};
       const today_rf=fmtDate(new Date());
       const 조교s=S.staff.filter(s=>s.type==='조교'&&(!s.leaveDate||s.leaveDate>=today_rf));
-      rotFromEl.innerHTML=조교s.length?조교s.map(st=>`
-        <div style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:6px;">
-          <span style="min-width:70px;font-weight:600;">${st.name}</span>
-          <input type="date" class="fi rot-from-date" data-id="${st.id}"
-            value="${rotFromDates[st.id]||''}"
-            style="max-width:160px;font-size:12px;padding:4px 8px;"
-            placeholder="${st.hireDate||'날짜 선택'}">
-          <span style="font-size:11px;color:var(--text3);">입사일: ${st.hireDate||'-'}</span>
-          ${rotFromDates[st.id]?`<button onclick="clearRotFrom('${st.id}')" style="background:none;border:none;cursor:pointer;color:#c62828;font-size:12px;">×</button>`:''}
-        </div>`).join(''):'<div style="font-size:12px;color:var(--text3);">재직중인 조교가 없습니다.</div>';
+      rotFromEl.innerHTML=조교s.length?조교s.map(st=>{
+        const saved=rotFromDates[st.id]||'';
+        const effective=saved||st.hireDate||'';
+        const isCustom=!!saved;
+        return `<div style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:8px;padding:6px 8px;background:${isCustom?'#f0f7ff':'#fafafa'};border-radius:5px;border:1px solid ${isCustom?'#bbdefb':'var(--border-lt)}'};">
+          <span style="min-width:65px;font-weight:700;">${st.name}</span>
+          <div style="display:flex;flex-direction:column;gap:2px;">
+            <span style="font-size:10px;color:var(--text3);">로테이션 배치일</span>
+            <input type="date" class="fi rot-from-date" data-id="${st.id}"
+              value="${saved}"
+              style="max-width:155px;font-size:12px;padding:3px 7px;">
+          </div>
+          <div style="font-size:11px;color:var(--text3);line-height:1.5;">
+            <div>입사일: <strong>${st.hireDate||'-'}</strong></div>
+            <div style="color:${isCustom?'#1565c0':'var(--text3)'};">적용: ${isCustom?saved:('입사일부터 ('+( st.hireDate||'-')+')')}</div>
+          </div>
+          ${isCustom?`<button onclick="clearRotFrom('${st.id}')" title="초기화" style="background:none;border:none;cursor:pointer;color:#c62828;font-size:14px;padding:0 4px;">×</button>`:''}
+        </div>`;
+      }).join(''):'<div style="font-size:12px;color:var(--text3);">재직중인 조교가 없습니다.</div>';
     }
 
     el.querySelectorAll('.rot-order-btn').forEach(btn=>{
