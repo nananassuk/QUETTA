@@ -488,6 +488,16 @@ window.onerror = function(msg, src, line){
       <div class="card-title">직원 목록
         <button class="btn btn-primary btn-sm hidden" id="addStaffBtn" onclick="openAddStaff()">+ 직원 추가</button>
       </div>
+      <div style="display:flex;gap:0;margin-bottom:12px;border-bottom:2px solid var(--border-lt);">
+        <button id="staffTabActive" class="staff-sub-tab active" onclick="switchStaffTab('active')"
+          style="padding:6px 16px;font-size:12px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid var(--primary);color:var(--primary);margin-bottom:-2px;">
+          재직중 <span id="staffActiveCount" style="font-size:11px;opacity:.7;"></span>
+        </button>
+        <button id="staffTabLeft" class="staff-sub-tab" onclick="switchStaffTab('left')"
+          style="padding:6px 16px;font-size:12px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:var(--text2);margin-bottom:-2px;">
+          퇴사자 <span id="staffLeftCount" style="font-size:11px;opacity:.7;"></span>
+        </button>
+      </div>
       <div id="staffList"></div>
     </div>
   </div>
@@ -1132,11 +1142,33 @@ function getDutyWorkers(dd){
 // ═══════════════════════════════════════════════════════
 //  RENDER: 인원 관리
 // ═══════════════════════════════════════════════════════
+function switchStaffTab(tab){
+  S._staffTab=tab;
+  document.getElementById('staffTabActive').style.borderBottomColor=tab==='active'?'var(--primary)':'transparent';
+  document.getElementById('staffTabActive').style.color=tab==='active'?'var(--primary)':'var(--text2)';
+  document.getElementById('staffTabLeft').style.borderBottomColor=tab==='left'?'var(--primary)':'transparent';
+  document.getElementById('staffTabLeft').style.color=tab==='left'?'var(--primary)':'var(--text2)';
+  renderStaffTab();
+}
+
 function renderStaffTab(){
   document.getElementById('addStaffBtn').classList.toggle('hidden',!S.isAdmin);
   const el=document.getElementById('staffList');
   if(!S.staff.length){el.innerHTML='<div class="empty-state">등록된 직원이 없습니다.</div>';return;}
   const today=fmtDate(new Date());
+  const tab=S._staffTab||'active';
+  // 재직중/퇴사자 카운트 표시
+  const activeStaff=S.staff.filter(s=>!s.leaveDate||s.leaveDate>=today);
+  const leftStaff=S.staff.filter(s=>s.leaveDate&&s.leaveDate<today);
+  const activeCountEl=document.getElementById('staffActiveCount');
+  const leftCountEl=document.getElementById('staffLeftCount');
+  if(activeCountEl) activeCountEl.textContent=`(${activeStaff.length})`;
+  if(leftCountEl) leftCountEl.textContent=`(${leftStaff.length})`;
+  // 탭에 따라 표시할 직원 목록
+  const filteredStaff=tab==='left'?leftStaff:activeStaff;
+  if(!filteredStaff.length){
+    el.innerHTML=`<div class="empty-state">${tab==='left'?'퇴사자가 없습니다.':'재직중인 직원이 없습니다.'}</div>`;return;
+  }
   let html='';
   ['조교','CM'].forEach(type=>{
     const group=S.staff.filter(s=>s.type===type);
@@ -1290,7 +1322,12 @@ function renderRotation(){
     let pendingOrder=[...order];
     조교List.forEach(st=>{
       const inOrder=pendingOrder.indexOf(st.id);
-      html+=`<button class="btn btn-ghost btn-sm rot-order-btn" data-id="${st.id}" style="${inOrder>=0?'background:var(--primary);color:#fff;':''}">${inOrder>=0?`${inOrder+1}.`:''}${st.name}</button>`;
+      const isLeft=st.leaveDate&&st.leaveDate<fmtDate(new Date());
+      const activeIdx=isLeft?-1:inOrder; // 퇴사자는 순번 표시 안 함
+      const btnStyle=isLeft
+        ?'opacity:.4;text-decoration:line-through;cursor:not-allowed;pointer-events:none;'
+        :(inOrder>=0?'background:var(--primary);color:#fff;':'');
+      html+=`<button class="btn btn-ghost btn-sm rot-order-btn" data-id="${st.id}" style="${btnStyle}" ${isLeft?'disabled':''} title="${isLeft?'퇴사자 - 자동 제외':''}">${inOrder>=0&&!isLeft?`${inOrder+1}.`:''}${st.name}${isLeft?' (퇴사)':''}</button>`;
     });
     html+='</div><div style="font-size:11px;color:var(--text2);margin-top:5px;">클릭: 순서 지정 / 다시 클릭: 제거</div>';
     el.innerHTML=html;
