@@ -546,6 +546,11 @@ window.onerror = function(msg, src, line){
           <div class="fg"><label class="fl">시작 순번 (0=첫번째)</label><input type="number" class="fi" id="rotStartIdx" min="0" value="0" style="max-width:100px;"></div>
         </div>
         <div class="mt8" id="rotOrderEdit"></div>
+        <div class="mt8" style="border-top:1px solid var(--border-lt);padding-top:10px;">
+          <div style="font-size:12px;font-weight:600;color:var(--primary);margin-bottom:4px;">📅 직원별 로테이션 시작일</div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:8px;">입사일과 로테이션 배치 시작일이 다른 경우만 설정하세요.</div>
+          <div id="rotFromDatesList"></div>
+        </div>
         <button class="btn btn-primary mt8" onclick="saveRotation()">로테이션 저장</button>
       </div>
     </div>
@@ -1907,6 +1912,21 @@ async function deleteOverride(){
     sbCheck(await sb.from('schedule_overrides').delete().eq('staff_id',S._ovStaffId).eq('date',S._ovDate));
     await reload();renderSchedule();closeModal('overrideModal');toast('초기화됨');
   }catch(e){toast('오류: '+e.message,'err');}
+
+    // rotFromDates UI 렌더링
+    const rotFromEl=document.getElementById('rotFromDatesList');
+    if(rotFromEl){
+      const rotFromDates=S.rotation.rotFromDates||{};
+      const 조교s=S.staff.filter(s=>s.type==='조교'&&(!s.leaveDate||s.leaveDate>=fmtDate(new Date())));
+      rotFromEl.innerHTML=조교s.map(st=>`
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:5px;">
+          <span style="min-width:65px;font-weight:600;">${st.name}</span>
+          <input type="date" class="fi rot-from-date" data-id="${st.id}"
+            value="${rotFromDates[st.id]||''}"
+            style="max-width:155px;font-size:12px;padding:4px 8px;">
+          <span style="font-size:11px;color:var(--text3);">입사일: ${st.hireDate||'-'}</span>
+        </div>`).join('');
+    }
 }
 async function saveRotation(){
   const el=document.getElementById('rotOrderEdit');
@@ -1982,6 +2002,7 @@ async function reload(){
   S.notes={};(r8.data||[]).forEach(n=>S.notes[n.date]=n.note);
   const rotRow=(r9.data||[]).find(s=>s.key==='rotation');
   if(rotRow?.value) S.rotation=rotRow.value;
+  if(!S.rotation.rotFromDates) S.rotation.rotFromDates={};
   const vmRow=(r9.data||[]).find(s=>s.key==='visibleMonths');
   S.visibleMonths=vmRow?.value||[];
   const emailRow=(r9.data||[]).find(s=>s.key==='adminEmail');
