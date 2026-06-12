@@ -1144,10 +1144,12 @@ function getDutyWorkers(dd){
 // ═══════════════════════════════════════════════════════
 function switchStaffTab(tab){
   S._staffTab=tab;
-  document.getElementById('staffTabActive').style.borderBottomColor=tab==='active'?'var(--primary)':'transparent';
-  document.getElementById('staffTabActive').style.color=tab==='active'?'var(--primary)':'var(--text2)';
-  document.getElementById('staffTabLeft').style.borderBottomColor=tab==='left'?'var(--primary)':'transparent';
-  document.getElementById('staffTabLeft').style.color=tab==='left'?'var(--primary)':'var(--text2)';
+  ['active','left'].forEach(t=>{
+    const btn=document.getElementById(t==='active'?'staffTabActive':'staffTabLeft');
+    if(!btn) return;
+    const on=tab===t;
+    btn.style.cssText=`padding:6px 16px;font-size:12px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid ${on?'var(--primary)':'transparent'};color:${on?'var(--primary)':'var(--text2)'};margin-bottom:-2px;`;
+  });
   renderStaffTab();
 }
 
@@ -1171,7 +1173,7 @@ function renderStaffTab(){
   }
   let html='';
   ['조교','CM'].forEach(type=>{
-    const group=S.staff.filter(s=>s.type===type);
+    const group=filteredStaff.filter(s=>s.type===type); // filteredStaff 사용
     if(!group.length) return;
     html+=`<div class="mb12"><div style="font-size:12px;font-weight:600;color:var(--text2);padding:4px 0;border-bottom:1px solid var(--border-lt);margin-bottom:6px;">${type} ${group.length}명</div>`;
     html+=`<table class="dtbl"><thead><tr><th>이름</th><th>약자</th><th>계약H</th><th>입사일</th><th>퇴사일</th><th>현재 배치</th>${S.isAdmin?'<th>관리</th>':''}</tr></thead><tbody>`;
@@ -1332,6 +1334,25 @@ function renderRotation(){
     html+='</div><div style="font-size:11px;color:var(--text2);margin-top:5px;">클릭: 순서 지정 / 다시 클릭: 제거</div>';
     el.innerHTML=html;
     el._pendingOrder=pendingOrder;
+
+    // rotFromDates UI 렌더링
+    const rotFromEl=document.getElementById('rotFromDatesList');
+    if(rotFromEl){
+      const rotFromDates=S.rotation.rotFromDates||{};
+      const today_rf=fmtDate(new Date());
+      const 조교s=S.staff.filter(s=>s.type==='조교'&&(!s.leaveDate||s.leaveDate>=today_rf));
+      rotFromEl.innerHTML=조교s.length?조교s.map(st=>`
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:6px;">
+          <span style="min-width:70px;font-weight:600;">${st.name}</span>
+          <input type="date" class="fi rot-from-date" data-id="${st.id}"
+            value="${rotFromDates[st.id]||''}"
+            style="max-width:160px;font-size:12px;padding:4px 8px;"
+            placeholder="${st.hireDate||'날짜 선택'}">
+          <span style="font-size:11px;color:var(--text3);">입사일: ${st.hireDate||'-'}</span>
+          ${rotFromDates[st.id]?`<button onclick="clearRotFrom('${st.id}')" style="background:none;border:none;cursor:pointer;color:#c62828;font-size:12px;">×</button>`:''}
+        </div>`).join(''):'<div style="font-size:12px;color:var(--text3);">재직중인 조교가 없습니다.</div>';
+    }
+
     el.querySelectorAll('.rot-order-btn').forEach(btn=>{
       btn.addEventListener('click',()=>{
         const id=btn.dataset.id;const idx=el._pendingOrder.indexOf(id);
@@ -1950,21 +1971,12 @@ async function deleteOverride(){
     await reload();renderSchedule();closeModal('overrideModal');toast('초기화됨');
   }catch(e){toast('오류: '+e.message,'err');}
 
-    // rotFromDates UI 렌더링
-    const rotFromEl=document.getElementById('rotFromDatesList');
-    if(rotFromEl){
-      const rotFromDates=S.rotation.rotFromDates||{};
-      const 조교s=S.staff.filter(s=>s.type==='조교'&&(!s.leaveDate||s.leaveDate>=fmtDate(new Date())));
-      rotFromEl.innerHTML=조교s.map(st=>`
-        <div style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:5px;">
-          <span style="min-width:65px;font-weight:600;">${st.name}</span>
-          <input type="date" class="fi rot-from-date" data-id="${st.id}"
-            value="${rotFromDates[st.id]||''}"
-            style="max-width:155px;font-size:12px;padding:4px 8px;">
-          <span style="font-size:11px;color:var(--text3);">입사일: ${st.hireDate||'-'}</span>
-        </div>`).join('');
-    }
 }
+function clearRotFrom(staffId){
+  const inp=document.querySelector(`.rot-from-date[data-id="${staffId}"]`);
+  if(inp) inp.value='';
+}
+
 async function saveRotation(){
   const el=document.getElementById('rotOrderEdit');
   const order=el?._pendingOrder||S.rotation.order;
