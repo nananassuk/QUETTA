@@ -558,7 +558,9 @@ window.onerror = function(msg, src, line){
         <div class="mt8" id="rotOrderEdit"></div>
         <div class="mt8" style="border-top:1px solid var(--border-lt);padding-top:10px;">
           <div style="font-size:12px;font-weight:600;color:var(--primary);margin-bottom:4px;">📅 직원별 로테이션 시작일</div>
-          <div style="font-size:11px;color:var(--text3);margin-bottom:8px;">입사일과 로테이션 배치 시작일이 다른 경우만 설정하세요.</div>
+          <div class="alert alert-info mb8" style="font-size:11px;">
+            ① 위에서 순서 지정 → ② 여기서 배치일 설정 → ③ <strong>로테이션 저장</strong> 한 번으로 모두 저장됩니다.
+          </div>
           <div id="rotFromDatesList"></div>
         </div>
         <button class="btn btn-primary mt8" onclick="saveRotation()">로테이션 저장</button>
@@ -1302,18 +1304,17 @@ function renderRotation(){
       const st=S.staff.find(s=>s.id===id);
       if(!st) return '';
       const retired=st.leaveDate&&st.leaveDate<today_rl;
+      if(retired) return ''; // 퇴사자 완전히 숨김
+      activeNum_rl++;
       const rotFrom=rotFromDates_rl[id];
       const notYet=rotFrom&&rotFrom>today_rl;
-      if(!retired) activeNum_rl++;
-      const numBg=retired?'#bbb':notYet?'#90a4ae':'var(--primary)';
-      const badge=retired
-        ?'<span style="font-size:10px;color:#c62828;background:#ffeaea;padding:1px 5px;border-radius:3px;margin-left:4px;">퇴사</span>'
-        :notYet
-          ?`<span style="font-size:10px;color:#1565c0;background:#e3f2fd;padding:1px 5px;border-radius:3px;margin-left:4px;">배치: ${rotFrom}</span>`
-          :'';
-      return `<div class="rot-item" style="opacity:${retired?.4:1};">
-        <div class="rot-rank" style="background:${numBg};">${retired?'X':activeNum_rl}</div>
-        <span style="font-weight:600;${retired?'text-decoration:line-through;':''}">${st.name}</span>
+      const numBg=notYet?'#90a4ae':'var(--primary)';
+      const badge=notYet
+        ?`<span style="font-size:10px;color:#1565c0;background:#e3f2fd;padding:1px 5px;border-radius:3px;margin-left:4px;">배치시작: ${rotFrom}</span>`
+        :'';
+      return `<div class="rot-item">
+        <div class="rot-rank" style="background:${numBg};">${activeNum_rl}</div>
+        <span style="font-weight:600;">${st.name}</span>
         <span style="font-size:11px;color:var(--text2);">(${st.shortName})</span>
         ${badge}
       </div>`;
@@ -1374,7 +1375,7 @@ function renderRotation(){
           </div>
           <div style="font-size:11px;color:var(--text3);line-height:1.5;">
             <div>입사일: <strong>${st.hireDate||'-'}</strong></div>
-            <div style="color:${isCustom?'#1565c0':'var(--text3)'};">적용: ${isCustom?saved:('입사일부터 ('+( st.hireDate||'-')+')')}</div>
+            <div style="color:${isCustom?'#1565c0':'var(--text3)'};">적용: ${isCustom?saved+' (배치일)':('입사일부터 ('+( st.hireDate||'-')+')')}</div>
           </div>
           ${isCustom?`<button onclick="clearRotFrom('${st.id}')" title="초기화" style="background:none;border:none;cursor:pointer;color:#c62828;font-size:14px;padding:0 4px;">×</button>`:''}
         </div>`;
