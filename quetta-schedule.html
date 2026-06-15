@@ -2011,11 +2011,25 @@ async function saveRotation(){
   const order=el?._pendingOrder||S.rotation.order;
   const startDate=v('rotStartDate')||'2025-05-01';
   const startIndex=parseInt(v('rotStartIdx')||'0');
+  // rotFromDates 수집 (현재 input 값)
+  const rotFromDates={};
+  document.querySelectorAll('.rot-from-date').forEach(inp=>{
+    const id=inp.dataset.id; const val=inp.value;
+    const st=S.staff.find(s=>s.id===id);
+    if(val&&val!==st?.hireDate) rotFromDates[id]=val;
+  });
+  console.log('[saveRotation] order:', order, 'rotFromDates:', rotFromDates);
   try{
-    sbCheck(await sb.from('settings').upsert({key:'rotation',value:{order,startDate,startIndex}},{onConflict:'key'}));
-    S.rotation={order,startDate,startIndex};
-    renderHolidayTab();renderSchedule();toast('로테이션 저장됨');
-  }catch(e){toast('오류: '+e.message,'err');}
+    sbCheck(await sb.from('settings').upsert(
+      {key:'rotation', value:{order,startDate,startIndex,rotFromDates}},
+      {onConflict:'key'}
+    ));
+    // reload()로 DB에서 다시 가져와서 정확히 반영
+    await reload();
+    renderHolidayTab();
+    renderSchedule();
+    toast('로테이션 저장됨');
+  }catch(e){toast('오류: '+e.message,'err');console.error(e);}
 }
 async function saveShift(){
   const startTime=v('shStart'),endTime=v('shEnd'),hours=parseFloat(v('shHours'));
