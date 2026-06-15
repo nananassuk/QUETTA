@@ -732,29 +732,34 @@ function rotWorkers(ds,count){
   const {order,startDate,startIndex}=S.rotation;
   if(!order||!order.length) return [];
 
-  // 대상 날짜 기준 재직 중인 순번만 사용
-  const activeOrd=order.filter(id=>{
-    const st=S.staff.find(s=>s.id===id);
-    if(!st) return false;
-    if(st.hireDate&&st.hireDate>ds) return false;   // 아직 입사 전
-    if(st.leaveDate&&st.leaveDate<ds) return false; // 퇴사일 당일은 포함
-    return true;
-  });
-  if(!activeOrd.length) return [];
+  const rotFromDates=S.rotation.rotFromDates||{};
 
   const all=allRotDates(startDate,ds);
   const idx=all.indexOf(ds);
   if(idx<0) return [];
 
-  // 슬롯 누적 (전체 order 기준으로 카운트, 퇴사자는 건너뜀)
+  // 슬롯 누적 - 전체 order 길이 기준 (퇴사자 포함)
   let total=(startIndex||0);
   for(let i=0;i<idx;i++){
     const h=getHoliday(all[i]);
     total+=(h?.workerCount||2);
   }
 
+  // 전체 순서에서 total 위치부터 순환하며 비활성 직원 건너뛰고 count명 추출
+  // 이 방식은 퇴사자가 빠져도 나머지 순번이 유지됨
   const res=[];
-  for(let i=0;i<count;i++) res.push(activeOrd[(total+i)%activeOrd.length]);
+  let pos=total;
+  let tries=0;
+  while(res.length<count&&tries<order.length*3){
+    const id=order[pos%order.length];
+    pos++;tries++;
+    const st=S.staff.find(s=>s.id===id);
+    if(!st) continue;
+    const rotFrom=rotFromDates[id]||st.hireDate;
+    if(rotFrom&&rotFrom>ds) continue;   // 배치 시작 전
+    if(st.leaveDate&&st.leaveDate<ds) continue; // 퇴사
+    res.push(id);
+  }
   return res;
 }
 
