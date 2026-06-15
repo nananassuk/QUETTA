@@ -1341,7 +1341,12 @@ function renderRotation(){
     document.getElementById('rotStartIdx').value=S.rotation.startIndex||0;
     const 조교List=S.staff.filter(s=>s.type==='조교'&&(!s.leaveDate||s.leaveDate>fmtDate(new Date())));
     let html='<div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px;">조교 순서 지정 (클릭 순서대로 적용)</div><div style="display:flex;flex-wrap:wrap;gap:6px;">';
-    let pendingOrder=[...order];
+    // 퇴사자 제외하고 초기화
+    const today_po=fmtDate(new Date());
+    let pendingOrder=order.filter(id=>{
+      const st=S.staff.find(s=>s.id===id);
+      return st&&(!st.leaveDate||st.leaveDate>=today_po);
+    });
     조교List.forEach(st=>{
       const inOrder=pendingOrder.indexOf(st.id);
       const isLeft=st.leaveDate&&st.leaveDate<fmtDate(new Date());
