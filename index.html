@@ -372,7 +372,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
       <button class="btn btn-red btn-sm" onclick="clearTodayUploads()">🗑️ 당일 전체 삭제</button>
     </div>
     <div class="tbl-wrap">
-      <table class="data-tbl"><thead><tr><th style="width:32px;"><input type="checkbox" id="checkAllHeader" onchange="toggleAllChecks(this)"></th><th>#</th><th>구분</th><th>업로드일</th><th>처리일시</th><th>반</th><th>학번</th><th>수험번호</th><th>성명</th><th>
+      <table class="data-tbl"><thead><tr><th style="width:32px;"><input type="checkbox" id="checkAllHeader" onchange="toggleAllChecks(this)"></th><th>#</th><th>구분</th><th>반</th><th>학번</th><th>수험번호</th><th>성명</th><th>
         <div style="display:flex;align-items:center;justify-content:center;gap:4px;">
           내역
           <select id="todayTermFilter" onchange="renderTodayUploads()" style="font-size:11px;padding:2px 5px;border:1px solid rgba(255,255,255,.5);border-radius:4px;background:#fff;color:#1a1a1a;cursor:pointer;max-width:110px;">
@@ -1439,7 +1439,26 @@ function renderDaily(){
   const regs=sortByBan(S.pays.filter(p=>(p.uploadedDate||p.결제일자)===date&&p.환불금액===0));
   const refPayments=sortByBan(S.pays.filter(p=>(p.uploadedDate||p.결제일자)===date&&p.환불금액>0));
   // 조회 기준월 이상의 내역만 환불 표시 (이전 달 납부건은 제외)
-  const refWithdrawals=sortByBan(S.refunds.filter(r=>refDate(r)===date).flatMap(r=>r.removedTerms.map((term,ti)=>({반:r.반,번호:r.번호,수험번호:r.수험번호,이름:r.이름,내역:term,장학:r.장학||'',_refId:r.id,_termIdx:ti}))));
+  // S.refunds 기반 환불 목록
+  const refundsOnDate=S.refunds.filter(r=>refDate(r)===date);
+  // S.pays 퇴소 기록 보완: S.refunds에 없는 퇴소 기록도 표시 (초기화 등으로 refunds 유실 대비)
+  const refundedSuhNums=new Set(refundsOnDate.map(r=>r.수험번호));
+  const paysWithdrawnOnDate=S.pays.filter(p=>
+    p.status==='퇴소' && p.withdrawnAt &&
+    msToLocalDate(p.withdrawnAt)===date &&
+    !refundedSuhNums.has(p.수험번호)
+  );
+  // pays 퇴소 기록을 refund 형태로 변환 (수험번호별 그룹)
+  const paysRefMap={};
+  paysWithdrawnOnDate.forEach(p=>{
+    if(!paysRefMap[p.수험번호]) paysRefMap[p.수험번호]={반:p.반,번호:p.번호||'',수험번호:p.수험번호,이름:p.이름,장학:p.장학||'',terms:[]};
+    paysRefMap[p.수험번호].terms.push(p.내역);
+  });
+  const paysRefRows=Object.values(paysRefMap).flatMap(r=>r.terms.map((term,ti)=>({반:r.반,번호:r.번호,수험번호:r.수험번호,이름:r.이름,내역:term,장학:r.장학,_refId:'pays_'+r.수험번호+'_'+ti,_termIdx:ti,_fromPays:true})));
+  const refWithdrawals=sortByBan([
+    ...refundsOnDate.flatMap(r=>r.removedTerms.map((term,ti)=>({반:r.반,번호:r.번호,수험번호:r.수험번호,이름:r.이름,내역:term,장학:r.장학||'',_refId:r.id,_termIdx:ti}))),
+    ...paysRefRows
+  ]);
   let regHtml='';
   // 재입소 학생 = 항상 신규로 처리
   const 재입소Set=new Set((S.재입소||[]).map(r=>r.수험번호));
@@ -1776,8 +1795,7 @@ function renderPayHistory(){
     const bdg=isDup?'<span class="bdg bdg-dup">중복</span>':isOut?'<span class="bdg bdg-out">퇴소</span>':isNew?'<span class="bdg bdg-new">신규</span>':isUnpaid?'<span class="bdg bdg-unpaid">미납</span>':'<span class="bdg bdg-ok">정상</span>';
     const typeBdg=isOut?'<span class="bdg bdg-ref">환불</span>':'<span class="bdg bdg-reg">등록</span>';
     if(r.내역!==lastTerm){const tc=rows.filter(x=>x.내역===r.내역).length;const te=r.내역.replace(/'/g,"\\'");html+=`<tr><td colspan="12" style="background:var(--g1);color:var(--gold);font-weight:700;font-size:11px;padding:4px 12px;"><span style="display:flex;align-items:center;justify-content:space-between;"><span>📋 ${h(r.내역)} (${tc}명)</span><button onclick="deleteByTerm('${te}')" style="background:var(--danger);color:#fff;border:none;border-radius:3px;padding:1px 8px;font-size:10px;cursor:pointer;">🗑️ 삭제</button></span></td></tr>`;lastTerm=r.내역;idx=1;}
-    const withdrawnDate=r.withdrawnAt?new Date(r.withdrawnAt).toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
-    html+=`<tr class="${rc}"><td>${isDup?'':idx++}</td><td>${typeBdg}</td><td>${h(r.uploadedDate||r.결제일자)}</td><td style="font-size:11px;color:var(--muted);">${withdrawnDate}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td style="text-align:right;">${r.결제금액.toLocaleString()}</td><td>${h(r.장학)}</td><td>${bdg}</td><td><button onclick="deleteRecord('${r.id}','reg')" style="background:none;border:none;cursor:pointer;">🗑️</button></td></tr>`;
+    html+=`<tr class="${rc}"><td>${isDup?'':idx++}</td><td>${typeBdg}</td><td>${h(r.uploadedDate||r.결제일자)}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td style="text-align:right;">${r.결제금액.toLocaleString()}</td><td>${h(r.장학)}</td><td>${bdg}</td><td><button onclick="deleteRecord('${r.id}','reg')" style="background:none;border:none;cursor:pointer;">🗑️</button></td></tr>`;
   }
   if(!html)html=`<tr><td colspan="12" style="text-align:center;color:#bbb;padding:24px;">데이터 없음</td></tr>`;
   document.getElementById('payBody').innerHTML=html;
