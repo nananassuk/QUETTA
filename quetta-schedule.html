@@ -2003,10 +2003,15 @@ async function saveOverride(){
 }
 async function deleteOverride(){
   try{
-    sbCheck(await sb.from('schedule_overrides').delete().eq('staff_id',S._ovStaffId).eq('date',S._ovDate));
+    if(S._ovStaffId){
+      // 특정 직원의 override만 삭제
+      await sb.from('schedule_overrides').delete().eq('staff_id',S._ovStaffId).eq('date',S._ovDate);
+    } else {
+      // staffId 없으면 해당 날짜 override 전체 삭제
+      await sb.from('schedule_overrides').delete().eq('date',S._ovDate);
+    }
     await reload();renderSchedule();closeModal('overrideModal');toast('초기화됨');
-  }catch(e){toast('오류: '+e.message,'err');}
-
+  }catch(e){toast('오류: '+e.message,'err');console.error(e);}
 }
 function clearRotFrom(staffId){
   const inp=document.querySelector(`.rot-from-date[data-id="${staffId}"]`);
