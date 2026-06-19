@@ -1127,15 +1127,16 @@ function renderDash(){
   const unpaidCnt=unpaidByMonth[latestMonth]||0;
   const currIds=new Set(active.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
   function calcGrandTotal(){
-    // 반수 등록인원 (별도 합산)
-    const bansuIds=new Set(active.filter(p=>(S.cfg.bansuTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
+    // special term 중 latestMonth 이상인 것만 별도 합산
+    // (latestMonth 미만 special term은 이미 unpaidCnt에 포함됨)
+    const bansuIds=new Set(active.filter(p=>isSpecialTerm(p.내역)&&extractMonth(p.내역)>=latestMonth&&p.환불금액===0).map(p=>p.수험번호));
     if(snaps[today]){
       if(snaps[today]._grandTotal!==undefined) return snaps[today]._grandTotal;
       const snapCurrTotal=(S.cfg.currTerms||[]).reduce((sum,term)=>sum+(snaps[today][term]||0),0);
-      const snapBansuTotal=(S.cfg.bansuTerms||[]).reduce((sum,term)=>sum+(snaps[today][term]||0),0);
+      const snapBansuTotal=(S.cfg.bansuTerms||[]).filter(t=>extractMonth(t)>=latestMonth).reduce((sum,term)=>sum+(snaps[today][term]||0),0);
       return snapCurrTotal+unpaidCnt+snapBansuTotal;
     }
-    // 총인원 = 정규 최신 월 등록 + 정규 미납 + 반수 등록
+    // 총인원 = 정규 최신 월 등록 + 정규 미납 + 현재 월 이상 special term
     return currIds.size+unpaidCnt+bansuIds.size;
   }
   let grandTotal=0;
@@ -1297,9 +1298,10 @@ function saveSnapshot(){
   // _unpaidCnt: special term 제외 최신 월 기준
   const snapNonSpecialLatest=snapNonSpecialMonths.length>0?snapNonSpecialMonths[snapNonSpecialMonths.length-1]:0;
   snap._unpaidCnt=snapUnpaidByMonth[snapNonSpecialLatest]||0;
-  // grandTotal 스냅샷 저장 (정규 최신월 등록 + 미납 + 반수 등록)
+  // grandTotal 스냅샷 저장 (정규 최신월 등록 + 미납 + 현재 월 이상 special term)
   const snapCurrIds=new Set(snapActive.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
-  const snapBansuIds=new Set(snapActive.filter(p=>(S.cfg.bansuTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
+  const snapNonSpecialLatestMo=snapNonSpecialMonths.length>0?snapNonSpecialMonths[snapNonSpecialMonths.length-1]:0;
+  const snapBansuIds=new Set(snapActive.filter(p=>isSpecialTerm(p.내역)&&extractMonth(p.내역)>=snapNonSpecialLatestMo&&p.환불금액===0).map(p=>p.수험번호));
   snap._grandTotal=snapCurrIds.size+snap._unpaidCnt+snapBansuIds.size;
   if(!S.snapshots)S.snapshots={};
   if(S.snapshots[today]){
@@ -1439,26 +1441,7 @@ function renderDaily(){
   const regs=sortByBan(S.pays.filter(p=>(p.uploadedDate||p.결제일자)===date&&p.환불금액===0));
   const refPayments=sortByBan(S.pays.filter(p=>(p.uploadedDate||p.결제일자)===date&&p.환불금액>0));
   // 조회 기준월 이상의 내역만 환불 표시 (이전 달 납부건은 제외)
-  // S.refunds 기반 환불 목록
-  const refundsOnDate=S.refunds.filter(r=>refDate(r)===date);
-  // S.pays 퇴소 기록 보완: S.refunds에 없는 퇴소 기록도 표시 (초기화 등으로 refunds 유실 대비)
-  const refundedSuhNums=new Set(refundsOnDate.map(r=>r.수험번호));
-  const paysWithdrawnOnDate=S.pays.filter(p=>
-    p.status==='퇴소' && p.withdrawnAt &&
-    msToLocalDate(p.withdrawnAt)===date &&
-    !refundedSuhNums.has(p.수험번호)
-  );
-  // pays 퇴소 기록을 refund 형태로 변환 (수험번호별 그룹)
-  const paysRefMap={};
-  paysWithdrawnOnDate.forEach(p=>{
-    if(!paysRefMap[p.수험번호]) paysRefMap[p.수험번호]={반:p.반,번호:p.번호||'',수험번호:p.수험번호,이름:p.이름,장학:p.장학||'',terms:[]};
-    paysRefMap[p.수험번호].terms.push(p.내역);
-  });
-  const paysRefRows=Object.values(paysRefMap).flatMap(r=>r.terms.map((term,ti)=>({반:r.반,번호:r.번호,수험번호:r.수험번호,이름:r.이름,내역:term,장학:r.장학,_refId:'pays_'+r.수험번호+'_'+ti,_termIdx:ti,_fromPays:true})));
-  const refWithdrawals=sortByBan([
-    ...refundsOnDate.flatMap(r=>r.removedTerms.map((term,ti)=>({반:r.반,번호:r.번호,수험번호:r.수험번호,이름:r.이름,내역:term,장학:r.장학||'',_refId:r.id,_termIdx:ti}))),
-    ...paysRefRows
-  ]);
+  const refWithdrawals=sortByBan(S.refunds.filter(r=>refDate(r)===date).flatMap(r=>r.removedTerms.map((term,ti)=>({반:r.반,번호:r.번호,수험번호:r.수험번호,이름:r.이름,내역:term,장학:r.장학||'',_refId:r.id,_termIdx:ti}))));
   let regHtml='';
   // 재입소 학생 = 항상 신규로 처리
   const 재입소Set=new Set((S.재입소||[]).map(r=>r.수험번호));
