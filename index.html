@@ -1460,9 +1460,9 @@ function renderDaily(){
   sortedRefAll.forEach(r=>{if(r.수험번호)refPersonCount[r.수험번호]=(refPersonCount[r.수험번호]||0)+1;});
   const REF_COLORS=['#FFF3CD','#D4EDDA','#CCE5FF','#F8D7DA','#E2D9F3','#FFDDC1','#D1ECF1'];
   const refPersonColor={};let rci=0;
-  refAll.forEach(r=>{if(r.수험번호&&refPersonCount[r.수험번호]>=2&&!refPersonColor[r.수험번호]){refPersonColor[r.수험번호]=REF_COLORS[rci%REF_COLORS.length];rci++;}});
+  sortedRefAll.forEach(r=>{if(r.수험번호&&refPersonCount[r.수험번호]>=2&&!refPersonColor[r.수험번호]){refPersonColor[r.수험번호]=REF_COLORS[rci%REF_COLORS.length];rci++;}});
   let refHtml='';
-  refAll.forEach(r=>{
+  sortedRefAll.forEach(r=>{
     const bg=refPersonColor[r.수험번호]?`style="background:${refPersonColor[r.수험번호]};"`:'' ;
     const dot=refPersonColor[r.수험번호]?`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${refPersonColor[r.수험번호]};border:1.5px solid #888;margin-right:3px;vertical-align:middle;"></span>`:'';
     // 내역 셀: 퇴소 레코드(_refId 있음)면 클릭해서 수정 가능
