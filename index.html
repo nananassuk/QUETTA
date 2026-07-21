@@ -1425,6 +1425,35 @@ function removeReadmit(idx){
 // ════ DAILY LIST (정규) ════
 function isDateLocked(date){if(!date||date>=todayStr())return false;return !!(S.snapshots&&S.snapshots[date]);}
 
+// ════ 범용 테이블 정렬 ════
+const _tblSort={};
+function sortTable(tbl,key){
+  if(!_tblSort[tbl])_tblSort[tbl]={key:'',asc:true};
+  if(_tblSort[tbl].key===key)_tblSort[tbl].asc=!_tblSort[tbl].asc;
+  else{_tblSort[tbl].key=key;_tblSort[tbl].asc=true;}
+  const prefixMap={ref:'rs-',reg2:'r2s-',can:'cs-'};
+  const prefix=prefixMap[tbl]||'';
+  document.querySelectorAll('[id^="'+prefix+'"]').forEach(el=>{
+    const k=el.id.replace(prefix,'');
+    el.textContent=k===key?(_tblSort[tbl].asc?'↑':'↓'):'⇅';
+  });
+  if(tbl==='ref')renderDaily();
+  else if(tbl==='reg2'||tbl==='can')renderDaily2();
+}
+function applySortToArr(arr,tbl){
+  const st=_tblSort[tbl];
+  if(!st||!st.key)return arr;
+  const key=st.key,asc=st.asc;
+  const km={학번:'번호',이름:'이름',수험번호:'수험번호',반:'반',내역:'내역',장학:'장학'};
+  return [...arr].sort((a,b)=>{
+    let av=String(a[km[key]||key]||'');
+    let bv=String(b[km[key]||key]||'');
+    if(!isNaN(av)&&!isNaN(bv)){av=+av;bv=+bv;}
+    if(av<bv)return asc?-1:1;
+    if(av>bv)return asc?1:-1;
+    return 0;
+  });
+}
 function renderDaily(){
   const date=document.getElementById('dailyDate').value||todayStr();
   document.getElementById('dailyKorDate').textContent=fmtKor(date);
