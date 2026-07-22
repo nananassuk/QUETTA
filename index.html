@@ -288,7 +288,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
     <div style="font-size:12px;color:var(--muted);margin-bottom:12px;" id="dailyKorDate"></div>
     <div class="daily-grid">
       <div><div class="daily-side-ttl reg">✅ 등록</div><div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th>no</th><th>반</th><th>학번</th><th class="copy-hdr" onclick="copyAllSuhum('reg')" title="클릭=전체복사">수험번호 📋</th><th>성명</th><th>등록</th><th>장학</th><th>신규</th></tr></thead><tbody id="regBody"></tbody></table></div></div>
-      <div><div class="daily-side-ttl ref">🔄 환불</div><div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th onclick="sortTable('ref','반')" style="cursor:pointer">반 <span id="rs-반">⇅</span></th><th onclick="sortTable('ref','학번')" style="cursor:pointer">학번 <span id="rs-학번">⇅</span></th><th class="copy-hdr" onclick="if(event.ctrlKey||event.metaKey)copyAllSuhum('ref');else sortTable('ref','수험번호')" title="클릭=정렬/Ctrl=복사" style="cursor:pointer">수험번호 📋 <span id="rs-수험번호">⇅</span></th><th onclick="sortTable('ref','이름')" style="cursor:pointer">성명 <span id="rs-이름">⇅</span></th><th onclick="sortTable('ref','내역')" style="cursor:pointer">내역 <span id="rs-내역">⇅</span></th><th>환불</th><th>장학</th><th>삭제</th></tr></thead><tbody id="refBody"></tbody></table></div></div>
+      <div><div class="daily-side-ttl ref">🔄 환불</div><div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th>반</th><th>학번</th><th class="copy-hdr" onclick="copyAllSuhum('ref')" title="클릭=전체복사">수험번호 📋</th><th>성명</th><th>내역</th><th>환불</th><th>장학</th><th>삭제</th></tr></thead><tbody id="refBody"></tbody></table></div></div>
     </div>
   </div>
 </div>
@@ -315,8 +315,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
     <div style="font-size:16px;font-weight:800;color:var(--d1);margin-bottom:3px;">단과 일일 등록 명단</div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:12px;" id="dailyKorDate2"></div>
     <div class="daily-grid">
-      <div><div class="daily-side-ttl dancha-reg">✅ 등록 (단과)</div><div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th>no</th><th onclick="sortTable('reg2','반')" style="cursor:pointer">반 <span id="r2s-반">⇅</span></th><th onclick="sortTable('reg2','학번')" style="cursor:pointer">학번 <span id="r2s-학번">⇅</span></th><th class="copy-hdr" onclick="if(event.ctrlKey||event.metaKey)copyAllSuhum('reg2');else sortTable('reg2','수험번호')" title="클릭=정렬/Ctrl=복사" style="cursor:pointer">수험번호 📋 <span id="r2s-수험번호">⇅</span></th><th onclick="sortTable('reg2','이름')" style="cursor:pointer">성명 <span id="r2s-이름">⇅</span></th><th onclick="sortTable('reg2','내역')" style="cursor:pointer">내역 <span id="r2s-내역">⇅</span></th><th onclick="sortTable('reg2','장학')" style="cursor:pointer">장학 <span id="r2s-장학">⇅</span></th></tr></thead><tbody id="regBody2"></tbody></table></div></div>
-      <div><div class="daily-side-ttl dancha-cancel">❌ 취소 (단과)</div><div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th onclick="sortTable('can','반')" style="cursor:pointer">반 <span id="cs-반">⇅</span></th><th onclick="sortTable('can','학번')" style="cursor:pointer">학번 <span id="cs-학번">⇅</span></th><th onclick="sortTable('can','수험번호')" style="cursor:pointer">수험번호 <span id="cs-수험번호">⇅</span></th><th onclick="sortTable('can','이름')" style="cursor:pointer">성명 <span id="cs-이름">⇅</span></th><th onclick="sortTable('can','내역')" style="cursor:pointer">내역 <span id="cs-내역">⇅</span></th><th>취소</th><th>삭제</th></tr></thead><tbody id="cancelBody"></tbody></table></div></div>
+      <div><div class="daily-side-ttl dancha-reg">✅ 등록 (단과)</div><div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th>no</th><th>반</th><th>학번</th><th class="copy-hdr" onclick="copyAllSuhum('reg2')" title="클릭=전체복사">수험번호 📋</th><th>성명</th><th>내역</th><th>장학</th></tr></thead><tbody id="regBody2"></tbody></table></div></div>
+      <div><div class="daily-side-ttl dancha-cancel">❌ 취소 (단과)</div><div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th>반</th><th>학번</th><th>수험번호</th><th>성명</th><th>내역</th><th>취소</th><th>삭제</th></tr></thead><tbody id="cancelBody"></tbody></table></div></div>
     </div>
   </div>
 </div>
@@ -1127,15 +1127,16 @@ function renderDash(){
   const unpaidCnt=unpaidByMonth[latestMonth]||0;
   const currIds=new Set(active.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
   function calcGrandTotal(){
-    // 반수 등록인원 (별도 합산)
-    const bansuIds=new Set(active.filter(p=>(S.cfg.bansuTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
+    // special term 중 latestMonth 이상인 것만 별도 합산
+    // (latestMonth 미만은 이미 unpaidCnt에 포함됨)
+    const bansuIds=new Set(active.filter(p=>isSpecialTerm(p.내역)&&extractMonth(p.내역)>=latestMonth&&p.환불금액===0).map(p=>p.수험번호));
     if(snaps[today]){
       if(snaps[today]._grandTotal!==undefined) return snaps[today]._grandTotal;
       const snapCurrTotal=(S.cfg.currTerms||[]).reduce((sum,term)=>sum+(snaps[today][term]||0),0);
-      const snapBansuTotal=(S.cfg.bansuTerms||[]).reduce((sum,term)=>sum+(snaps[today][term]||0),0);
+      const snapBansuTotal=(S.cfg.bansuTerms||[]).filter(t=>extractMonth(t)>=latestMonth).reduce((sum,term)=>sum+(snaps[today][term]||0),0);
       return snapCurrTotal+unpaidCnt+snapBansuTotal;
     }
-    // 총인원 = 정규 최신 월 등록 + 정규 미납 + 반수 등록
+    // 총인원 = 정규 최신 월 등록 + 정규 미납 + 현재 월 이상 special term
     return currIds.size+unpaidCnt+bansuIds.size;
   }
   let grandTotal=0;
@@ -1297,9 +1298,10 @@ function saveSnapshot(){
   // _unpaidCnt: special term 제외 최신 월 기준
   const snapNonSpecialLatest=snapNonSpecialMonths.length>0?snapNonSpecialMonths[snapNonSpecialMonths.length-1]:0;
   snap._unpaidCnt=snapUnpaidByMonth[snapNonSpecialLatest]||0;
-  // grandTotal 스냅샷 저장 (정규 최신월 등록 + 미납 + 반수 등록)
+  // grandTotal 스냅샷 저장 (정규 최신월 등록 + 미납 + 현재 월 이상 special term)
   const snapCurrIds=new Set(snapActive.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
-  const snapBansuIds=new Set(snapActive.filter(p=>(S.cfg.bansuTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
+  const snapNonSpecialLatestMo=snapNonSpecialMonths.length>0?snapNonSpecialMonths[snapNonSpecialMonths.length-1]:0;
+  const snapBansuIds=new Set(snapActive.filter(p=>isSpecialTerm(p.내역)&&extractMonth(p.내역)>=snapNonSpecialLatestMo&&p.환불금액===0).map(p=>p.수험번호));
   snap._grandTotal=snapCurrIds.size+snap._unpaidCnt+snapBansuIds.size;
   if(!S.snapshots)S.snapshots={};
   if(S.snapshots[today]){
@@ -1425,35 +1427,6 @@ function removeReadmit(idx){
 // ════ DAILY LIST (정규) ════
 function isDateLocked(date){if(!date||date>=todayStr())return false;return !!(S.snapshots&&S.snapshots[date]);}
 
-// ════ 범용 테이블 정렬 ════
-const _tblSort={};
-function sortTable(tbl,key){
-  if(!_tblSort[tbl])_tblSort[tbl]={key:'',asc:true};
-  if(_tblSort[tbl].key===key)_tblSort[tbl].asc=!_tblSort[tbl].asc;
-  else{_tblSort[tbl].key=key;_tblSort[tbl].asc=true;}
-  const prefixMap={ref:'rs-',reg2:'r2s-',can:'cs-'};
-  const prefix=prefixMap[tbl]||'';
-  document.querySelectorAll('[id^="'+prefix+'"]').forEach(el=>{
-    const k=el.id.replace(prefix,'');
-    el.textContent=k===key?(_tblSort[tbl].asc?'↑':'↓'):'⇅';
-  });
-  if(tbl==='ref')renderDaily();
-  else if(tbl==='reg2'||tbl==='can')renderDaily2();
-}
-function applySortToArr(arr,tbl){
-  const st=_tblSort[tbl];
-  if(!st||!st.key)return arr;
-  const key=st.key,asc=st.asc;
-  const km={학번:'번호',이름:'이름',수험번호:'수험번호',반:'반',내역:'내역',장학:'장학'};
-  return [...arr].sort((a,b)=>{
-    let av=String(a[km[key]||key]||'');
-    let bv=String(b[km[key]||key]||'');
-    if(!isNaN(av)&&!isNaN(bv)){av=+av;bv=+bv;}
-    if(av<bv)return asc?-1:1;
-    if(av>bv)return asc?1:-1;
-    return 0;
-  });
-}
 function renderDaily(){
   const date=document.getElementById('dailyDate').value||todayStr();
   document.getElementById('dailyKorDate').textContent=fmtKor(date);
@@ -1485,13 +1458,12 @@ function renderDaily(){
   document.getElementById('regBody').innerHTML=regHtml;
   const refAll=[...refPayments,...refWithdrawals];
   const refPersonCount={};
-  const sortedRefAll=applySortToArr(refAll,'ref');
-  sortedRefAll.forEach(r=>{if(r.수험번호)refPersonCount[r.수험번호]=(refPersonCount[r.수험번호]||0)+1;});
+  refAll.forEach(r=>{if(r.수험번호)refPersonCount[r.수험번호]=(refPersonCount[r.수험번호]||0)+1;});
   const REF_COLORS=['#FFF3CD','#D4EDDA','#CCE5FF','#F8D7DA','#E2D9F3','#FFDDC1','#D1ECF1'];
   const refPersonColor={};let rci=0;
-  sortedRefAll.forEach(r=>{if(r.수험번호&&refPersonCount[r.수험번호]>=2&&!refPersonColor[r.수험번호]){refPersonColor[r.수험번호]=REF_COLORS[rci%REF_COLORS.length];rci++;}});
+  refAll.forEach(r=>{if(r.수험번호&&refPersonCount[r.수험번호]>=2&&!refPersonColor[r.수험번호]){refPersonColor[r.수험번호]=REF_COLORS[rci%REF_COLORS.length];rci++;}});
   let refHtml='';
-  sortedRefAll.forEach(r=>{
+  refAll.forEach(r=>{
     const bg=refPersonColor[r.수험번호]?`style="background:${refPersonColor[r.수험번호]};"`:'' ;
     const dot=refPersonColor[r.수험번호]?`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${refPersonColor[r.수험번호]};border:1.5px solid #888;margin-right:3px;vertical-align:middle;"></span>`:'';
     // 내역 셀: 퇴소 레코드(_refId 있음)면 클릭해서 수정 가능
@@ -1575,13 +1547,11 @@ function renderDaily2(){
   const regs=sortByBan(S.dancha.filter(p=>(p.uploadedDate||p.결제일자)===date&&p.status==='active'));
   const cancels=sortByBan(S.danchaRefunds.filter(r=>(refDate(r))===date).flatMap(r=>r.removedTerms.map((term,ti)=>({반:r.반||'',번호:r.번호||'',수험번호:r.수험번호,이름:r.이름,내역:term,_refId:r.id,_termIdx:ti}))));
   let regHtml='';
-  const sortedRegs2=applySortToArr(regs,'reg2');
-  sortedRegs2.forEach((r,i)=>{regHtml+=`<tr><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td>${h(r.장학||'')}</td></tr>`;});
+  regs.forEach((r,i)=>{regHtml+=`<tr><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td>${h(r.장학||'')}</td></tr>`;});
   if(!regHtml)regHtml=`<tr><td colspan="7" style="text-align:center;color:#bbb;padding:16px;">등록 내역 없음</td></tr>`;
   document.getElementById('regBody2').innerHTML=regHtml;
   let canHtml='';
-  const sortedCancels=applySortToArr(cancels,'can');
-  sortedCancels.forEach(r=>{canHtml+=`<tr><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td style="color:#8E44AD;font-weight:700;">${fmtShort(date)}</td><td><button onclick="deleteRefundRecord('${r._refId}',${r._termIdx},'dancha')" style="background:none;border:none;cursor:pointer;color:var(--danger);" title="삭제">🗑️</button></td></tr>`;});
+  cancels.forEach(r=>{canHtml+=`<tr><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td style="color:#8E44AD;font-weight:700;">${fmtShort(date)}</td><td><button onclick="deleteRefundRecord('${r._refId}',${r._termIdx},'dancha')" style="background:none;border:none;cursor:pointer;color:var(--danger);" title="삭제">🗑️</button></td></tr>`;});
   if(!canHtml)canHtml=`<tr><td colspan="6" style="text-align:center;color:#bbb;padding:16px;">취소 내역 없음</td></tr>`;
   document.getElementById('cancelBody').innerHTML=canHtml;
 }
