@@ -287,8 +287,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
     <div style="font-size:16px;font-weight:800;color:var(--g1);margin-bottom:3px;">재수정규반 일일 등록 명단</div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:12px;" id="dailyKorDate"></div>
     <div class="daily-grid">
-      <div><div class="daily-side-ttl reg">✅ 등록</div><div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th>no</th><th>반</th><th>학번</th><th class="copy-hdr" onclick="copyAllSuhum('reg')" title="클릭=전체복사">수험번호 📋</th><th>성명</th><th>등록</th><th>장학</th><th>신규</th></tr></thead><tbody id="regBody"></tbody></table></div></div>
-      <div><div class="daily-side-ttl ref">🔄 환불</div><div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th>반</th><th>학번</th><th class="copy-hdr" onclick="copyAllSuhum('ref')" title="클릭=전체복사">수험번호 📋</th><th>성명</th><th>내역</th><th>환불</th><th>장학</th><th>삭제</th></tr></thead><tbody id="refBody"></tbody></table></div></div>
+      <div><div class="daily-side-ttl reg">✅ 등록</div><div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th>no</th><th onclick="sortDaily('반')" style="cursor:pointer;user-select:none;">반 <span id="sort-반">⇅</span></th><th onclick="sortDaily('학번')" style="cursor:pointer;user-select:none;">학번 <span id="sort-학번">⇅</span></th><th class="copy-hdr" onclick="if(event.ctrlKey||event.metaKey)copyAllSuhum('reg');else sortDaily('수험번호')" title="클릭=정렬/Ctrl=복사" style="cursor:pointer;user-select:none;">수험번호 📋 <span id="sort-수험번호">⇅</span></th><th onclick="sortDaily('이름')" style="cursor:pointer;user-select:none;">성명 <span id="sort-이름">⇅</span></th><th onclick="sortDaily('내역')" style="cursor:pointer;user-select:none;">등록 <span id="sort-내역">⇅</span></th><th onclick="sortDaily('장학')" style="cursor:pointer;user-select:none;">장학 <span id="sort-장학">⇅</span></th><th onclick="sortDaily('신규')" style="cursor:pointer;user-select:none;">신규 <span id="sort-신규">⇅</span></th></tr></thead><tbody id="regBody"></tbody></table></div></div>
+      <div><div class="daily-side-ttl ref">🔄 환불</div><div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th onclick="sortTable('ref','반')" style="cursor:pointer">반 <span id="rs-반">⇅</span></th><th onclick="sortTable('ref','학번')" style="cursor:pointer">학번 <span id="rs-학번">⇅</span></th><th class="copy-hdr" onclick="if(event.ctrlKey||event.metaKey)copyAllSuhum('ref');else sortTable('ref','수험번호')" title="클릭=정렬/Ctrl=복사" style="cursor:pointer">수험번호 📋 <span id="rs-수험번호">⇅</span></th><th onclick="sortTable('ref','이름')" style="cursor:pointer">성명 <span id="rs-이름">⇅</span></th><th onclick="sortTable('ref','내역')" style="cursor:pointer">내역 <span id="rs-내역">⇅</span></th><th>환불</th><th>장학</th><th>삭제</th></tr></thead><tbody id="refBody"></tbody></table></div></div>
     </div>
   </div>
 </div>
@@ -315,8 +315,8 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
     <div style="font-size:16px;font-weight:800;color:var(--d1);margin-bottom:3px;">단과 일일 등록 명단</div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:12px;" id="dailyKorDate2"></div>
     <div class="daily-grid">
-      <div><div class="daily-side-ttl dancha-reg">✅ 등록 (단과)</div><div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th>no</th><th>반</th><th>학번</th><th class="copy-hdr" onclick="copyAllSuhum('reg2')" title="클릭=전체복사">수험번호 📋</th><th>성명</th><th>내역</th><th>장학</th></tr></thead><tbody id="regBody2"></tbody></table></div></div>
-      <div><div class="daily-side-ttl dancha-cancel">❌ 취소 (단과)</div><div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th>반</th><th>학번</th><th>수험번호</th><th>성명</th><th>내역</th><th>취소</th><th>삭제</th></tr></thead><tbody id="cancelBody"></tbody></table></div></div>
+      <div><div class="daily-side-ttl dancha-reg">✅ 등록 (단과)</div><div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th>no</th><th onclick="sortTable('reg2','반')" style="cursor:pointer">반 <span id="r2s-반">⇅</span></th><th onclick="sortTable('reg2','학번')" style="cursor:pointer">학번 <span id="r2s-학번">⇅</span></th><th class="copy-hdr" onclick="if(event.ctrlKey||event.metaKey)copyAllSuhum('reg2');else sortTable('reg2','수험번호')" title="클릭=정렬/Ctrl=복사" style="cursor:pointer">수험번호 📋 <span id="r2s-수험번호">⇅</span></th><th onclick="sortTable('reg2','이름')" style="cursor:pointer">성명 <span id="r2s-이름">⇅</span></th><th onclick="sortTable('reg2','내역')" style="cursor:pointer">내역 <span id="r2s-내역">⇅</span></th><th onclick="sortTable('reg2','장학')" style="cursor:pointer">장학 <span id="r2s-장학">⇅</span></th></tr></thead><tbody id="regBody2"></tbody></table></div></div>
+      <div><div class="daily-side-ttl dancha-cancel">❌ 취소 (단과)</div><div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th onclick="sortTable('can','반')" style="cursor:pointer">반 <span id="cs-반">⇅</span></th><th onclick="sortTable('can','학번')" style="cursor:pointer">학번 <span id="cs-학번">⇅</span></th><th onclick="sortTable('can','수험번호')" style="cursor:pointer">수험번호 <span id="cs-수험번호">⇅</span></th><th onclick="sortTable('can','이름')" style="cursor:pointer">성명 <span id="cs-이름">⇅</span></th><th onclick="sortTable('can','내역')" style="cursor:pointer">내역 <span id="cs-내역">⇅</span></th><th>취소</th><th>삭제</th></tr></thead><tbody id="cancelBody"></tbody></table></div></div>
     </div>
   </div>
 </div>
@@ -1427,6 +1427,65 @@ function removeReadmit(idx){
 // ════ DAILY LIST (정규) ════
 function isDateLocked(date){if(!date||date>=todayStr())return false;return !!(S.snapshots&&S.snapshots[date]);}
 
+// ════ 테이블 정렬 ════
+let _dailySortKey='';
+let _dailySortAsc=true;
+const _tblSort={};
+
+function sortDaily(key){
+  if(_dailySortKey===key) _dailySortAsc=!_dailySortAsc;
+  else { _dailySortKey=key; _dailySortAsc=true; }
+  ['반','학번','수험번호','이름','내역','장학','신규'].forEach(k=>{
+    const el=document.getElementById('sort-'+k);
+    if(el) el.textContent=k===key?(_dailySortAsc?'↑':'↓'):'⇅';
+  });
+  renderDaily();
+}
+
+function sortTable(tbl,key){
+  if(!_tblSort[tbl]) _tblSort[tbl]={key:'',asc:true};
+  if(_tblSort[tbl].key===key) _tblSort[tbl].asc=!_tblSort[tbl].asc;
+  else { _tblSort[tbl].key=key; _tblSort[tbl].asc=true; }
+  const prefixMap={ref:'rs-',reg2:'r2s-',can:'cs-'};
+  const prefix=prefixMap[tbl]||'';
+  document.querySelectorAll('[id^="'+prefix+'"]').forEach(el=>{
+    const k=el.id.replace(prefix,'');
+    el.textContent=k===key?(_tblSort[tbl].asc?'↑':'↓'):'⇅';
+  });
+  if(tbl==='ref') renderDaily();
+  else if(tbl==='reg2'||tbl==='can') renderDaily2();
+}
+
+function applySortToArr(arr,tbl){
+  const st=_tblSort[tbl];
+  if(!st||!st.key) return arr;
+  const key=st.key, asc=st.asc;
+  const km={학번:'번호',이름:'이름',수험번호:'수험번호',반:'반',내역:'내역',장학:'장학'};
+  return [...arr].sort((a,b)=>{
+    let av=String(a[km[key]||key]||'');
+    let bv=String(b[km[key]||key]||'');
+    if(!isNaN(av)&&!isNaN(bv)){av=+av;bv=+bv;}
+    if(av<bv)return asc?-1:1;
+    if(av>bv)return asc?1:-1;
+    return 0;
+  });
+}
+
+function applySortToRegs(regs){
+  if(!_dailySortKey) return regs;
+  const key=_dailySortKey, asc=_dailySortAsc;
+  const km={학번:'번호',이름:'이름',수험번호:'수험번호',반:'반',내역:'내역',장학:'장학'};
+  return [...regs].sort((a,b)=>{
+    if(key==='신규'){ return asc?(a._isNew?-1:1):(a._isNew?1:-1); }
+    let av=String(a[km[key]||key]||'');
+    let bv=String(b[km[key]||key]||'');
+    if(!isNaN(av)&&!isNaN(bv)){av=+av;bv=+bv;}
+    if(av<bv)return asc?-1:1;
+    if(av>bv)return asc?1:-1;
+    return 0;
+  });
+}
+
 function renderDaily(){
   const date=document.getElementById('dailyDate').value||todayStr();
   document.getElementById('dailyKorDate').textContent=fmtKor(date);
@@ -1453,7 +1512,8 @@ function renderDaily(){
     );
     return otherIdsCache[month];
   }
-  regs.forEach((r,i)=>{const termMo=extractMonth(r.내역);const isOut=r.status==='퇴소';const isNew=!isOut&&(termMo>0?!getOlderIds(termMo).has(r.수험번호):!prevIds.has(r.수험번호));const rowCls=isOut?'row-out':'';const cancelBdg=isOut?'<span class="bdg bdg-out" style="font-size:9px;">당일퇴소</span>':'';regHtml+=`<tr class="${rowCls}"><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td>${h(r.장학)}</td><td class="new-cell">${isNew?'신규':''}${cancelBdg}</td></tr>`;});
+  regs.forEach(r=>{const tm_=extractMonth(r.내역);r._isNew=r.status!=='퇴소'&&(tm_>0?!getOlderIds(tm_).has(r.수험번호):!prevIds.has(r.수험번호));});
+  applySortToRegs(regs).forEach((r,i)=>{const termMo=extractMonth(r.내역);const isOut=r.status==='퇴소';const isNew=r._isNew;const rowCls=isOut?'row-out':'';const cancelBdg=isOut?'<span class="bdg bdg-out" style="font-size:9px;">당일퇴소</span>':'';regHtml+=`<tr class="${rowCls}"><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td>${h(r.장학)}</td><td class="new-cell">${isNew?'신규':''}${cancelBdg}</td></tr>`;});
   if(!regHtml)regHtml=`<tr><td colspan="8" style="text-align:center;color:#bbb;padding:16px;">등록 내역 없음</td></tr>`;
   document.getElementById('regBody').innerHTML=regHtml;
   const refAll=[...refPayments,...refWithdrawals];
@@ -1462,8 +1522,9 @@ function renderDaily(){
   const REF_COLORS=['#FFF3CD','#D4EDDA','#CCE5FF','#F8D7DA','#E2D9F3','#FFDDC1','#D1ECF1'];
   const refPersonColor={};let rci=0;
   refAll.forEach(r=>{if(r.수험번호&&refPersonCount[r.수험번호]>=2&&!refPersonColor[r.수험번호]){refPersonColor[r.수험번호]=REF_COLORS[rci%REF_COLORS.length];rci++;}});
+  const sortedRefAll=applySortToArr(refAll,'ref');
   let refHtml='';
-  refAll.forEach(r=>{
+  sortedRefAll.forEach(r=>{
     const bg=refPersonColor[r.수험번호]?`style="background:${refPersonColor[r.수험번호]};"`:'' ;
     const dot=refPersonColor[r.수험번호]?`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${refPersonColor[r.수험번호]};border:1.5px solid #888;margin-right:3px;vertical-align:middle;"></span>`:'';
     // 내역 셀: 퇴소 레코드(_refId 있음)면 클릭해서 수정 가능
@@ -1547,11 +1608,11 @@ function renderDaily2(){
   const regs=sortByBan(S.dancha.filter(p=>(p.uploadedDate||p.결제일자)===date&&p.status==='active'));
   const cancels=sortByBan(S.danchaRefunds.filter(r=>(refDate(r))===date).flatMap(r=>r.removedTerms.map((term,ti)=>({반:r.반||'',번호:r.번호||'',수험번호:r.수험번호,이름:r.이름,내역:term,_refId:r.id,_termIdx:ti}))));
   let regHtml='';
-  regs.forEach((r,i)=>{regHtml+=`<tr><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td>${h(r.장학||'')}</td></tr>`;});
+  applySortToArr(regs,'reg2').forEach((r,i)=>{regHtml+=`<tr><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td>${h(r.장학||'')}</td></tr>`;});
   if(!regHtml)regHtml=`<tr><td colspan="7" style="text-align:center;color:#bbb;padding:16px;">등록 내역 없음</td></tr>`;
   document.getElementById('regBody2').innerHTML=regHtml;
   let canHtml='';
-  cancels.forEach(r=>{canHtml+=`<tr><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td style="color:#8E44AD;font-weight:700;">${fmtShort(date)}</td><td><button onclick="deleteRefundRecord('${r._refId}',${r._termIdx},'dancha')" style="background:none;border:none;cursor:pointer;color:var(--danger);" title="삭제">🗑️</button></td></tr>`;});
+  applySortToArr(cancels,'can').forEach(r=>{canHtml+=`<tr><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td style="color:#8E44AD;font-weight:700;">${fmtShort(date)}</td><td><button onclick="deleteRefundRecord('${r._refId}',${r._termIdx},'dancha')" style="background:none;border:none;cursor:pointer;color:var(--danger);" title="삭제">🗑️</button></td></tr>`;});
   if(!canHtml)canHtml=`<tr><td colspan="6" style="text-align:center;color:#bbb;padding:16px;">취소 내역 없음</td></tr>`;
   document.getElementById('cancelBody').innerHTML=canHtml;
 }
