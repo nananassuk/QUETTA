@@ -287,7 +287,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
     <div style="font-size:16px;font-weight:800;color:var(--g1);margin-bottom:3px;">재수정규반 일일 등록 명단</div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:12px;" id="dailyKorDate"></div>
     <div class="daily-grid">
-      <div><div class="daily-side-ttl reg">✅ 등록</div><div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th>no</th><th onclick="sortDaily('반')" style="cursor:pointer;user-select:none;">반 <span id="sort-반">⇅</span></th><th onclick="sortDaily('학번')" style="cursor:pointer;user-select:none;">학번 <span id="sort-학번">⇅</span></th><th class="copy-hdr" onclick="if(event.ctrlKey||event.metaKey)copyAllSuhum('reg');else sortDaily('수험번호')" title="클릭=정렬/Ctrl=복사" style="cursor:pointer;user-select:none;">수험번호 📋 <span id="sort-수험번호">⇅</span></th><th onclick="sortDaily('이름')" style="cursor:pointer;user-select:none;">성명 <span id="sort-이름">⇅</span></th><th onclick="sortDaily('내역')" style="cursor:pointer;user-select:none;">등록 <span id="sort-내역">⇅</span></th><th onclick="sortDaily('장학')" style="cursor:pointer;user-select:none;">장학 <span id="sort-장학">⇅</span></th><th onclick="sortDaily('신규')" style="cursor:pointer;user-select:none;">신규 <span id="sort-신규">⇅</span></th></tr></thead><tbody id="regBody"></tbody></table></div></div>
+      <div><div class="daily-side-ttl reg">✅ 등록</div><div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th>no</th><th onclick="sortDaily('반')" style="cursor:pointer">반 <span id="sort-반">⇅</span></th><th onclick="sortDaily('학번')" style="cursor:pointer">학번 <span id="sort-학번">⇅</span></th><th class="copy-hdr" onclick="if(event.ctrlKey||event.metaKey)copyAllSuhum('reg');else sortDaily('수험번호')" title="클릭=정렬/Ctrl=복사" style="cursor:pointer">수험번호 📋 <span id="sort-수험번호">⇅</span></th><th onclick="sortDaily('이름')" style="cursor:pointer">성명 <span id="sort-이름">⇅</span></th><th onclick="sortDaily('내역')" style="cursor:pointer">등록 <span id="sort-내역">⇅</span></th><th onclick="sortDaily('장학')" style="cursor:pointer">장학 <span id="sort-장학">⇅</span></th><th onclick="sortDaily('신규')" style="cursor:pointer">신규 <span id="sort-신규">⇅</span></th></tr></thead><tbody id="regBody"></tbody></table></div></div>
       <div><div class="daily-side-ttl ref">🔄 환불</div><div style="overflow-x:auto;"><table class="daily-tbl"><thead><tr><th onclick="sortTable('ref','반')" style="cursor:pointer">반 <span id="rs-반">⇅</span></th><th onclick="sortTable('ref','학번')" style="cursor:pointer">학번 <span id="rs-학번">⇅</span></th><th class="copy-hdr" onclick="if(event.ctrlKey||event.metaKey)copyAllSuhum('ref');else sortTable('ref','수험번호')" title="클릭=정렬/Ctrl=복사" style="cursor:pointer">수험번호 📋 <span id="rs-수험번호">⇅</span></th><th onclick="sortTable('ref','이름')" style="cursor:pointer">성명 <span id="rs-이름">⇅</span></th><th onclick="sortTable('ref','내역')" style="cursor:pointer">내역 <span id="rs-내역">⇅</span></th><th>환불</th><th>장학</th><th>삭제</th></tr></thead><tbody id="refBody"></tbody></table></div></div>
     </div>
   </div>
@@ -1127,16 +1127,15 @@ function renderDash(){
   const unpaidCnt=unpaidByMonth[latestMonth]||0;
   const currIds=new Set(active.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
   function calcGrandTotal(){
-    // special term 중 latestMonth 이상인 것만 별도 합산
-    // (latestMonth 미만은 이미 unpaidCnt에 포함됨)
-    const bansuIds=new Set(active.filter(p=>isSpecialTerm(p.내역)&&extractMonth(p.내역)>=latestMonth&&p.환불금액===0).map(p=>p.수험번호));
+    // 반수 등록인원 (별도 합산)
+    const bansuIds=new Set(active.filter(p=>(S.cfg.bansuTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
     if(snaps[today]){
       if(snaps[today]._grandTotal!==undefined) return snaps[today]._grandTotal;
       const snapCurrTotal=(S.cfg.currTerms||[]).reduce((sum,term)=>sum+(snaps[today][term]||0),0);
-      const snapBansuTotal=(S.cfg.bansuTerms||[]).filter(t=>extractMonth(t)>=latestMonth).reduce((sum,term)=>sum+(snaps[today][term]||0),0);
+      const snapBansuTotal=(S.cfg.bansuTerms||[]).reduce((sum,term)=>sum+(snaps[today][term]||0),0);
       return snapCurrTotal+unpaidCnt+snapBansuTotal;
     }
-    // 총인원 = 정규 최신 월 등록 + 정규 미납 + 현재 월 이상 special term
+    // 총인원 = 정규 최신 월 등록 + 정규 미납 + 반수 등록
     return currIds.size+unpaidCnt+bansuIds.size;
   }
   let grandTotal=0;
@@ -1298,10 +1297,9 @@ function saveSnapshot(){
   // _unpaidCnt: special term 제외 최신 월 기준
   const snapNonSpecialLatest=snapNonSpecialMonths.length>0?snapNonSpecialMonths[snapNonSpecialMonths.length-1]:0;
   snap._unpaidCnt=snapUnpaidByMonth[snapNonSpecialLatest]||0;
-  // grandTotal 스냅샷 저장 (정규 최신월 등록 + 미납 + 현재 월 이상 special term)
+  // grandTotal 스냅샷 저장 (정규 최신월 등록 + 미납 + 반수 등록)
   const snapCurrIds=new Set(snapActive.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
-  const snapNonSpecialLatestMo=snapNonSpecialMonths.length>0?snapNonSpecialMonths[snapNonSpecialMonths.length-1]:0;
-  const snapBansuIds=new Set(snapActive.filter(p=>isSpecialTerm(p.내역)&&extractMonth(p.내역)>=snapNonSpecialLatestMo&&p.환불금액===0).map(p=>p.수험번호));
+  const snapBansuIds=new Set(snapActive.filter(p=>(S.cfg.bansuTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
   snap._grandTotal=snapCurrIds.size+snap._unpaidCnt+snapBansuIds.size;
   if(!S.snapshots)S.snapshots={};
   if(S.snapshots[today]){
@@ -1431,35 +1429,32 @@ function isDateLocked(date){if(!date||date>=todayStr())return false;return !!(S.
 let _dailySortKey='';
 let _dailySortAsc=true;
 const _tblSort={};
-
 function sortDaily(key){
   if(_dailySortKey===key) _dailySortAsc=!_dailySortAsc;
-  else { _dailySortKey=key; _dailySortAsc=true; }
+  else{_dailySortKey=key;_dailySortAsc=true;}
   ['반','학번','수험번호','이름','내역','장학','신규'].forEach(k=>{
     const el=document.getElementById('sort-'+k);
-    if(el) el.textContent=k===key?(_dailySortAsc?'↑':'↓'):'⇅';
+    if(el)el.textContent=k===key?(_dailySortAsc?'↑':'↓'):'⇅';
   });
   renderDaily();
 }
-
 function sortTable(tbl,key){
-  if(!_tblSort[tbl]) _tblSort[tbl]={key:'',asc:true};
-  if(_tblSort[tbl].key===key) _tblSort[tbl].asc=!_tblSort[tbl].asc;
-  else { _tblSort[tbl].key=key; _tblSort[tbl].asc=true; }
-  const prefixMap={ref:'rs-',reg2:'r2s-',can:'cs-'};
-  const prefix=prefixMap[tbl]||'';
+  if(!_tblSort[tbl])_tblSort[tbl]={key:'',asc:true};
+  if(_tblSort[tbl].key===key)_tblSort[tbl].asc=!_tblSort[tbl].asc;
+  else{_tblSort[tbl].key=key;_tblSort[tbl].asc=true;}
+  const pm={ref:'rs-',reg2:'r2s-',can:'cs-'};
+  const prefix=pm[tbl]||'';
   document.querySelectorAll('[id^="'+prefix+'"]').forEach(el=>{
     const k=el.id.replace(prefix,'');
     el.textContent=k===key?(_tblSort[tbl].asc?'↑':'↓'):'⇅';
   });
-  if(tbl==='ref') renderDaily();
-  else if(tbl==='reg2'||tbl==='can') renderDaily2();
+  if(tbl==='ref')renderDaily();
+  else if(tbl==='reg2'||tbl==='can')renderDaily2();
 }
-
 function applySortToArr(arr,tbl){
   const st=_tblSort[tbl];
-  if(!st||!st.key) return arr;
-  const key=st.key, asc=st.asc;
+  if(!st||!st.key)return arr;
+  const key=st.key,asc=st.asc;
   const km={학번:'번호',이름:'이름',수험번호:'수험번호',반:'반',내역:'내역',장학:'장학'};
   return [...arr].sort((a,b)=>{
     let av=String(a[km[key]||key]||'');
@@ -1470,13 +1465,12 @@ function applySortToArr(arr,tbl){
     return 0;
   });
 }
-
 function applySortToRegs(regs){
-  if(!_dailySortKey) return regs;
-  const key=_dailySortKey, asc=_dailySortAsc;
+  if(!_dailySortKey)return regs;
+  const key=_dailySortKey,asc=_dailySortAsc;
   const km={학번:'번호',이름:'이름',수험번호:'수험번호',반:'반',내역:'내역',장학:'장학'};
   return [...regs].sort((a,b)=>{
-    if(key==='신규'){ return asc?(a._isNew?-1:1):(a._isNew?1:-1); }
+    if(key==='신규')return asc?(a._isNew?-1:1):(a._isNew?1:-1);
     let av=String(a[km[key]||key]||'');
     let bv=String(b[km[key]||key]||'');
     if(!isNaN(av)&&!isNaN(bv)){av=+av;bv=+bv;}
@@ -1485,7 +1479,6 @@ function applySortToRegs(regs){
     return 0;
   });
 }
-
 function renderDaily(){
   const date=document.getElementById('dailyDate').value||todayStr();
   document.getElementById('dailyKorDate').textContent=fmtKor(date);
@@ -2255,7 +2248,7 @@ function cancelSelectedDancha(){
   closeModal();
   document.getElementById('danchaStudentInput').value='';
   toast(`✅ ${_danchaLookupRecs[0].이름} 단과 ${count}개 취소 완료`);
-  renderDailyDancha();renderDash2();
+  renderDaily2();renderDash2();
   save();
 }
 function processCancelExcel(e){
