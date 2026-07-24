@@ -1127,15 +1127,15 @@ function renderDash(){
   const unpaidCnt=unpaidByMonth[latestMonth]||0;
   const currIds=new Set(active.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
   function calcGrandTotal(){
-    // 반수 등록인원 (별도 합산)
-    const bansuIds=new Set(active.filter(p=>(S.cfg.bansuTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
+    // special term 중 latestMonth 이상인 것만 별도 합산
+    // (latestMonth 미만은 이미 unpaidCnt에 포함됨)
+    const bansuIds=new Set(active.filter(p=>isSpecialTerm(p.내역)&&extractMonth(p.내역)>=latestMonth&&p.환불금액===0).map(p=>p.수험번호));
     if(snaps[today]){
       if(snaps[today]._grandTotal!==undefined) return snaps[today]._grandTotal;
       const snapCurrTotal=(S.cfg.currTerms||[]).reduce((sum,term)=>sum+(snaps[today][term]||0),0);
-      const snapBansuTotal=(S.cfg.bansuTerms||[]).reduce((sum,term)=>sum+(snaps[today][term]||0),0);
+      const snapBansuTotal=(S.cfg.bansuTerms||[]).filter(t=>extractMonth(t)>=latestMonth).reduce((sum,term)=>sum+(snaps[today][term]||0),0);
       return snapCurrTotal+unpaidCnt+snapBansuTotal;
     }
-    // 총인원 = 정규 최신 월 등록 + 정규 미납 + 반수 등록
     return currIds.size+unpaidCnt+bansuIds.size;
   }
   let grandTotal=0;
@@ -1297,9 +1297,10 @@ function saveSnapshot(){
   // _unpaidCnt: special term 제외 최신 월 기준
   const snapNonSpecialLatest=snapNonSpecialMonths.length>0?snapNonSpecialMonths[snapNonSpecialMonths.length-1]:0;
   snap._unpaidCnt=snapUnpaidByMonth[snapNonSpecialLatest]||0;
-  // grandTotal 스냅샷 저장 (정규 최신월 등록 + 미납 + 반수 등록)
+  // grandTotal 스냅샷 저장
   const snapCurrIds=new Set(snapActive.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
-  const snapBansuIds=new Set(snapActive.filter(p=>(S.cfg.bansuTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
+  const snapNonSpecialLatestMo=snapNonSpecialMonths.length>0?snapNonSpecialMonths[snapNonSpecialMonths.length-1]:0;
+  const snapBansuIds=new Set(snapActive.filter(p=>isSpecialTerm(p.내역)&&extractMonth(p.내역)>=snapNonSpecialLatestMo&&p.환불금액===0).map(p=>p.수험번호));
   snap._grandTotal=snapCurrIds.size+snap._unpaidCnt+snapBansuIds.size;
   if(!S.snapshots)S.snapshots={};
   if(S.snapshots[today]){
