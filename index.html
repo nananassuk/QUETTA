@@ -1508,7 +1508,7 @@ function renderDaily(){
     return otherIdsCache[month];
   }
   regs.forEach(r=>{const tm_=extractMonth(r.내역);r._isNew=r.status!=='퇴소'&&(tm_>0?!getOlderIds(tm_).has(r.수험번호):!prevIds.has(r.수험번호));});
-  applySortToRegs(regs).forEach((r,i)=>{const termMo=extractMonth(r.내역);const isOut=r.status==='퇴소';const isNew=r._isNew;const rowCls=isOut?'row-out':'';const cancelBdg=isOut?'<span class="bdg bdg-out" style="font-size:9px;">당일퇴소</span>':'';regHtml+=`<tr class="${rowCls}"><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td>${h(r.장학)}</td><td class="new-cell">${isNew?'신규':''}${cancelBdg}</td></tr>`;});
+  applySortToRegs(regs).forEach((r,i)=>{const termMo=extractMonth(r.내역);const isOut=r.status==='퇴소';const isNew=r._isNew;const rowCls=isOut?'row-out':'';const cancelBdg=isOut?'<span class="bdg bdg-out" style="font-size:9px;">당일퇴소</span>':'';regHtml+=`<tr class="${rowCls}"><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td onclick="copySuhum('${r.수험번호}')" style="cursor:pointer;" title="클릭=복사">${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td>${h(r.장학)}</td><td class="new-cell">${isNew?'신규':''}${cancelBdg}</td></tr>`;});
   if(!regHtml)regHtml=`<tr><td colspan="8" style="text-align:center;color:#bbb;padding:16px;">등록 내역 없음</td></tr>`;
   document.getElementById('regBody').innerHTML=regHtml;
   const refAll=[...refPayments,...refWithdrawals];
@@ -1529,7 +1529,7 @@ function renderDaily(){
     const delBtn = r._refId
       ? `<td><button onclick="deleteRefundRecord('${r._refId}',${r._termIdx},'reg')" style="background:none;border:none;cursor:pointer;color:var(--danger);" title="삭제">🗑️</button></td>`
       : `<td></td>`;
-    refHtml+=`<tr ${bg}><td>${h(r.반)}</td><td>${h(r.번호||'')}</td><td>${h(r.수험번호)}</td><td>${dot}${h(r.이름)}</td>${termCell}<td style="color:var(--danger);font-weight:700;">${fmtShort(date)}</td><td>${h(r.장학||'')}</td>${delBtn}</tr>`;
+    refHtml+=`<tr ${bg}><td>${h(r.반)}</td><td>${h(r.번호||'')}</td><td onclick="copySuhum('${r.수험번호}')" style="cursor:pointer;" title="클릭=복사">${h(r.수험번호)}</td><td>${dot}${h(r.이름)}</td>${termCell}<td style="color:var(--danger);font-weight:700;">${fmtShort(date)}</td><td>${h(r.장학||'')}</td>${delBtn}</tr>`;
   });
   if(!refHtml)refHtml=`<tr><td colspan="7" style="text-align:center;color:#bbb;padding:16px;">환불 내역 없음</td></tr>`;
   document.getElementById('refBody').innerHTML=refHtml;
@@ -1603,11 +1603,11 @@ function renderDaily2(){
   const regs=sortByBan(S.dancha.filter(p=>(p.uploadedDate||p.결제일자)===date&&p.status==='active'));
   const cancels=sortByBan(S.danchaRefunds.filter(r=>(refDate(r))===date).flatMap(r=>r.removedTerms.map((term,ti)=>({반:r.반||'',번호:r.번호||'',수험번호:r.수험번호,이름:r.이름,내역:term,_refId:r.id,_termIdx:ti}))));
   let regHtml='';
-  applySortToArr(regs,'reg2').forEach((r,i)=>{regHtml+=`<tr><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td>${h(r.장학||'')}</td></tr>`;});
+  applySortToArr(regs,'reg2').forEach((r,i)=>{regHtml+=`<tr><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td onclick="copySuhum('${r.수험번호}')" style="cursor:pointer;" title="클릭=복사">${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td>${h(r.장학||'')}</td></tr>`;});
   if(!regHtml)regHtml=`<tr><td colspan="7" style="text-align:center;color:#bbb;padding:16px;">등록 내역 없음</td></tr>`;
   document.getElementById('regBody2').innerHTML=regHtml;
   let canHtml='';
-  applySortToArr(cancels,'can').forEach(r=>{canHtml+=`<tr><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td style="color:#8E44AD;font-weight:700;">${fmtShort(date)}</td><td><button onclick="deleteRefundRecord('${r._refId}',${r._termIdx},'dancha')" style="background:none;border:none;cursor:pointer;color:var(--danger);" title="삭제">🗑️</button></td></tr>`;});
+  applySortToArr(cancels,'can').forEach(r=>{canHtml+=`<tr><td>${h(r.반)}</td><td>${h(r.번호)}</td><td onclick="copySuhum('${r.수험번호}')" style="cursor:pointer;" title="클릭=복사">${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td style="color:#8E44AD;font-weight:700;">${fmtShort(date)}</td><td><button onclick="deleteRefundRecord('${r._refId}',${r._termIdx},'dancha')" style="background:none;border:none;cursor:pointer;color:var(--danger);" title="삭제">🗑️</button></td></tr>`;});
   if(!canHtml)canHtml=`<tr><td colspan="6" style="text-align:center;color:#bbb;padding:16px;">취소 내역 없음</td></tr>`;
   document.getElementById('cancelBody').innerHTML=canHtml;
 }
@@ -2314,6 +2314,9 @@ function processCancelExcel(e){
 }
 
 // ════ COPY ALL SUHUM ════
+function copySuhum(val){
+  navigator.clipboard.writeText(val).then(()=>toast(`📋 ${val} 복사됨`));
+}
 function copyAllSuhum(type){
   let tbody,colIdx;
   if(type==='reg'){tbody=document.getElementById('regBody');colIdx=3;}
