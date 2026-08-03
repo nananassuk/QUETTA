@@ -1130,12 +1130,12 @@ function renderDash(){
   const unpaidCnt=unpaidByMonth[latestMonth]||0;
   const currIds=new Set(active.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
   function calcGrandTotal(){
-    // 반수 등록인원 (별도 합산)
-    const bansuIds=new Set(active.filter(p=>(S.cfg.bansuTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
+    // 반수 등록인원 (별도 합산) - 최신 정규 월(latestMonth) 이상인 special term만 포함
+    const bansuIds=new Set(active.filter(p=>(S.cfg.bansuTerms||[]).includes(p.내역)&&p.환불금액===0&&extractMonth(p.내역)>=latestMonth).map(p=>p.수험번호));
     if(snaps[today]){
       if(snaps[today]._grandTotal!==undefined) return snaps[today]._grandTotal;
       const snapCurrTotal=(S.cfg.currTerms||[]).reduce((sum,term)=>sum+(snaps[today][term]||0),0);
-      const snapBansuTotal=(S.cfg.bansuTerms||[]).reduce((sum,term)=>sum+(snaps[today][term]||0),0);
+      const snapBansuTotal=(S.cfg.bansuTerms||[]).filter(term=>extractMonth(term)>=latestMonth).reduce((sum,term)=>sum+(snaps[today][term]||0),0);
       return snapCurrTotal+unpaidCnt+snapBansuTotal;
     }
     // 총인원 = 정규 최신 월 등록 + 정규 미납 + 반수 등록
@@ -1302,7 +1302,7 @@ function saveSnapshot(){
   snap._unpaidCnt=snapUnpaidByMonth[snapNonSpecialLatest]||0;
   // grandTotal 스냅샷 저장 (정규 최신월 등록 + 미납 + 반수 등록)
   const snapCurrIds=new Set(snapActive.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
-  const snapBansuIds=new Set(snapActive.filter(p=>(S.cfg.bansuTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
+  const snapBansuIds=new Set(snapActive.filter(p=>(S.cfg.bansuTerms||[]).includes(p.내역)&&p.환불금액===0&&extractMonth(p.내역)>=snapNonSpecialLatest).map(p=>p.수험번호));
   snap._grandTotal=snapCurrIds.size+snap._unpaidCnt+snapBansuIds.size;
   if(!S.snapshots)S.snapshots={};
   if(S.snapshots[today]){
@@ -1863,8 +1863,8 @@ function exportGrandTotalExcel(){
   const prevRegIds=pm2?new Set(active.filter(p=>extractMonth(p.내역)===pm2&&!isSpecialTerm(p.내역)).map(p=>p.수험번호)):new Set();
   const 미납퇴소Set=new Set((S.미납퇴소||[]).map(r=>r.수험번호));
   const unpaidIds=new Set([...prevRegIds].filter(id=>!currRegIds.has(id)&&!미납퇴소Set.has(id)));
-  // special term 학생
-  const specialIds=new Set(active.filter(p=>isSpecialTerm(p.내역)).map(p=>p.수험번호));
+  // special term 학생 (최신 정규 월 이상인 경우만 총인원에 포함)
+  const specialIds=new Set(active.filter(p=>isSpecialTerm(p.내역)&&extractMonth(p.내역)>=cm).map(p=>p.수험번호));
   const allIds=new Set([...currRegIds,...unpaidIds,...specialIds]);
 
   // 수험번호별 최신 납부 기수 추출
