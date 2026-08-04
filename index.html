@@ -8,6 +8,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://unpkg.com/@supabase/supabase-js@2.39.7/dist/umd/supabase.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
 :root{--g1:#1B4332;--g2:#2D6A4F;--g3:#40916C;--d1:#1A3A5C;--d2:#2E5D8E;--d3:#4A7DB5;--gold:#C9A84C;--gold2:#E8C97A;--bg:#F4F1EB;--card:#FFFFFF;--danger:#C0392B;--danger2:#E74C3C;--success:#27AE60;--border:#D8CEB8;--muted:#888;--shadow:0 2px 16px rgba(27,67,50,0.13);}
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -2628,15 +2629,14 @@ function printDash(type){
   if(!tab) return;
   const date = (type==='reg' ? S.cfg.dashDate : S.cfg.dashDate2) || todayStr();
   const label = type==='reg' ? '정규' : '단과';
-  const origTitle = document.title;
-  document.title = `등록_${label}_${date.replace(/-/g,'')}`;
+  const filename = `등록_${label}_${date.replace(/-/g,'')}.pdf`;
   // 기존 wrapper 제거
   const oldW = document.getElementById('print-wrapper');
   if(oldW) oldW.remove();
-  // 인쇄용 wrapper 생성 - 해당 탭 카드 HTML 복사
+  // PDF 변환용 wrapper 생성 (화면엔 안 보이게 배치) - 해당 탭 카드 HTML 복사
   const wrapper = document.createElement('div');
   wrapper.id = 'print-wrapper';
-  wrapper.style.cssText = 'position:absolute;top:0;left:0;width:100%;background:white;z-index:99999;';
+  wrapper.style.cssText = 'position:fixed;top:0;left:-99999px;width:1400px;background:white;z-index:-1;';
   tab.querySelectorAll('.card').forEach(card=>{
     const clone = card.cloneNode(true);
     // 버튼 숨기기
@@ -2644,11 +2644,21 @@ function printDash(type){
     wrapper.appendChild(clone);
   });
   document.body.appendChild(wrapper);
-  window.print();
-  setTimeout(()=>{
+  toast('📄 PDF 생성 중...');
+  html2pdf().set({
+    margin:8,
+    filename:filename,
+    image:{type:'jpeg',quality:0.98},
+    html2canvas:{scale:2,useCORS:true,windowWidth:1400},
+    jsPDF:{unit:'mm',format:'a4',orientation:'landscape'}
+  }).from(wrapper).save().then(()=>{
     wrapper.remove();
-    document.title = origTitle;
-  }, 1500);
+    toast(`✅ ${filename} 저장 완료`);
+  }).catch(err=>{
+    console.error(err);
+    wrapper.remove();
+    toast('PDF 저장 중 오류가 발생했습니다');
+  });
 }
 // ════ INIT ════
 function init(){
