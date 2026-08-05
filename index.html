@@ -2623,7 +2623,7 @@ function exportDanchaExcel(){
   XLSX.writeFile(wb,`QUETTA_단과등록명단_${today}.xlsx`);
   toast(`✅ 단과 등록인원 ${rows.length}명 다운로드 완료`);
 }
-function printDash(type){
+async function printDash(type){
   const tabId = type==='reg' ? 'tab-dash' : 'tab-dash2';
   const tab = document.getElementById(tabId);
   if(!tab) return;
@@ -2633,10 +2633,10 @@ function printDash(type){
   // 기존 wrapper 제거
   const oldW = document.getElementById('print-wrapper');
   if(oldW) oldW.remove();
-  // PDF 변환용 wrapper 생성 (화면엔 안 보이게 배치) - 해당 탭 카드 HTML 복사
+  // PDF 변환용 wrapper 생성 - 해당 탭 카드 HTML 복사
   const wrapper = document.createElement('div');
   wrapper.id = 'print-wrapper';
-  wrapper.style.cssText = 'position:fixed;top:0;left:0;width:1400px;background:white;z-index:999999;';
+  wrapper.style.cssText = 'position:fixed;top:0;left:0;width:1400px;background:#ffffff;z-index:999999;padding:16px;box-sizing:border-box;';
   tab.querySelectorAll('.card').forEach(card=>{
     const clone = card.cloneNode(true);
     // 버튼 숨기기
@@ -2645,20 +2645,39 @@ function printDash(type){
   });
   document.body.appendChild(wrapper);
   toast('📄 PDF 생성 중...');
-  html2pdf().set({
-    margin:8,
-    filename:filename,
-    image:{type:'jpeg',quality:0.98},
-    html2canvas:{scale:2,useCORS:true,windowWidth:1400},
-    jsPDF:{unit:'mm',format:'a4',orientation:'landscape'}
-  }).from(wrapper).save().then(()=>{
-    wrapper.remove();
+  // 레이아웃이 실제로 반영될 때까지 두 프레임 대기 (캡처 시 백지 방지)
+  await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+  try{
+    const canvas = await html2canvas(wrapper,{
+      scale:2,
+      useCORS:true,
+      backgroundColor:'#ffffff',
+      windowWidth:wrapper.scrollWidth,
+      windowHeight:wrapper.scrollHeight
+    });
+    const { jsPDF } = window.jspdf;
+    const pageW=297, pageH=210; // A4 landscape, mm
+    const imgW=pageW;
+    const imgH=canvas.height*imgW/canvas.width;
+    const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+    const imgData=canvas.toDataURL('image/jpeg',0.98);
+    let heightLeft=imgH, position=0;
+    pdf.addImage(imgData,'JPEG',0,position,imgW,imgH);
+    heightLeft-=pageH;
+    while(heightLeft>0){
+      position=heightLeft-imgH;
+      pdf.addPage();
+      pdf.addImage(imgData,'JPEG',0,position,imgW,imgH);
+      heightLeft-=pageH;
+    }
+    pdf.save(filename);
     toast(`✅ ${filename} 저장 완료`);
-  }).catch(err=>{
+  }catch(err){
     console.error(err);
-    wrapper.remove();
     toast('PDF 저장 중 오류가 발생했습니다');
-  });
+  }finally{
+    wrapper.remove();
+  }
 }
 // ════ INIT ════
 function init(){
