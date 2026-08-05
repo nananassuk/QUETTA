@@ -3078,10 +3078,10 @@ async function printDash(type){
       windowHeight:wrapper.scrollHeight
     });
     const { jsPDF } = window.jspdf;
-    const pageW=297, pageH=210; // A4 landscape, mm
+    const pageW=210, pageH=297; // A4 portrait, mm
     const imgW=pageW;
     const imgH=canvas.height*imgW/canvas.width;
-    const pdf=new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
+    const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
     const imgData=canvas.toDataURL('image/jpeg',0.98);
     let heightLeft=imgH, position=0;
     pdf.addImage(imgData,'JPEG',0,position,imgW,imgH);
