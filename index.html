@@ -2636,7 +2636,7 @@ function printDash(type){
   // PDF 변환용 wrapper 생성 (화면엔 안 보이게 배치) - 해당 탭 카드 HTML 복사
   const wrapper = document.createElement('div');
   wrapper.id = 'print-wrapper';
-  wrapper.style.cssText = 'position:fixed;top:0;left:-99999px;width:1400px;background:white;z-index:-1;';
+  wrapper.style.cssText = 'position:fixed;top:0;left:0;width:1400px;background:white;z-index:999999;';
   tab.querySelectorAll('.card').forEach(card=>{
     const clone = card.cloneNode(true);
     // 버튼 숨기기
