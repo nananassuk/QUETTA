@@ -1768,9 +1768,11 @@ function saveSnapshot(){
   const snapNonSpecialLatest=snapNonSpecialMonths.length>0?snapNonSpecialMonths[snapNonSpecialMonths.length-1]:0;
   snap._unpaidCnt=snapUnpaidByMonth[snapNonSpecialLatest]||0;
   // grandTotal 스냅샷 저장 (정규 최신월 등록 + 미납 + 반수 등록)
-  const snapCurrIds=new Set(snapActive.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
-  const snapBansuIds=new Set(snapActive.filter(p=>(S.cfg.bansuTerms||[]).includes(p.내역)&&p.환불금액===0&&extractMonth(p.내역)>=snapNonSpecialLatest).map(p=>p.수험번호));
-  snap._grandTotal=snapCurrIds.size+snap._unpaidCnt+snapBansuIds.size;
+  // ★ 실시간 active 카운트가 아니라, 방금 위에서 계산한 "그 날짜 기준 고정 등록인원"(snap[term])을 사용
+  //   (나중에 시간이 지난 뒤 재저장해도, 그 날짜 당시의 등록인원 그대로 총인원에 반영되도록)
+  const snapCurrTotal=(S.cfg.currTerms||[]).reduce((sum,term)=>sum+(snap[term]||0),0);
+  const snapBansuTotal=(S.cfg.bansuTerms||[]).filter(term=>extractMonth(term)>=snapNonSpecialLatest).reduce((sum,term)=>sum+(snap[term]||0),0);
+  snap._grandTotal=snapCurrTotal+snap._unpaidCnt+snapBansuTotal;
   if(!S.snapshots)S.snapshots={};
   if(S.snapshots[today]){
     openModal('💾 재저장',`<strong>${fmtKor(today)}</strong>에 이미 저장된 현황이 있습니다.<br>덮어쓰시겠습니까?`,
