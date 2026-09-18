@@ -2400,7 +2400,7 @@ function renderUnpaid(){
     if(S.미납퇴소.length){
       listEl.style.display='block';
       listEl.innerHTML=`<div style="font-size:12px;font-weight:700;color:var(--danger);margin-bottom:6px;">🚪 미납퇴소 처리됨 (${S.미납퇴소.length}명) — 수강 기록은 유지, 미납에서만 제외</div>`+
-        S.미납퇴소.map((r,i)=>`<span style="display:inline-flex;align-items:center;gap:4px;background:#FDE8E8;border:1px solid #F5B7B1;border-radius:12px;padding:2px 9px;margin:2px;font-size:11px;">${h(r.이름)} (${h(r.수험번호)}) ${fmtShort(r.date)}<button onclick="removeUnpaidWithdraw(${i})" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:11px;padding:0 2px;" title="취소">✕</button></span>`).join('');
+        S.미납퇴소.map((r,i)=>`<span style="display:inline-flex;align-items:center;gap:4px;background:#FDE8E8;border:1px solid #F5B7B1;border-radius:12px;padding:2px 9px;margin:2px;font-size:11px;">${h(r.이름)} (${h(r.수험번호)}) ${fmtShort(r.date)}${r.targetMonth?` · <strong>${r.targetMonth}월</strong> 대상`:' · 대상월 미지정'}<button onclick="removeUnpaidWithdraw(${i})" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:11px;padding:0 2px;" title="취소">✕</button></span>`).join('');
     } else {
       listEl.style.display='none';
       listEl.innerHTML='';
@@ -2428,8 +2428,11 @@ function quickWithdraw(수험번호, 이름){
     </div>`,
     [{label:'미납퇴소 처리',cls:'btn-red',fn:()=>{
       const date=document.getElementById('dailyDate')?.value||todayStr();
-      const _qwMonths=[...new Set(S.pays.map(p=>p.내역).filter(Boolean).map(t=>extractMonth(t)).filter(m=>m>0))].sort((a,b)=>a-b);
-      const _targetMonth=_qwMonths.length>0?_qwMonths[_qwMonths.length-1]:0;
+      // 화면에 표시된 "선납 대상월"(currTerms) 기준으로 targetMonth 결정
+      // (전체 데이터 중 최신 월이 아니라, 지금 처리 중인 미납 사이클의 대상월을 써야 함 -
+      //  향후 데이터가 미리 업로드돼 있어도 엉뚱한 월로 잘못 잡히지 않도록)
+      const _currTermMonths=(S.cfg.currTerms||[]).map(t=>extractMonth(t)).filter(m=>m>0);
+      const _targetMonth=_currTermMonths.length>0?Math.max(..._currTermMonths):0;
       S.미납퇴소.push({수험번호,이름,date,targetMonth:_targetMonth});
       save();closeModal();
       renderUnpaid();renderDash();
