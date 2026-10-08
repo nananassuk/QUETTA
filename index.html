@@ -507,9 +507,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
 .daily-tbl .ref-date{color:var(--danger);font-weight:700;}
 .copy-hdr{cursor:pointer;text-decoration:underline dotted;color:var(--gold2);}
 .copy-hdr:hover{color:#fff;background:rgba(255,255,255,.2);border-radius:3px;}
-.ytabs{display:flex;gap:6px;margin:0 0 10px;flex-wrap:wrap;}
-.ytab{border:1px solid #B9D3F2;background:#fff;color:#1B3A5C;padding:6px 16px;border-radius:16px;font-size:13px;font-weight:700;cursor:pointer;}
-.ytab.on{background:#1B3A5C;color:#fff;border-color:#1B3A5C;}
+.yr-badge{display:inline-block;margin-left:5px;padding:0 6px;border-radius:8px;background:#1B3A5C;color:#fff;font-size:9px;font-weight:700;vertical-align:middle;line-height:15px;}
+.ytabs{display:flex;gap:4px;margin:14px 0 0 14px;position:relative;z-index:1;}
+.ytab{border:1px solid #D5DCE6;border-bottom:none;background:#E4EAF1;color:#52657A;padding:9px 24px;border-radius:12px 12px 0 0;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:-1px;}
+.ytab.on{background:#fff;color:#1B3A5C;border-top:3px solid #1B3A5C;padding-top:7px;}
+.ytabs + .card{margin-top:0;border-top-left-radius:0;}
 .sort-hdr{cursor:pointer;user-select:none;text-decoration:underline dotted;color:#2c5f8a;}
 .sort-hdr:hover{background:rgba(0,0,0,.06);color:#164060;}
 .sort-arrow{font-size:9px;margin-left:2px;color:var(--gold2);font-weight:900;}
@@ -674,7 +676,6 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
 
 <!-- 일일 등록 명단 (정규) -->
 <div id="tab-daily" class="tab-pane">
-  <div id="dailyYearTabs" class="ytabs no-print"></div>
   <div class="card no-print">
     <div class="btn-row" style="margin-bottom:10px;">
       <label style="font-size:12px;font-weight:600;">조회 날짜</label>
@@ -713,6 +714,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
       <div id="readmitList" style="margin-top:8px;font-size:11px;"></div>
     </div>
   </div>
+  <div id="dailyYearTabs" class="ytabs no-print"></div>
   <div class="card">
     <div style="font-size:16px;font-weight:800;color:var(--g1);margin-bottom:3px;">재수정규반 일일 등록 명단</div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:12px;" id="dailyKorDate"></div>
@@ -725,7 +727,6 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
 
 <!-- 일일 등록 명단 (단과) -->
 <div id="tab-daily2" class="tab-pane">
-  <div id="dailyYearTabs2" class="ytabs no-print"></div>
   <div class="card no-print">
     <div class="btn-row" style="margin-bottom:10px;">
       <label style="font-size:12px;font-weight:600;color:var(--d1);">조회 날짜 (단과)</label>
@@ -742,6 +743,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
       <div id="danchaLookupResult" style="margin-top:10px;"></div>
     </div>
   </div>
+  <div id="dailyYearTabs2" class="ytabs no-print"></div>
   <div class="card">
     <div style="font-size:16px;font-weight:800;color:var(--d1);margin-bottom:3px;">단과 일일 등록 명단</div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:12px;" id="dailyKorDate2"></div>
@@ -937,15 +939,16 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
   <!-- 키워드 설정 (정규) -->
   <div class="card">
     <div class="card-ttl">🔑 키워드 매핑 설정 — 정규</div>
-    <div class="info-box">엑셀 내역(I열)에 키워드가 포함되면 지정한 기수명으로 자동 변환됩니다. 단과 키워드와 겹치면 단과 우선.<br><strong>반영 학년도</strong>: 업로드할 때 이 키워드로 들어오는 기록이 어느 학년도로 저장될지 정합니다. 한 파일에 26/27학년도가 섞여 있어도 키워드별로 자동 분리돼요. 나중에 바꾸면 <u>그 이후 업로드부터</u> 적용되고 이미 저장된 기록은 그대로입니다.</div>
+    <div class="info-box">엑셀 내역(I열)에 키워드가 포함되면 지정한 기수명으로 자동 변환됩니다. 단과 키워드와 겹치면 단과 우선.<br><strong>반영 학년도</strong>: 업로드할 때 이 키워드로 들어오는 기록이 어느 학년도로 저장될지 정합니다. 한 파일에 26/27학년도가 섞여 있어도 키워드별로 자동 분리돼요. 나중에 바꾸면 <u>그 이후 업로드부터</u> 적용되고 이미 저장된 기록은 그대로입니다.<br><strong>우선 적용</strong>: 체크한 키워드가 내역에 하나라도 들어 있으면, 다른 키워드(예: 기숙사비)가 같이 있어도 무조건 이 키워드의 기수명으로 변환됩니다. (예: 식대비 → 윈터_완납)</div>
     <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px;">
       <div><label class="form-lbl">내역 키워드 (포함 검색)</label><input class="inp" id="kwInput" placeholder="예: 교습비(3월)" style="width:180px;"></div>
       <div><label class="form-lbl">→ 변환할 기수명</label><input class="inp" id="kwTerm" placeholder="예: 정규1기(3월)" style="width:180px;"></div>
       <div><label class="form-lbl">🎓 반영 학년도</label><select class="inp" id="kwYear" style="width:130px;"></select></div>
+      <div><label class="form-lbl">⭐ 우선 적용</label><label style="font-size:12px;display:flex;align-items:center;gap:4px;height:34px;"><input type="checkbox" id="kwPri"> 체크</label></div>
       <button class="btn btn-g" onclick="addKeyword('reg')">+ 추가</button>
     </div>
     <div class="tbl-wrap" style="max-height:220px;">
-      <table class="data-tbl"><thead><tr><th>키워드</th><th>변환 기수명</th><th>반영 학년도</th><th>삭제</th></tr></thead><tbody id="kwBody"></tbody></table>
+      <table class="data-tbl"><thead><tr><th>키워드</th><th>변환 기수명</th><th>반영 학년도</th><th>우선</th><th>삭제</th></tr></thead><tbody id="kwBody"></tbody></table>
     </div>
   </div>
   <!-- 키워드 설정 (단과) -->
@@ -956,10 +959,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
       <div><label class="form-lbl">내역 키워드</label><input class="inp" id="kwInputD" placeholder="예: 단과(4월)" style="width:180px;"></div>
       <div><label class="form-lbl">→ 변환할 기수명</label><input class="inp" id="kwTermD" placeholder="예: 단과2기(4월)" style="width:180px;"></div>
       <div><label class="form-lbl">🎓 반영 학년도</label><select class="inp" id="kwYearD" style="width:130px;"></select></div>
+      <div><label class="form-lbl">⭐ 우선 적용</label><label style="font-size:12px;display:flex;align-items:center;gap:4px;height:34px;"><input type="checkbox" id="kwPriD"> 체크</label></div>
       <button class="btn btn-d" onclick="addKeyword('dancha')">+ 추가</button>
     </div>
     <div class="tbl-wrap" style="max-height:220px;">
-      <table class="data-tbl"><thead><tr><th>키워드</th><th>변환 기수명</th><th>반영 학년도</th><th>삭제</th></tr></thead><tbody id="kwBodyD"></tbody></table>
+      <table class="data-tbl"><thead><tr><th>키워드</th><th>변환 기수명</th><th>반영 학년도</th><th>우선</th><th>삭제</th></tr></thead><tbody id="kwBodyD"></tbody></table>
     </div>
   </div>
   <!-- 비밀번호 + 데이터 -->
@@ -1043,6 +1047,14 @@ function isBansuTerm(t){return isSpecialTerm(t)&&!isInstTerm(t);}               
 function hiddenYearList(){return(S.cfg&&S.cfg.hiddenYears)||[];}
 function VP(){const hy=hiddenYearList();return hy.length?S.pays.filter(p=>!hy.includes(termYear(p.내역))):S.pays;}  // 숨김 학년도 제외한 납부 기록
 function knownYears(){const set=new Set([LEGACY_YEAR,...((S.cfg&&S.cfg.years)||[])]);S.pays.forEach(p=>{if(p.내역)set.add(termYear(p.내역));});(S.dancha||[]).forEach(p=>{if(p.내역)set.add(termYear(p.내역));});return[...set].sort();}
+function termLabel(t){const y=termYear(t);const b=h(termBase(t));return y===LEGACY_YEAR?b:`${b}<span class="yr-badge">${y}</span>`;}   // 목록용(HTML): 27학년도 줄에만 작은 배지
+function termText(t){const y=termYear(t);return y===LEGACY_YEAR?termBase(t):`${termBase(t)} (${y}학년도)`;}                       // 팝업/문구용(텍스트)
+function termOptionsHtml(terms,selected){   // 내역 선택 드롭다운: 학년도가 여러 개면 학년도별 묶음
+  const ys=[...new Set(terms.map(termYear))].sort();
+  const opt=x=>`<option value="${h(x)}" ${x===selected?'selected':''}>${h(termBase(x))}</option>`;
+  if(ys.length<=1&&(ys[0]||LEGACY_YEAR)===LEGACY_YEAR)return terms.map(opt).join('');
+  return ys.map(y=>`<optgroup label="${y}학년도">${terms.filter(x=>termYear(x)===y).map(opt).join('')}</optgroup>`).join('');
+}
 function visibleYears(){const hy=hiddenYearList();return knownYears().filter(y=>!hy.includes(y));}
 // 일일명단 학년도 탭 (정규/단과 각각)
 let _dailyYear=null,_dailyYear2=null;
@@ -1060,6 +1072,12 @@ function renderDailyYearTabs(kind){
   const el=document.getElementById(kind==='dancha'?'dailyYearTabs2':'dailyYearTabs');if(!el)return;
   const cur=resolveDailyYear(kind);
   el.innerHTML=visibleYears().map(y=>`<button class="ytab ${y===cur?'on':''}" onclick="setDailyYear('${kind}','${y}')">${y}학년도</button>`).join('');
+}
+// 같은 수험번호가 여러 학년도에 있으면 현재 탭 학년도를 우선, 없으면 가장 최근 학년도
+function pickYearForNum(recs,tabY){
+  const ys=[...new Set(recs.map(p=>termYear(p.내역)))];
+  if(ys.includes(tabY))return tabY;
+  return ys.sort().pop();
 }
 function setDailyYear(kind,y){if(kind==='dancha'){_dailyYear2=y;renderDaily2();}else{_dailyYear=y;renderDaily();}}
 function ukey(Y,m){return Y===LEGACY_YEAR?m:`${Y}:${m}`;}                          // 스냅샷 _unpaidByMonth 키
@@ -1410,8 +1428,9 @@ function goPayTab(id,btn){
 function applyKeywords(내역str){
   const kws=S.cfg.keywords||[];
   const dkws=S.cfg.danchaKeywords||[];
-  for(const kw of dkws){if(내역str&&내역str.includes(kw.kw))return{term:kw.term,type:'dancha'};}
-  for(const kw of kws){if(내역str&&내역str.includes(kw.kw))return{term:kw.term,type:'regular'};}
+  const hit=(list)=>list.find(kw=>kw.pri&&내역str&&내역str.includes(kw.kw))||list.find(kw=>내역str&&내역str.includes(kw.kw));
+  {const k=hit(dkws);if(k)return{term:k.term,type:'dancha'};}
+  {const k=hit(kws);if(k)return{term:k.term,type:'regular'};}
   return{term:내역str,type:'unknown'};
 }
 
@@ -1475,13 +1494,16 @@ function parseRows(rows,uploadDate){
     // 단과 키워드 매칭 → 각 줄마다 별도 레코드
     const danchaMatches=[];
     for(const line of linesOrFull){
-      const dm=dkws.find(kw=>line.includes(kw.kw));
+      const dm=dkws.find(kw=>kw.pri&&line.includes(kw.kw))||dkws.find(kw=>line.includes(kw.kw));
       if(dm) danchaMatches.push({term:dm.term,line,yr:dm.yr||defY});
     }
 
     // 정규 키워드 매칭 → 전체 셀에서 첫 번째 매칭 1개만
     let regMatch=null;
-    for(const line of linesOrFull){
+    // ⭐ 우선 적용 키워드가 내역 어디에든 있으면 무조건 그 키워드 (예: 기숙사비+식대비 → 식대비=완납)
+    const priKw=rkws.find(kw=>kw.pri&&linesOrFull.some(l=>l.includes(kw.kw)));
+    if(priKw){regMatch={term:priKw.term,line:linesOrFull.find(l=>l.includes(priKw.kw)),yr:priKw.yr||defY};}
+    else for(const line of linesOrFull){
       const rm=rkws.find(kw=>line.includes(kw.kw));
       if(rm){regMatch={term:rm.term,line,yr:rm.yr||defY};break;}
     }
@@ -1620,7 +1642,7 @@ function renderFilterChips(){
   const hidden=S.cfg.hiddenTerms||[];
   const years=[...new Set(allT.map(termYear))];
   const showYr=years.length>1||(years.length===1&&years[0]!==LEGACY_YEAR);
-  const chip=t=>{const on=!hidden.includes(t);return`<label class="fchip ${on?'on':''}" onclick="toggleTerm('${t.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">${h(t)}</label>`;};
+  const chip=t=>{const on=!hidden.includes(t);return`<label class="fchip ${on?'on':''}" onclick="toggleTerm('${t.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">${h(termBase(t))}</label>`;};
   let html='';
   years.forEach(Y=>{
     const ts=allT.filter(x=>termYear(x)===Y);
@@ -1640,7 +1662,7 @@ function renderFilterChips2(){
   const hidden=S.cfg.danchaHiddenTerms||[];
   document.getElementById('filterChips2').innerHTML=allT.map(t=>{
     const on=!hidden.includes(t);
-    return`<label class="fchip ${on?'on dancha':''}" onclick="toggleTerm2('${t.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">${h(t)}</label>`;
+    return`<label class="fchip ${on?'on dancha':''}" onclick="toggleTerm2('${t.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">${termLabel(t)}</label>`;
   }).join('')||'<span style="font-size:11px;color:var(--muted);">단과 데이터를 먼저 입력해주세요</span>';
 }
 function toggleTerm(t){const h=S.cfg.hiddenTerms||[];if(h.includes(t))S.cfg.hiddenTerms=h.filter(x=>x!==t);else{S.cfg.hiddenTerms=[...h,t];}save();renderFilterChips();renderDash();}
@@ -1653,7 +1675,7 @@ function filterAll(show,type){
 function updateTermFilter(){
   const sel=document.getElementById('payTermFilter');const cur=sel.value;
   const terms=[...new Set(VP().map(p=>p.내역).filter(Boolean))].sort((a,b)=>termYear(a).localeCompare(termYear(b))||extractMonth(a)-extractMonth(b)||a.localeCompare(b));
-  sel.innerHTML='<option value="">전체 내역</option>'+terms.map(t=>`<option value="${h(t)}" ${t===cur?'selected':''}>${h(t)}</option>`).join('');
+  sel.innerHTML='<option value="">전체 내역</option>'+termOptionsHtml(terms,cur);
 }
 
 // ════ DASHBOARD (정규) ════
@@ -1874,7 +1896,7 @@ function renderDash2(){
     return na-nb;
   });
   const _yrSet=new Set(visibleTerms.map(termYear));
-  const _showYr=_yrSet.size>1||(_yrSet.size===1&&![..._yrSet][0]===LEGACY_YEAR&&[..._yrSet][0]!==LEGACY_YEAR);
+  const _showYr=_yrSet.size>1||(_yrSet.size===1&&[..._yrSet][0]!==LEGACY_YEAR);
   let _lastY=null;
   for(const gisuKey of gisuOrder){
     const [_gy,gisu]=gisuKey.split('|');
@@ -1883,7 +1905,7 @@ function renderDash2(){
     const datas=terms.map(calcTerm2);
     // 개별 내역 행
     for(const d of datas){
-      html+=`<tr><td style="text-align:left;padding-left:20px;font-size:12px;">${h(d.term)}</td><td>${d.prevDay>0?d.prevDay.toLocaleString():'0'}</td><td>${d.todayIn>0?`<span class="pos">${d.todayIn.toLocaleString()}</span>`:''}</td><td>${d.todayOut<0?`<span class="neg">${d.todayOut.toLocaleString()}</span>`:''}</td><td><strong>${d.total.toLocaleString()}</strong></td><td></td></tr>`;
+      html+=`<tr><td style="text-align:left;padding-left:20px;font-size:12px;">${h(_showYr?termBase(d.term):d.term)}</td><td>${d.prevDay>0?d.prevDay.toLocaleString():'0'}</td><td>${d.todayIn>0?`<span class="pos">${d.todayIn.toLocaleString()}</span>`:''}</td><td>${d.todayOut<0?`<span class="neg">${d.todayOut.toLocaleString()}</span>`:''}</td><td><strong>${d.total.toLocaleString()}</strong></td><td></td></tr>`;
     }
     // 기수 합계 행
     const sPrev=datas.reduce((a,d)=>a+d.prevDay,0),sIn=datas.reduce((a,d)=>a+d.todayIn,0),sOut=datas.reduce((a,d)=>a+d.todayOut,0),sTotal=datas.reduce((a,d)=>a+d.total,0);
@@ -1959,7 +1981,7 @@ function editSnapshot(){
   const terms=[...new Set(S.pays.map(p=>p.내역).filter(Boolean))].sort((a,b)=>extractMonth(a)-extractMonth(b)||a.localeCompare(b));
   const rows=terms.map(t=>`
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
-      <span style="font-size:12px;width:160px;flex-shrink:0;">${h(t)}</span>
+      <span style="font-size:12px;width:160px;flex-shrink:0;">${h(termText(t))}</span>
       <input class="inp snap-edit-inp" data-term="${h(t)}" value="${snap[t]!==undefined?snap[t]:''}" placeholder="미입력" style="width:80px;text-align:center;">
     </div>`).join('');
   openModal(`✏️ 스냅샷 수동 편집 — ${fmtKor(today)}`,
@@ -2014,10 +2036,11 @@ function processReadmit(){
   const hint=document.getElementById('readmitHint');
   if(!val){toast('수험번호를 입력해주세요');return;}
   // 퇴소된 학생인지 확인
-  const Y=resolveDailyYear('reg');
-  const withdrawn=S.pays.find(p=>p.수험번호===val&&p.status==='퇴소'&&termYear(p.내역)===Y);
+  const allW=VP().filter(p=>p.수험번호===val&&p.status==='퇴소');
+  const Y=allW.length?pickYearForNum(allW,resolveDailyYear('reg')):resolveDailyYear('reg');
+  const withdrawn=allW.find(p=>termYear(p.내역)===Y);
   if(!withdrawn){
-    hint.textContent=`"${val}" — ${Y}학년도 퇴소 학생이 아닙니다`;
+    hint.textContent=`"${val}" — 퇴소 학생이 아닙니다`;
     hint.style.color='var(--danger)';
     return;
   }
@@ -2042,11 +2065,12 @@ function processReadmit(){
     </div>`,
     [{label:'재입소 처리',cls:'btn-g',fn:()=>{
       S.재입소.push({수험번호:val,이름:withdrawn.이름,date,year:Y});
+      _dailyYear=Y;
       save();closeModal();
       document.getElementById('readmitInput').value='';
       hint.textContent=`✅ ${withdrawn.이름} 재입소 처리 완료 (${fmtShort(date)}부터 적용)`;
       hint.style.color='var(--success)';
-      renderReadmitList();
+      renderDailyYearTabs('reg');renderReadmitList();
       toast(`✅ ${withdrawn.이름} 재입소 처리 완료`);
     }},{label:'취소',cls:'btn-ghost',fn:closeModal}]
   );
@@ -2102,7 +2126,7 @@ function renderDaily(){
   const convTargets=new Set(S.pays.filter(f=>f.convertedTo&&f.status==='완납전환').map(f=>f.convertedTo));
   regs.forEach(r=>{const termMo=extractMonth(r.내역);r._isOut=r.status==='퇴소';r._conv=isInstFinal(r.내역)&&convTargets.has(r.id);r._lump=isInstFinal(r.내역)&&!r._conv&&!!r.일시납;r._isNew=!r._isOut&&!r._conv&&(termMo>0?!getOlderIds(termMo,termYear(r.내역)).has(r.수험번호):!prevIds.has(r.수험번호));});
   const regsSorted=applyDailySort('reg', regs);
-  regsSorted.forEach((r,i)=>{const isOut=r._isOut;const isNew=r._isNew;const rowCls=isOut?'row-out':'';const cancelBdg=isOut?'<span class="bdg bdg-out" style="font-size:9px;">당일퇴소</span>':'';regHtml+=`<tr class="${rowCls}"><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td>${h(r.장학)}</td><td class="new-cell">${r._conv?'<span class="bdg" style="background:#E3F2FD;color:#0D47A1;font-size:10px;">완납전환</span>':(isNew?(r._lump?'신규(일시납)':'신규'):'')}${cancelBdg}</td></tr>`;});
+  regsSorted.forEach((r,i)=>{const isOut=r._isOut;const isNew=r._isNew;const rowCls=isOut?'row-out':'';const cancelBdg=isOut?'<span class="bdg bdg-out" style="font-size:9px;">당일퇴소</span>':'';regHtml+=`<tr class="${rowCls}"><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(termBase(r.내역))}</td><td>${h(r.장학)}</td><td class="new-cell">${r._conv?'<span class="bdg" style="background:#E3F2FD;color:#0D47A1;font-size:10px;">완납전환</span>':(isNew?(r._lump?'신규(일시납)':'신규'):'')}${cancelBdg}</td></tr>`;});
   if(!regHtml)regHtml=`<tr><td colspan="8" style="text-align:center;color:#bbb;padding:16px;">등록 내역 없음</td></tr>`;
   document.getElementById('regBody').innerHTML=regHtml;
   const refAll=applyDailySort('ref', [...refPayments,...refWithdrawals]);
@@ -2117,8 +2141,8 @@ function renderDaily(){
     const dot=refPersonColor[r.수험번호]?`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${refPersonColor[r.수험번호]};border:1.5px solid #888;margin-right:3px;vertical-align:middle;"></span>`:'';
     // 내역 셀: 퇴소 레코드(_refId 있음)면 클릭해서 수정 가능
     const termCell = r._refId
-      ? `<td class="edit-cell" onclick="editRefundTerm('${r._refId}',${r._termIdx})" title="클릭하여 내역 수정">${h(r.내역)} ✏️</td>`
-      : `<td>${h(r.내역)}</td>`;
+      ? `<td class="edit-cell" onclick="editRefundTerm('${r._refId}',${r._termIdx})" title="클릭하여 내역 수정">${h(termBase(r.내역))} ✏️</td>`
+      : `<td>${h(termBase(r.내역))}</td>`;
     const delBtn = r._refId
       ? `<td><button onclick="deleteRefundRecord('${r._refId}',${r._termIdx},'reg')" style="background:none;border:none;cursor:pointer;color:var(--danger);" title="삭제">🗑️</button></td>`
       : `<td></td>`;
@@ -2137,7 +2161,7 @@ function deleteRefundRecord(refId, termIdx, type){
   openModal('🗑️ 환불 내역 삭제',
     `<div style="font-size:13px;line-height:1.9;">
       <strong>${h(rec.이름)}</strong> (${h(rec.수험번호||'')})의<br>
-      <strong>${h(term)}</strong> 환불 기록을 삭제합니다.<br>
+      <strong>${h(termText(term))}</strong> 환불 기록을 삭제합니다.<br>
       <span style="color:var(--danger);font-size:11px;">※ 삭제 시 해당 학생의 납부 상태가 활성으로 복원됩니다.</span>
     </div>`,
     [{label:'삭제',cls:'btn-red',fn:()=>{
@@ -2168,11 +2192,11 @@ function editRefundTerm(refId, termIdx){
   // 선택 가능한 기수 목록
   const kwTerms = [...(S.cfg.keywords||[]).map(k=>k.term), ...(S.cfg.danchaKeywords||[]).map(k=>k.term), ...ALL_TERMS];
   const allTerms = [...new Set([...VP().map(p=>p.내역).filter(Boolean), ...kwTerms])];
-  const opts = allTerms.map(t=>`<option value="${h(t)}" ${t===currentTerm?'selected':''}>${h(t)}</option>`).join('');
+  const opts = allTerms.map(t=>`<option value="${h(t)}" ${t===currentTerm?'selected':''}>${h(termText(t))}</option>`).join('');
   openModal('✏️ 환불 내역 수정',
     `<div style="font-size:13px;margin-bottom:10px;">
       <strong>${h(rec.이름)}</strong> (${h(rec.수험번호||'')})의 환불 내역을 수정합니다.<br>
-      <span style="font-size:11px;color:var(--muted);">현재: <strong>${h(currentTerm)}</strong></span>
+      <span style="font-size:11px;color:var(--muted);">현재: <strong>${h(termText(currentTerm))}</strong></span>
     </div>
     <select class="inp" id="editRefTermSel" style="width:100%;margin-bottom:8px;">${opts}</select>
     <input class="inp" id="editRefTermCustom" placeholder="직접 입력 (위 목록에 없는 경우)" style="width:100%;">
@@ -2198,11 +2222,11 @@ function renderDaily2(){
   const regs=applyDailySort('reg2', sortByBan(VD().filter(p=>uploadedOf(p)===date&&p.status==='active'&&termYear(p.내역)===Y)));
   const cancels=applyDailySort('cancel', sortByBan(S.danchaRefunds.filter(r=>(refDate(r))===date).flatMap(r=>r.removedTerms.map((term,ti)=>({반:r.반||'',번호:r.번호||'',수험번호:r.수험번호,이름:r.이름,내역:term,_refId:r.id,_termIdx:ti}))).filter(x=>termYear(x.내역)===Y)));
   let regHtml='';
-  regs.forEach((r,i)=>{regHtml+=`<tr><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td>${h(r.장학||'')}</td></tr>`;});
+  regs.forEach((r,i)=>{regHtml+=`<tr><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(termBase(r.내역))}</td><td>${h(r.장학||'')}</td></tr>`;});
   if(!regHtml)regHtml=`<tr><td colspan="7" style="text-align:center;color:#bbb;padding:16px;">등록 내역 없음</td></tr>`;
   document.getElementById('regBody2').innerHTML=regHtml;
   let canHtml='';
-  cancels.forEach(r=>{canHtml+=`<tr><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td style="color:#8E44AD;font-weight:700;">${fmtShort(date)}</td><td><button onclick="deleteRefundRecord('${r._refId}',${r._termIdx},'dancha')" style="background:none;border:none;cursor:pointer;color:var(--danger);" title="삭제">🗑️</button></td></tr>`;});
+  cancels.forEach(r=>{canHtml+=`<tr><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(termBase(r.내역))}</td><td style="color:#8E44AD;font-weight:700;">${fmtShort(date)}</td><td><button onclick="deleteRefundRecord('${r._refId}',${r._termIdx},'dancha')" style="background:none;border:none;cursor:pointer;color:var(--danger);" title="삭제">🗑️</button></td></tr>`;});
   if(!canHtml)canHtml=`<tr><td colspan="6" style="text-align:center;color:#bbb;padding:16px;">취소 내역 없음</td></tr>`;
   document.getElementById('cancelBody').innerHTML=canHtml;
 }
@@ -2239,13 +2263,15 @@ function renderTodayUploads(){
   const currentFilter=termFilterEl?termFilterEl.value:'';
   const allTerms=[...new Set(all.map(r=>r.내역).filter(Boolean))].sort((a,b)=>extractMonth(a)-extractMonth(b)||a.localeCompare(b));
   if(termFilterEl){
-    termFilterEl.innerHTML='<option value="">전체 ▼</option>'+allTerms.map(t=>`<option value="${h(t)}" ${t===currentFilter?'selected':''}>${h(t)}</option>`).join('');
+    termFilterEl.innerHTML='<option value="">전체 ▼</option>'+termOptionsHtml(allTerms,currentFilter);
   }
   // 필터 적용
   const filtered=currentFilter?all.filter(r=>r.내역===currentFilter):all;
   document.getElementById('checkedCount').textContent='';
   document.getElementById('checkAll').checked=false;
   if(document.getElementById('checkAllHeader'))document.getElementById('checkAllHeader').checked=false;
+  // 매칭실패 줄: 같은 수험번호의 윈터 선금 기록이 있으면 '선금_납' (완납 처리 대상 구분용)
+  const instFirstByNum=new Set(S.pays.filter(p=>p.수험번호&&isInstFirst(p.내역)&&p.status!=='퇴소').map(p=>p.수험번호));
   let html='';let idx=1;
   for(const r of filtered){
     const isDan=r._type==='dancha';
@@ -2253,12 +2279,13 @@ function renderTodayUploads(){
     const isDup=(keyCount[`${r.내역}||${r.수험번호}`]||0)>1&&r.status==='active';
     const rc=isDup?'row-dup':r._unmatched?'row-unmatched':isOut?'row-out':'';
     const typeBdg=isDan?'<span class="bdg" style="background:#CCE5FF;color:var(--d1);">단과</span>':'<span class="bdg bdg-ok">정규</span>';
-    const statusBdg=isDup?'<span class="bdg bdg-dup">중복</span>':isOut?'<span class="bdg bdg-out">퇴소</span>':'<span class="bdg bdg-ok">등록</span>';
+    const statusBdg=isDup?'<span class="bdg bdg-dup">중복</span>':isOut?'<span class="bdg bdg-out">퇴소</span>':r.status==='완납전환'?'<span class="bdg" style="background:#E3F2FD;color:#0D47A1;">완납전환</span>':r.status==='일시납'?'<span class="bdg" style="background:#EEE;color:#555;">일시납(병합)</span>':'<span class="bdg bdg-ok">등록</span>';
+    const priorBdg=(r._unmatched&&!isDan&&instFirstByNum.has(r.수험번호))?'<span class="bdg" style="background:#FFF3CD;color:#856404;margin-left:3px;">선금_납</span>':'';
     const unmBdg=r._unmatched?'<span class="bdg bdg-unmatched">매칭실패</span>':'';
     html+=`<tr class="${rc}">
       <td><input type="checkbox" class="row-check" data-id="${r.id}" data-type="${isDan?'dancha':'reg'}" onchange="updateCheckedCount()"></td>
       <td>${idx++}</td><td>${typeBdg}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td>
-      <td><span class="edit-cell" onclick="editTerm('${r.id}','${isDan?'dancha':'reg'}')">${h(r.내역)}</span>${unmBdg}</td>
+      <td><span class="edit-cell" onclick="editTerm('${r.id}','${isDan?'dancha':'reg'}')">${termLabel(r.내역)}</span>${unmBdg}${priorBdg}</td>
       <td style="text-align:right;">${r.결제금액.toLocaleString()}</td><td>${h(r.장학)}</td>
       <td>${statusBdg}</td>
       <td><button onclick="deleteRecord('${r.id}','${isDan?'dancha':'reg'}')" style="background:none;border:none;cursor:pointer;">🗑️</button></td>
@@ -2362,32 +2389,40 @@ function clearTodayUploads(){
     }},{label:'취소',cls:'btn-ghost',fn:closeModal}]
   );
 }
+function refreshAfterEdit(){
+  try{autoDetectTerms();}catch(e){}
+  updateTermFilter();renderFilterChips();renderFilterChips2();
+  renderTodayUploads();renderPayHistory();renderPayHistory2();renderUnpaid();
+  renderDash();renderDash2();
+  try{renderDaily();renderDaily2();}catch(e){}
+}
 function editTerm(id,type){
   const arr=type==='dancha'?S.dancha:S.pays;
   const r=arr.find(p=>p.id===id);if(!r)return;
-  const kwOptions=[...(type==='dancha'?S.cfg.danchaKeywords:S.cfg.keywords).map(k=>k.term),...(type==='dancha'?ALL_TERMS:[...ALL_TERMS])].filter((v,i,a)=>a.indexOf(v)===i);
-  const opts=kwOptions.map(t=>`<option value="${h(t)}" ${t===r.내역?'selected':''}>${h(t)}</option>`).join('');
+  const defY=S.cfg.defaultYear||LEGACY_YEAR;
+  const kwList=type==='dancha'?(S.cfg.danchaKeywords||[]):(S.cfg.keywords||[]);
+  // 설정해둔 변환 기수명 + 그 키워드에 지정된 반영 학년도 (학년도를 따로 고를 필요 없음)
+  const entries=[],seen=new Set();
+  const addE=(term,yr)=>{const k=term+'\u0001'+yr;if(seen.has(k))return;seen.add(k);entries.push({term,yr});};
+  kwList.forEach(k=>addE(k.term,k.yr||defY));
+  if(type!=='dancha')ALL_TERMS.forEach(x=>addE(x,defY));
+  const yrsOf={};entries.forEach(x=>{(yrsOf[x.term]=yrsOf[x.term]||new Set()).add(x.yr);});
+  const curVal=termBase(r.내역)+'\u0001'+termYear(r.내역);
+  const opts=entries.map(x=>{const val=x.term+'\u0001'+x.yr;const label=yrsOf[x.term].size>1?`${x.term} · ${x.yr}학년도`:x.term;return`<option value="${h(val)}" ${val===curVal?'selected':''}>${h(label)}</option>`;}).join('');
   openModal('✏️ 내역 수정',`<div style="font-size:13px;margin-bottom:10px;"><strong>${h(r.이름)}</strong> (${h(r.수험번호)})</div><select class="inp" id="editTermSel" style="width:100%;">${opts}</select><div style="margin-top:8px;"><input class="inp" id="editTermCustom" placeholder="직접 입력 (없을 경우)" style="width:100%;"></div>`,
     [{label:'저장',cls:'btn-g',fn:()=>{
-      const v=document.getElementById('editTermCustom').value.trim()||document.getElementById('editTermSel').value;
-      if(v){
-        r.내역=(type==='dancha')?v:withYear(v,termYear(r.내역));
-        r._unmatched=false;
-        reconcileInst();
-        closeModal();
-        save();
-        // 약간 딜레이 후 렌더링 (연속 수정 시에도 반영 보장)
-        setTimeout(()=>{
-          updateTermFilter();
-          renderFilterChips();renderFilterChips2();
-          renderTodayUploads();
-          renderPayHistory();renderPayHistory2();
-          renderDash();renderDash2();
-          toast('내역 수정 완료 — 중복 여부 재확인됨');
-        },50);
-      } else {
-        closeModal();
-      }
+      const custom=document.getElementById('editTermCustom').value.trim();
+      let term,yr;
+      if(custom){term=termBase(custom);yr=termYear(r.내역);}
+      else{const v=document.getElementById('editTermSel').value;if(!v){closeModal();return;}[term,yr]=v.split('\u0001');}
+      r.내역=withYear(term,yr);r.학년도=yr;
+      r._unmatched=false;
+      if(type!=='dancha')reconcileInst();
+      closeModal();
+      save();
+      refreshAfterEdit();                       // 바로 반영
+      setTimeout(refreshAfterEdit,60);          // 연속 수정 시에도 반영 보장
+      toast(`내역 수정 완료 — ${yr}학년도 ${term}`);
     }},{label:'취소',cls:'btn-ghost',fn:closeModal}]);
 }
 
@@ -2433,8 +2468,8 @@ function renderPayHistory(){
     const bdg=isDup?'<span class="bdg bdg-dup">중복</span>':isOut?'<span class="bdg bdg-out">퇴소</span>':isNew?'<span class="bdg bdg-new">신규</span>':isUnpaid?'<span class="bdg bdg-unpaid">미납</span>':'<span class="bdg bdg-ok">정상</span>';
     const typeBdg=isOut?'<span class="bdg bdg-ref">환불</span>':'<span class="bdg bdg-reg">등록</span>';
     const _conv=r.status==='완납전환'?'<span class="bdg" style="background:#E3F2FD;color:#0D47A1;">완납전환</span>':(r.status==='일시납'?'<span class="bdg" style="background:#EEE;color:#555;">일시납(병합)</span>':'');
-    if(r.내역!==lastTerm){const tc=rows.filter(x=>x.내역===r.내역).length;const te=r.내역.replace(/'/g,"\\'");html+=`<tr><td colspan="12" style="background:var(--g1);color:var(--gold);font-weight:700;font-size:11px;padding:4px 12px;"><span style="display:flex;align-items:center;justify-content:space-between;"><span>📋 ${h(r.내역)} (${tc}명)</span><button onclick="deleteByTerm('${te}')" style="background:var(--danger);color:#fff;border:none;border-radius:3px;padding:1px 8px;font-size:10px;cursor:pointer;">🗑️ 삭제</button></span></td></tr>`;lastTerm=r.내역;idx=1;}
-    html+=`<tr class="${rc}"><td>${isDup?'':idx++}</td><td>${typeBdg}</td><td>${h(r.uploadedDate||r.결제일자)}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td style="text-align:right;">${r.결제금액.toLocaleString()}</td><td>${h(r.장학)}</td><td>${_conv||bdg}</td><td><button onclick="deleteRecord('${r.id}','reg')" style="background:none;border:none;cursor:pointer;">🗑️</button></td></tr>`;
+    if(r.내역!==lastTerm){const tc=rows.filter(x=>x.내역===r.내역).length;const te=r.내역.replace(/'/g,"\\'");html+=`<tr><td colspan="12" style="background:var(--g1);color:var(--gold);font-weight:700;font-size:11px;padding:4px 12px;"><span style="display:flex;align-items:center;justify-content:space-between;"><span>📋 ${termLabel(r.내역)} (${tc}명)</span><button onclick="deleteByTerm('${te}')" style="background:var(--danger);color:#fff;border:none;border-radius:3px;padding:1px 8px;font-size:10px;cursor:pointer;">🗑️ 삭제</button></span></td></tr>`;lastTerm=r.내역;idx=1;}
+    html+=`<tr class="${rc}"><td>${isDup?'':idx++}</td><td>${typeBdg}</td><td>${h(r.uploadedDate||r.결제일자)}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${termLabel(r.내역)}</td><td style="text-align:right;">${r.결제금액.toLocaleString()}</td><td>${h(r.장학)}</td><td>${_conv||bdg}</td><td><button onclick="deleteRecord('${r.id}','reg')" style="background:none;border:none;cursor:pointer;">🗑️</button></td></tr>`;
   }
   if(!html)html=`<tr><td colspan="12" style="text-align:center;color:#bbb;padding:24px;">데이터 없음</td></tr>`;
   document.getElementById('payBody').innerHTML=html;
@@ -2452,7 +2487,7 @@ function renderPayHistory2(){
   const sel=document.getElementById('payTermFilter2');
   const cur=sel?.value||'';
   const terms=[...new Set(VD().map(p=>p.내역).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
-  if(sel) sel.innerHTML='<option value="">전체 내역</option>'+terms.map(t=>`<option value="${h(t)}" ${t===cur?'selected':''}>${h(t)}</option>`).join('');
+  if(sel) sel.innerHTML='<option value="">전체 내역</option>'+termOptionsHtml(terms,cur);
 
   let rows=VD().filter(p=>{
     if(search&&!p.이름.toLowerCase().includes(search)&&!p.수험번호.toLowerCase().includes(search)&&!(p.번호||'').toLowerCase().includes(search))return false;
@@ -2469,10 +2504,10 @@ function renderPayHistory2(){
     if(r.내역!==lastTerm){
       const tc=rows.filter(x=>x.내역===r.내역).length;
       const te=r.내역.replace(/'/g,"\\'");
-      html+=`<tr><td colspan="12" style="background:var(--d1);color:#fff;font-weight:700;font-size:11px;padding:4px 12px;"><span style="display:flex;align-items:center;justify-content:space-between;"><span>📘 ${h(r.내역)} (${tc}명)</span><button onclick="deleteByTermDancha('${te}')" style="background:var(--danger);color:#fff;border:none;border-radius:3px;padding:1px 8px;font-size:10px;cursor:pointer;">🗑️ 삭제</button></span></td></tr>`;
+      html+=`<tr><td colspan="12" style="background:var(--d1);color:#fff;font-weight:700;font-size:11px;padding:4px 12px;"><span style="display:flex;align-items:center;justify-content:space-between;"><span>📘 ${termLabel(r.내역)} (${tc}명)</span><button onclick="deleteByTermDancha('${te}')" style="background:var(--danger);color:#fff;border:none;border-radius:3px;padding:1px 8px;font-size:10px;cursor:pointer;">🗑️ 삭제</button></span></td></tr>`;
       lastTerm=r.내역;idx=1;
     }
-    html+=`<tr class="${rc}"><td>${idx++}</td><td>${typeBdg}</td><td>${h(r.uploadedDate||r.결제일자)}</td><td>${h(r.반||'')}</td><td>${h(r.번호||'')}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td style="text-align:right;">${r.결제금액.toLocaleString()}</td><td>${h(r.장학||'')}</td><td>${statusBdg}</td><td><button onclick="deleteRecord('${r.id}','dancha')" style="background:none;border:none;cursor:pointer;">🗑️</button></td></tr>`;
+    html+=`<tr class="${rc}"><td>${idx++}</td><td>${typeBdg}</td><td>${h(r.uploadedDate||r.결제일자)}</td><td>${h(r.반||'')}</td><td>${h(r.번호||'')}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${termLabel(r.내역)}</td><td style="text-align:right;">${r.결제금액.toLocaleString()}</td><td>${h(r.장학||'')}</td><td>${statusBdg}</td><td><button onclick="deleteRecord('${r.id}','dancha')" style="background:none;border:none;cursor:pointer;">🗑️</button></td></tr>`;
   }
   if(!html)html=`<tr><td colspan="12" style="text-align:center;color:#bbb;padding:24px;">단과 데이터 없음</td></tr>`;
   document.getElementById('payBody2').innerHTML=html;
@@ -2483,7 +2518,7 @@ function renderPayHistory2(){
 
 function deleteByTermDancha(term){
   const cnt=S.dancha.filter(p=>p.내역===term).length;
-  openModal(`🗑️ "${term}" 단과 전체 삭제`,`<strong>${h(term)}</strong> 단과 ${cnt}명을 전부 삭제합니다.<br><span style="color:var(--danger);font-size:11px;">취소 기록도 함께 삭제됩니다.</span>`,
+  openModal(`🗑️ "${termText(term)}" 단과 전체 삭제`,`<strong>${h(termText(term))}</strong> 단과 ${cnt}명을 전부 삭제합니다.<br><span style="color:var(--danger);font-size:11px;">취소 기록도 함께 삭제됩니다.</span>`,
     [{label:'삭제',cls:'btn-red',fn:()=>{S.dancha=S.dancha.filter(p=>p.내역!==term);save();closeModal();renderPayHistory2();renderDash2();renderFilterChips2();toast(`✅ "${term}" 단과 삭제 완료`);}},{label:'취소',cls:'btn-ghost',fn:closeModal}]);
 }
 
@@ -2539,7 +2574,7 @@ function exportGrandTotalExcel(){
   if(!rows.length){toast('데이터가 없습니다');return;}
   const multi=years.length>1||years[0]!==LEGACY_YEAR;
   const headers=multi?['학년도','반','학번','수험번호','성명','최신납부내역','결제금액','장학']:['반','학번','수험번호','성명','최신납부내역','결제금액','장학'];
-  const data=[headers,...rows.map(r=>multi?[termYear(r.내역)+'학년도',r.반||'',r.번호||'',r.수험번호,r.이름,r.내역,r.결제금액,r.장학||'']:[r.반||'',r.번호||'',r.수험번호,r.이름,r.내역,r.결제금액,r.장학||''])];
+  const data=[headers,...rows.map(r=>multi?[termYear(r.내역)+'학년도',r.반||'',r.번호||'',r.수험번호,r.이름,termBase(r.내역),r.결제금액,r.장학||'']:[r.반||'',r.번호||'',r.수험번호,r.이름,termBase(r.내역),r.결제금액,r.장학||''])];
   const wb2=XLSX.utils.book_new();
   const ws2=XLSX.utils.aoa_to_sheet(data);
   ws2['!cols']=headers.map(()=>({wch:14}));
@@ -2556,7 +2591,7 @@ function exportUnpaidExcel(){
   const unpaid=sortByBan(VP().filter(p=>p.status==='active'&&(S.cfg.prevTerms||[]).includes(p.내역)&&!currIds.has(p.수험번호)&&!미납퇴소Set.has(p.수험번호)));
   if(!unpaid.length){toast('미납자가 없습니다');return;}
   const headers=['반','학번','수험번호','성명','수강 내역'];
-  const data=[headers,...unpaid.map(r=>[r.반||'',r.번호||'',r.수험번호,r.이름,r.내역])];
+  const data=[headers,...unpaid.map(r=>[r.반||'',r.번호||'',r.수험번호,r.이름,termBase(r.내역)])];
   const wb=XLSX.utils.book_new();
   const ws=XLSX.utils.aoa_to_sheet(data);
   ws['!cols']=headers.map(()=>({wch:14}));
@@ -2572,9 +2607,9 @@ function renderUnpaidMain(){
   const 미납퇴소Set=new Set(S.미납퇴소.filter(r=>(r.year||LEGACY_YEAR)===_uy).map(r=>r.수험번호));
   const currIds=new Set(VP().filter(p=>p.status==='active'&&(S.cfg.currTerms||[]).includes(p.내역)).map(p=>p.수험번호));
   const unpaid=sortByBan(VP().filter(p=>p.status==='active'&&(S.cfg.prevTerms||[]).includes(p.내역)&&!currIds.has(p.수험번호)&&!미납퇴소Set.has(p.수험번호)));
-  document.getElementById('unpaidLabel').textContent=`수강: ${(S.cfg.prevTerms||[]).join(', ')} → 선납: ${(S.cfg.currTerms||[]).join(', ')}`;
+  document.getElementById('unpaidLabel').textContent=`수강: ${(S.cfg.prevTerms||[]).map(termText).join(', ')} → 선납: ${(S.cfg.currTerms||[]).map(termText).join(', ')}`;
   let html='';
-  unpaid.forEach((r,i)=>{html+=`<tr><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td><button class="btn btn-sm btn-red" onclick="quickWithdraw('${r.수험번호}','${h(r.이름)}')">퇴소처리</button></td></tr>`;});
+  unpaid.forEach((r,i)=>{html+=`<tr><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${termLabel(r.내역)}</td><td><button class="btn btn-sm btn-red" onclick="quickWithdraw('${r.수험번호}','${h(r.이름)}')">퇴소처리</button></td></tr>`;});
   if(!html)html=`<tr><td colspan="7" style="text-align:center;color:#bbb;padding:16px;">미납자 없음</td></tr>`;
   document.getElementById('unpaidBody').innerHTML=html;
   // 미납퇴소 처리 목록
@@ -2658,8 +2693,11 @@ function getSmartRemovedRecs(recs, date){
 }
 function findActiveRecs(val){
   const v=val.trim();if(!v)return[];
-  const Y=resolveDailyYear('reg');   // 선택된 학년도 탭의 학생만 (학년도가 다르면 다른 학생)
-  return S.pays.filter(p=>p.status==='active'&&p.수험번호===v&&termYear(p.내역)===Y);
+  // 수험번호로 학년도를 자동 판별 (학년도가 다르면 다른 학생이라 해당 학년도 기록만 처리)
+  const all=VP().filter(p=>p.status==='active'&&p.수험번호===v);
+  if(!all.length)return[];
+  const Y=pickYearForNum(all,resolveDailyYear('reg'));
+  return all.filter(p=>termYear(p.내역)===Y);
 }
 function processRefundInput(){
   const date=document.getElementById('dailyDate').value||todayStr();
@@ -2693,10 +2731,10 @@ function showRefundModal(val,recs){
   const termOptions=[...new Set([...existTerms,...kwTerms.map(x=>withYear(x,_Yr))])].filter(Boolean);
 
   const selectedTermIds=displayRecs.map(r=>r.id);
-  const opts=termOptions.map(t=>`<option value="${h(t)}">${h(t)}</option>`).join('');
+  const opts=termOptions.map(t=>`<option value="${h(t)}">${h(termText(t))}</option>`).join('');
   const checkboxes=recs.map(r=>{
     const checked=selectedTermIds.includes(r.id)?'checked':'';
-    return`<label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:12px;cursor:pointer;"><input type="checkbox" class="refund-term-check" value="${r.id}" ${checked}> ${h(r.내역)}</label>`;
+    return`<label style="display:flex;align-items:center;gap:6px;padding:4px 0;font-size:12px;cursor:pointer;"><input type="checkbox" class="refund-term-check" value="${r.id}" ${checked}> ${termLabel(r.내역)}</label>`;
   }).join('');
 
   const fallbackNote=autoFallback?`<div style="background:#FFF3CD;border-radius:5px;padding:6px 10px;font-size:11px;color:#856404;margin-bottom:8px;">⚠️ 현재 수강 내역 없음 → 마지막 납부 기수 자동 선택됨</div>`:'';
@@ -2707,7 +2745,7 @@ function showRefundModal(val,recs){
   openModal('🚪 퇴소 처리 확인',
     `<div style="background:#FEF0EE;border-radius:5px;padding:10px;margin-bottom:10px;">
       <div style="font-size:14px;font-weight:700;">${h(student.이름)}</div>
-      <div style="font-size:11px;color:#1B3A5C;font-weight:700;">📅 ${_Yr}학년도</div>
+      <div style="font-size:11px;color:#1B3A5C;font-weight:700;">📅 ${_Yr}학년도 학생</div>
       <div style="font-size:12px;color:var(--muted);">학번:${h(student.번호||'-')} 수험번호:${h(student.수험번호||'-')} 반:${h(student.반)}</div>
     </div>
     ${fallbackNote}
@@ -2763,6 +2801,7 @@ function confirmRefundFromModal(val,recs){
   });
   save();closeModal();
   document.getElementById('refundInput').value='';
+  _dailyYear=termYear(student.내역);   // 처리한 학생의 학년도 탭으로 이동 → 환불 칸에서 바로 확인
   renderDaily();renderDash();renderPayHistory();renderUnpaid();
   toast(`✅ ${student.이름} 퇴소 완료 — [${allRemovedTerms.join(', ')}]`);
 }
@@ -2815,9 +2854,10 @@ let _danchaLookupRecs=[];
 function lookupDanchaStudent(){
   const val=document.getElementById('danchaStudentInput').value.trim();
   if(!val){toast('학번 또는 수험번호를 입력하세요');return;}
-  const Y=resolveDailyYear('dancha');
-  const recs=S.dancha.filter(p=>p.status==='active'&&p.환불금액===0&&termYear(p.내역)===Y&&(p.번호===val||p.수험번호===val||p.이름===val));
-  if(!recs.length){toast(`${Y}학년도에 등록된 단과 내역이 없습니다 (${val})`);return;}
+  const allRecs=VD().filter(p=>p.status==='active'&&p.환불금액===0&&(p.번호===val||p.수험번호===val||p.이름===val));
+  const Y=allRecs.length?pickYearForNum(allRecs,resolveDailyYear('dancha')):resolveDailyYear('dancha');
+  const recs=allRecs.filter(p=>termYear(p.내역)===Y);
+  if(!recs.length){toast(`등록된 단과 내역이 없습니다 (${val})`);return;}
   _danchaLookupRecs=recs;
   const student=recs[0];
   let body=`<div style="font-size:13px;color:var(--muted);margin-bottom:12px;">${h(student.이름)} (${h(student.수험번호)}) — 취소할 과목을 선택하세요</div>`;
@@ -2825,7 +2865,7 @@ function lookupDanchaStudent(){
   recs.forEach((r,i)=>{
     body+=`<label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:9px 12px;background:#F8F8F8;border:1px solid var(--border);border-radius:7px;transition:background 0.15s;" onmouseenter="this.style.background='#EEF6F0'" onmouseleave="this.style.background='#F8F8F8'">
       <input type="checkbox" data-idx="${i}" style="width:16px;height:16px;cursor:pointer;accent-color:var(--d1);">
-      <span style="font-size:13px;font-weight:600;">${h(r.내역)}</span>
+      <span style="font-size:13px;font-weight:600;">${h(termBase(r.내역))}</span>
       ${r.장학?`<span style="font-size:11px;color:var(--g1);margin-left:auto;">${h(r.장학)}</span>`:''}
     </label>`;
   });
@@ -2856,6 +2896,7 @@ function cancelSelectedDancha(){
   closeModal();
   document.getElementById('danchaStudentInput').value='';
   toast(`✅ ${_danchaLookupRecs[0].이름} 단과 ${count}개 취소 완료`);
+  _dailyYear2=termYear(_danchaLookupRecs[0].내역);
   renderDaily2();renderDash2();
   save();
 }
@@ -2897,11 +2938,12 @@ function processCancelExcel(e){
         const termRaw=termIdx>=0?String(row[termIdx]||'').trim():'';
         if(!val)continue;
         const matched=applyKeywords(termRaw);
-        const term=withYear(matched.term,Yc);
-        // 수험번호 + 내역 매칭 (선택된 학년도 안에서만)
-        let recs=S.dancha.filter(p=>p.status==='active'&&p.수험번호===val&&p.내역===term);
-        // 내역 매칭 실패 시 수험번호만으로
-        if(!recs.length) recs=S.dancha.filter(p=>p.status==='active'&&p.수험번호===val&&termYear(p.내역)===Yc);
+        // 수험번호로 학년도 자동 판별 → 그 학년도 안에서 기수명으로 매칭, 실패 시 그 학생의 해당 학년도 전체
+        const cand=VD().filter(p=>p.status==='active'&&p.수험번호===val);
+        const cy=cand.length?pickYearForNum(cand,Yc):Yc;
+        const inY=cand.filter(p=>termYear(p.내역)===cy);
+        let recs=inY.filter(p=>termBase(p.내역)===termBase(matched.term));
+        if(!recs.length) recs=inY;
         if(!recs.length){fail.push(`${val}(${termRaw})`);continue;}
         const student=recs[0];
         for(const r of recs){r.status='cancelled';r.withdrawnAt=Date.now();}
@@ -2948,12 +2990,12 @@ function copyAllHakbun2(){
 function deleteRecord(id,type){
   const arr=type==='dancha'?S.dancha:S.pays;
   const r=arr.find(p=>p.id===id);if(!r)return;
-  openModal('🗑️ 삭제 확인',`<strong>${h(r.이름)}</strong> (${h(r.수험번호)})<br>내역: <strong>${h(r.내역)}</strong><br><span style="color:var(--danger);font-size:11px;">이 기록을 삭제하시겠습니까?</span>`,
+  openModal('🗑️ 삭제 확인',`<strong>${h(r.이름)}</strong> (${h(r.수험번호)})<br>내역: <strong>${h(termText(r.내역))}</strong><br><span style="color:var(--danger);font-size:11px;">이 기록을 삭제하시겠습니까?</span>`,
     [{label:'삭제',cls:'btn-red',fn:()=>{if(type==='dancha')S.dancha=S.dancha.filter(p=>p.id!==id);else{S.pays=S.pays.filter(p=>p.id!==id);reconcileInst();}save();closeModal();updateTermFilter();renderTodayUploads();renderPayHistory();renderUnpaid();renderDash();renderDash2();renderFilterChips();renderFilterChips2();toast(`✅ 삭제 완료`);}},{label:'취소',cls:'btn-ghost',fn:closeModal}]);
 }
 function deleteByTerm(term){
   const cnt=S.pays.filter(p=>p.내역===term).length;
-  openModal(`🗑️ "${term}" 전체 삭제`,`<strong>${h(term)}</strong> 내역 ${cnt}명을 전부 삭제합니다.<br><span style="color:var(--danger);font-size:11px;">퇴소 기록도 함께 삭제됩니다.</span>`,
+  openModal(`🗑️ "${termText(term)}" 전체 삭제`,`<strong>${h(termText(term))}</strong> 내역 ${cnt}명을 전부 삭제합니다.<br><span style="color:var(--danger);font-size:11px;">퇴소 기록도 함께 삭제됩니다.</span>`,
     [{label:'삭제',cls:'btn-red',fn:()=>{S.pays=S.pays.filter(p=>p.내역!==term);reconcileInst();save();closeModal();updateTermFilter();renderPayHistory();renderUnpaid();renderDash();renderFilterChips();toast(`✅ "${term}" 삭제 완료`);}},{label:'취소',cls:'btn-ghost',fn:closeModal}]);
 }
 
@@ -2963,14 +3005,14 @@ function exportDailyExcel(){
   const Y=resolveDailyYear('reg');
   const prevIds=new Set(S.pays.filter(p=>p.status==='active'&&yearCfg(Y).prev.includes(p.내역)).map(p=>p.수험번호));
   const convSet=new Set(S.pays.filter(f=>f.convertedTo&&f.status==='완납전환').map(f=>f.convertedTo));
-  const newLabel=reg=>isInstFinal(reg.내역)?(convSet.has(reg.id)?'완납전환':(reg.일시납?'신규(일시납)':'신규')):(!prevIds.has(reg.수험번호)?'신규':'');
+  const newLabel=reg=>isInstFinal(termBase(reg.내역))?(convSet.has(reg.id)?'완납전환':(reg.일시납?'신규(일시납)':'신규')):(!prevIds.has(reg.수험번호)?'신규':'');
   const regs=sortByBan(S.pays.filter(p=>uploadedOf(p)===date&&p.환불금액===0&&(p.status==='active'||p.status==='완납전환')&&termYear(p.내역)===Y));
   const refs=sortByBan([...S.pays.filter(p=>uploadedOf(p)===date&&p.환불금액>0&&termYear(p.내역)===Y),...S.refunds.filter(r=>(refDate(r))===date).map(r=>({반:r.반,번호:r.번호||'',수험번호:r.수험번호,이름:r.이름,내역:r.removedTerms.filter(x=>termYear(x)===Y).join('/'),장학:r.장학||''})).filter(r=>r.내역)]);
   const wb=XLSX.utils.book_new();const rows=[];
   rows.push([date,'','','','재수정규반 일일 등록 명단 ('+Y+'학년도)']);rows.push(['']);
   rows.push(['no','반','학번','수험번호','성명','등록','장학','신규','','반','학번','수험번호','성명','등록','환불','장학']);
   const maxLen=Math.max(regs.length,refs.length);
-  for(let i=0;i<maxLen;i++){const reg=regs[i];const ref=refs[i];rows.push([reg?i+1:'',reg?reg.반:'',reg?reg.번호:'',reg?reg.수험번호:'',reg?reg.이름:'',reg?reg.내역:'',reg?reg.장학:'',reg?newLabel(reg):'','',ref?ref.반:'',ref?(ref.번호||''):'',ref?ref.수험번호:'',ref?ref.이름:'',ref?ref.내역:'',ref?fmtShort(date):'',ref?(ref.장학||''):'']);}
+  for(let i=0;i<maxLen;i++){const reg=regs[i];const ref=refs[i];rows.push([reg?i+1:'',reg?reg.반:'',reg?reg.번호:'',reg?reg.수험번호:'',reg?reg.이름:'',reg?termBase(reg.내역):'',reg?reg.장학:'',reg?newLabel(reg):'','',ref?ref.반:'',ref?(ref.번호||''):'',ref?ref.수험번호:'',ref?ref.이름:'',ref?ref.내역.split('/').map(termBase).join('/'):'',ref?fmtShort(date):'',ref?(ref.장학||''):'']);}
   const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=Array(16).fill({wch:11});
   XLSX.utils.book_append_sheet(wb,ws,'일일등록명단');XLSX.writeFile(wb,`QUETTA_일일등록명단_${date}${Y!==LEGACY_YEAR?'_'+Y+'학년도':''}.xlsx`);toast('엑셀 다운로드 완료');
 }
@@ -2983,7 +3025,7 @@ function exportDailyExcel2(){
   rows.push([date,'','단과 일일 등록 명단']);rows.push(['']);
   rows.push(['no','반','학번','수험번호','성명','내역','장학','','반','학번','수험번호','성명','내역','취소']);
   const maxLen=Math.max(regs.length,cancels.length);
-  for(let i=0;i<maxLen;i++){const reg=regs[i];const can=cancels[i];rows.push([reg?i+1:'',reg?reg.반:'',reg?reg.번호:'',reg?reg.수험번호:'',reg?reg.이름:'',reg?reg.내역:'',reg?reg.장학||'':'','',can?can.반:'',can?can.번호||'':'',can?can.수험번호:'',can?can.이름:'',can?can.내역:'',can?fmtShort(date):'']);}
+  for(let i=0;i<maxLen;i++){const reg=regs[i];const can=cancels[i];rows.push([reg?i+1:'',reg?reg.반:'',reg?reg.번호:'',reg?reg.수험번호:'',reg?reg.이름:'',reg?termBase(reg.내역):'',reg?reg.장학||'':'','',can?can.반:'',can?can.번호||'':'',can?can.수험번호:'',can?can.이름:'',can?termBase(can.내역):'',can?fmtShort(date):'']);}
   const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=Array(14).fill({wch:11});
   XLSX.utils.book_append_sheet(wb,ws,'단과일일등록');XLSX.writeFile(wb,`QUETTA_단과_일일등록명단_${date}${Y!==LEGACY_YEAR?'_'+Y+'학년도':''}.xlsx`);toast('단과 엑셀 다운로드 완료');
 }
@@ -2995,8 +3037,8 @@ function exportPayHistoryExcel(){
   if(termF)pays=pays.filter(p=>p.내역===termF);
   pays=sortByBan([...pays].sort((a,b)=>extractMonth(a.내역)-extractMonth(b.내역)||a.내역.localeCompare(b.내역)));
   const wb=XLSX.utils.book_new();
-  const headers=['업로드일','구분','반','학번','수험번호','성명','내역','결제금액','장학','상태'];
-  const rows=[headers,...pays.map(r=>[(r.uploadedDate||r.결제일자),r.status==='퇴소'?'환불':'등록',r.반,r.번호,r.수험번호,r.이름,r.내역,r.결제금액,r.장학,r.status])];
+  const headers=['업로드일','구분','반','학번','수험번호','성명','내역','결제금액','장학','상태','학년도'];
+  const rows=[headers,...pays.map(r=>[(r.uploadedDate||r.결제일자),r.status==='퇴소'?'환불':'등록',r.반,r.번호,r.수험번호,r.이름,termBase(r.내역),r.결제금액,r.장학,r.status,termYear(r.내역)+'학년도'])];
   const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=headers.map(()=>({wch:13}));
   XLSX.utils.book_append_sheet(wb,ws,'납부현황');
   const fname='QUETTA_납부현황'+(termF?'_'+termF:'')+(date?'_'+date:'')+'.xlsx';
@@ -3009,7 +3051,7 @@ function renderCfg(){
   const cfgTerms=[...new Set([...ALL_TERMS,...S.pays.map(p=>p.내역).filter(Boolean)])].sort((a,b)=>extractMonth(a)-extractMonth(b)||a.localeCompare(b));
   ['prev','curr'].forEach(side=>{
     const container=document.getElementById(side+'TermChecks');
-    container.innerHTML=cfgTerms.map(t=>{const checked=(S.cfg[side+'Terms']||[]).includes(t)?'checked':'';return`<label class="term-check"><input type="checkbox" value="${h(t)}" ${checked} data-side="${side}"> ${h(t)}</label>`;}).join('');
+    container.innerHTML=cfgTerms.map(t=>{const checked=(S.cfg[side+'Terms']||[]).includes(t)?'checked':'';return`<label class="term-check"><input type="checkbox" value="${h(t)}" ${checked} data-side="${side}"> ${termLabel(t)}</label>`;}).join('');
   });
   renderKeywords();
   renderYearCfg();
@@ -3061,14 +3103,21 @@ function yearOptionsHtml(sel){
   return `<option value="" ${!sel?'selected':''}>기본 (${def}학년도)</option>`+opts.map(y=>`<option value="${y}" ${sel===y?'selected':''}>${y}학년도</option>`).join('');
 }
 function renderKeywords(){
-  const row=(k,i,type)=>`<tr><td>${h(k.kw)}</td><td>${h(k.term)}</td><td><select class="inp" style="width:130px;padding:3px 6px;${k.yr&&k.yr!==LEGACY_YEAR?'background:#FFF3CD;font-weight:700;':''}" onchange="setKeywordYear(${i},'${type}',this.value)">${yearOptionsHtml(k.yr||'')}</select></td><td><button onclick="removeKeyword(${i},'${type}')" class="btn btn-sm btn-red">삭제</button></td></tr>`;
+  const row=(k,i,type)=>`<tr><td>${h(k.kw)}</td><td>${h(k.term)}</td><td><select class="inp" style="width:130px;padding:3px 6px;${k.yr&&k.yr!==LEGACY_YEAR?'background:#FFF3CD;font-weight:700;':''}" onchange="setKeywordYear(${i},'${type}',this.value)">${yearOptionsHtml(k.yr||'')}</select></td><td style="text-align:center;"><input type="checkbox" ${k.pri?'checked':''} onchange="setKeywordPri(${i},'${type}',this.checked)" title="우선 적용"></td><td><button onclick="removeKeyword(${i},'${type}')" class="btn btn-sm btn-red">삭제</button></td></tr>`;
   const kws=S.cfg.keywords||[];
-  document.getElementById('kwBody').innerHTML=kws.length?kws.map((k,i)=>row(k,i,'reg')).join(''):`<tr><td colspan="4" style="text-align:center;color:#bbb;padding:10px;">키워드 없음</td></tr>`;
+  document.getElementById('kwBody').innerHTML=kws.length?kws.map((k,i)=>row(k,i,'reg')).join(''):`<tr><td colspan="5" style="text-align:center;color:#bbb;padding:10px;">키워드 없음</td></tr>`;
   const dkws=S.cfg.danchaKeywords||[];
-  document.getElementById('kwBodyD').innerHTML=dkws.length?dkws.map((k,i)=>row(k,i,'dancha')).join(''):`<tr><td colspan="4" style="text-align:center;color:#bbb;padding:10px;">키워드 없음</td></tr>`;
+  document.getElementById('kwBodyD').innerHTML=dkws.length?dkws.map((k,i)=>row(k,i,'dancha')).join(''):`<tr><td colspan="5" style="text-align:center;color:#bbb;padding:10px;">키워드 없음</td></tr>`;
   const a=document.getElementById('kwYear'),b=document.getElementById('kwYearD');
   if(a)a.innerHTML=yearOptionsHtml(a.value||'');
   if(b)b.innerHTML=yearOptionsHtml(b.value||'');
+}
+function setKeywordPri(idx,type,on){
+  const arr=type==='dancha'?S.cfg.danchaKeywords:S.cfg.keywords;
+  if(!arr[idx])return;
+  if(on)arr[idx].pri=true;else delete arr[idx].pri;
+  save();renderKeywords();
+  toast(on?`⭐ "${arr[idx].kw}" 우선 적용 — 다른 키워드와 같이 있어도 이 키워드가 이겨요 (이후 업로드부터)`:`"${arr[idx].kw}" 우선 적용 해제`);
 }
 function setKeywordYear(idx,type,val){
   const arr=type==='dancha'?S.cfg.danchaKeywords:S.cfg.keywords;
@@ -3084,10 +3133,12 @@ function addKeyword(type){
   const kw=kwInp.value.trim();const term=termInp.value.trim();
   if(!kw||!term){toast('키워드와 기수명을 모두 입력해주세요');return;}
   const yr=(document.getElementById(type==='dancha'?'kwYearD':'kwYear')||{}).value||'';
-  const ent=yr?{kw,term,yr}:{kw,term};
+  const ent={kw,term};if(yr)ent.yr=yr;
+  if((document.getElementById(type==='dancha'?'kwPriD':'kwPri')||{}).checked)ent.pri=true;
   if(type==='dancha'){if(!S.cfg.danchaKeywords)S.cfg.danchaKeywords=[];S.cfg.danchaKeywords.push(ent);}
   else{if(!S.cfg.keywords)S.cfg.keywords=[];S.cfg.keywords.push(ent);}
   kwInp.value='';termInp.value='';
+  {const pc=document.getElementById(type==='dancha'?'kwPriD':'kwPri');if(pc)pc.checked=false;}
   save();renderKeywords();toast(`✅ 키워드 추가 완료: "${kw}" → "${term}"`);
 }
 function removeKeyword(idx,type){
