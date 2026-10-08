@@ -1268,12 +1268,17 @@ function setupSupabase(){
   _pollTimer=setInterval(()=>loadFromServer(false),10000);
 }
 
+let _knownStamp=null;   // 내가 마지막으로 저장/불러온 서버 시각
+function modalIsOpen(){const m=document.getElementById('modalBg');return !!(m&&m.classList.contains('open'));}
+function sameStamp(a,b){const x=new Date(a).getTime(),y=new Date(b).getTime();return !isNaN(x)&&!isNaN(y)&&x===y;}
 function loadFromServer(initial){
   if(!_SB)return;
   // 저장 직후 3초간 폴링 덮어쓰기 방지
   if(!initial && _isSyncing) return;
   if(!initial && Date.now()-_lastSaveAt < 3000) return;
-  _SB.from('quetta_state').select('data').eq('id',1).single()
+  // 팝업(내역 수정·퇴소 등)이 열려 있는 동안엔 데이터를 갈아끼우지 않음 (수정이 엉뚱한 옛 데이터에 적용되는 문제 방지)
+  if(!initial && modalIsOpen()) return;
+  _SB.from('quetta_state').select('data,updated_at').eq('id',1).single()
     .then(({data:row,error})=>{
       if(error){
         setSyncStatus('err','로드 실패');
@@ -1282,8 +1287,11 @@ function loadFromServer(initial){
         return;
       }
       // ★ 요청 진행 중 저장이 일어났으면 무시 (레이스 컨디션 방지)
-      if(!initial && (Date.now()-_lastSaveAt < 3000 || _isSyncing)) return;
+      if(!initial && (Date.now()-_lastSaveAt < 3000 || _isSyncing || modalIsOpen())) return;
       if(row?.data){
+        // 서버 데이터가 내가 마지막으로 저장한 것과 같으면(다른 기기에서 바뀐 게 없으면) 그대로 둠
+        if(!initial && _knownStamp && row.updated_at && sameStamp(row.updated_at,_knownStamp)){setSyncStatus('ok','동기화됨');return;}
+        if(row.updated_at)_knownStamp=row.updated_at;
         applyServerData(row.data);
         setSyncStatus('ok', initial?'연결됨':'동기화됨');
         autoDetectTerms();
@@ -1353,7 +1361,8 @@ function save(){
   _lastSaveAt=Date.now();
   setSyncStatus('wait','저장 중...');
   const payload = JSON.parse(JSON.stringify(S));
-  _SB.from('quetta_state').upsert({id:1, data:payload, updated_at:new Date().toISOString()})
+  const _stamp=new Date().toISOString();
+  _SB.from('quetta_state').upsert({id:1, data:payload, updated_at:_stamp})
     .then(({error})=>{
       _isSyncing=false;
       if(error){
@@ -1361,6 +1370,7 @@ function save(){
         toast(`❌ 저장 실패: ${error.message}`, 5000);
         console.error('Save error:', error);
       } else {
+        _knownStamp=_stamp;
         setSyncStatus('ok','저장됨');
       }
     }).catch(e=>{
@@ -2165,6 +2175,8 @@ function deleteRefundRecord(refId, termIdx, type){
       <span style="color:var(--danger);font-size:11px;">※ 삭제 시 해당 학생의 납부 상태가 활성으로 복원됩니다.</span>
     </div>`,
     [{label:'삭제',cls:'btn-red',fn:()=>{
+      const rec=(type==='dancha'?S.danchaRefunds:S.refunds).find(r=>String(r.id)===String(refId));   // 최신 기록
+      if(!rec){closeModal();toast('❌ 기록을 찾지 못했어요 — 새로고침 후 다시 시도해주세요');return;}
       // removedTerms에서 해당 항목 제거
       rec.removedTerms.splice(termIdx, 1);
       // 연결된 pays/dancha 레코드 퇴소 상태 복원
@@ -2202,6 +2214,8 @@ function editRefundTerm(refId, termIdx){
     <input class="inp" id="editRefTermCustom" placeholder="직접 입력 (위 목록에 없는 경우)" style="width:100%;">
     <div style="font-size:11px;color:var(--muted);margin-top:6px;">수정하면 대시보드 인원에 즉시 반영됩니다</div>`,
     [{label:'저장',cls:'btn-g',fn:()=>{
+      const rec = S.refunds.find(r => r.id == refId);   // 최신 기록
+      if(!rec){closeModal();toast('❌ 기록을 찾지 못했어요 — 새로고침 후 다시 시도해주세요');return;}
       const custom = document.getElementById('editRefTermCustom').value.trim();
       const newTerm = custom || document.getElementById('editRefTermSel').value;
       if(!newTerm){toast('내역을 선택해주세요');return;}
@@ -2411,12 +2425,14 @@ function editTerm(id,type){
   const opts=entries.map(x=>{const val=x.term+'\u0001'+x.yr;const label=yrsOf[x.term].size>1?`${x.term} · ${x.yr}학년도`:x.term;return`<option value="${h(val)}" ${val===curVal?'selected':''}>${h(label)}</option>`;}).join('');
   openModal('✏️ 내역 수정',`<div style="font-size:13px;margin-bottom:10px;"><strong>${h(r.이름)}</strong> (${h(r.수험번호)})</div><select class="inp" id="editTermSel" style="width:100%;">${opts}</select><div style="margin-top:8px;"><input class="inp" id="editTermCustom" placeholder="직접 입력 (없을 경우)" style="width:100%;"></div>`,
     [{label:'저장',cls:'btn-g',fn:()=>{
+      const rr=(type==='dancha'?S.dancha:S.pays).find(p=>p.id===id);   // 저장 시점의 최신 기록
+      if(!rr){closeModal();toast('❌ 기록을 찾지 못했어요 — 새로고침 후 다시 시도해주세요');return;}
       const custom=document.getElementById('editTermCustom').value.trim();
       let term,yr;
-      if(custom){term=termBase(custom);yr=termYear(r.내역);}
+      if(custom){term=termBase(custom);yr=termYear(rr.내역);}
       else{const v=document.getElementById('editTermSel').value;if(!v){closeModal();return;}[term,yr]=v.split('\u0001');}
-      r.내역=withYear(term,yr);r.학년도=yr;
-      r._unmatched=false;
+      rr.내역=withYear(term,yr);rr.학년도=yr;
+      rr._unmatched=false;
       if(type!=='dancha')reconcileInst();
       closeModal();
       save();
@@ -2882,7 +2898,8 @@ function cancelSelectedDancha(){
   const date=document.getElementById('dailyDate2').value||todayStr();
   let count=0;
   checked.forEach(cb=>{
-    const r=_danchaLookupRecs[parseInt(cb.dataset.idx)];
+    const r0=_danchaLookupRecs[parseInt(cb.dataset.idx)];
+    const r=r0&&S.dancha.find(p=>p.id===r0.id);   // 최신 기록에 적용
     if(!r)return;
     r.status='취소';r.cancelledAt=Date.now();
     S.danchaRefunds.push({
