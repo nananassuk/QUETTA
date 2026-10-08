@@ -507,6 +507,9 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
 .daily-tbl .ref-date{color:var(--danger);font-weight:700;}
 .copy-hdr{cursor:pointer;text-decoration:underline dotted;color:var(--gold2);}
 .copy-hdr:hover{color:#fff;background:rgba(255,255,255,.2);border-radius:3px;}
+.ytabs{display:flex;gap:6px;margin:0 0 10px;flex-wrap:wrap;}
+.ytab{border:1px solid #B9D3F2;background:#fff;color:#1B3A5C;padding:6px 16px;border-radius:16px;font-size:13px;font-weight:700;cursor:pointer;}
+.ytab.on{background:#1B3A5C;color:#fff;border-color:#1B3A5C;}
 .sort-hdr{cursor:pointer;user-select:none;text-decoration:underline dotted;color:#2c5f8a;}
 .sort-hdr:hover{background:rgba(0,0,0,.06);color:#164060;}
 .sort-arrow{font-size:9px;margin-left:2px;color:var(--gold2);font-weight:900;}
@@ -671,6 +674,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
 
 <!-- 일일 등록 명단 (정규) -->
 <div id="tab-daily" class="tab-pane">
+  <div id="dailyYearTabs" class="ytabs no-print"></div>
   <div class="card no-print">
     <div class="btn-row" style="margin-bottom:10px;">
       <label style="font-size:12px;font-weight:600;">조회 날짜</label>
@@ -721,6 +725,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
 
 <!-- 일일 등록 명단 (단과) -->
 <div id="tab-daily2" class="tab-pane">
+  <div id="dailyYearTabs2" class="ytabs no-print"></div>
   <div class="card no-print">
     <div class="btn-row" style="margin-bottom:10px;">
       <label style="font-size:12px;font-weight:600;color:var(--d1);">조회 날짜 (단과)</label>
@@ -757,6 +762,7 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
       <input type="date" class="inp" id="uploadDateInput" style="width:155px;" onchange="showPrevUploadPreview()">
       <button class="btn btn-g btn-sm" onclick="renderTodayUploads()">🔍 조회</button>
       <span style="font-size:11px;color:var(--muted);">← 날짜 변경 후 조회 버튼 클릭</span>
+      <span id="uploadYearInfo" style="font-size:11px;margin-left:8px;padding:3px 9px;border-radius:9px;background:#EAF1FB;color:#1B3A5C;"></span>
     </div>
     <!-- 이전 업로드 마지막 확인 -->
     <div id="prevUploadPreview" style="display:none;margin-bottom:10px;padding:9px 12px;background:#EEF4FF;border-radius:7px;border:1px solid #93B8E0;">
@@ -918,17 +924,28 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
       <div class="form-row"><label class="form-lbl">📗 선납 내역 (미납자 기준)</label><div class="term-check-grid" id="currTermChecks"></div></div>
     </div>
   </div>
+  <!-- 학년도 관리 -->
+  <div class="card">
+    <div class="card-ttl">📅 학년도 관리</div>
+    <div class="info-box">같은 기수명(예: 윈터_선금)도 학년도별로 따로 집계됩니다. <strong>숨기기</strong>를 누른 학년도는 대시보드·명단·미납·총인원 등 모든 화면에서 보이지 않습니다 (데이터는 삭제되지 않고, 언제든 다시 보이게 할 수 있어요). 대시보드 "표시 내역"에서는 학년도별로 일부만 골라 같이 볼 수 있습니다.</div>
+    <div id="yearCfgBody"></div>
+    <div style="display:flex;gap:7px;align-items:flex-end;margin-top:10px;flex-wrap:wrap;">
+      <div><label class="form-lbl">학년도 추가 (예: 28)</label><input class="inp" id="newYearInput" placeholder="28" style="width:100px;" maxlength="2"></div>
+      <button class="btn btn-g" onclick="addYear()">+ 추가</button>
+    </div>
+  </div>
   <!-- 키워드 설정 (정규) -->
   <div class="card">
     <div class="card-ttl">🔑 키워드 매핑 설정 — 정규</div>
-    <div class="info-box">엑셀 내역(I열)에 키워드가 포함되면 지정한 기수명으로 자동 변환됩니다. 단과 키워드와 겹치면 단과 우선.</div>
+    <div class="info-box">엑셀 내역(I열)에 키워드가 포함되면 지정한 기수명으로 자동 변환됩니다. 단과 키워드와 겹치면 단과 우선.<br><strong>반영 학년도</strong>: 업로드할 때 이 키워드로 들어오는 기록이 어느 학년도로 저장될지 정합니다. 한 파일에 26/27학년도가 섞여 있어도 키워드별로 자동 분리돼요. 나중에 바꾸면 <u>그 이후 업로드부터</u> 적용되고 이미 저장된 기록은 그대로입니다.</div>
     <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px;">
       <div><label class="form-lbl">내역 키워드 (포함 검색)</label><input class="inp" id="kwInput" placeholder="예: 교습비(3월)" style="width:180px;"></div>
       <div><label class="form-lbl">→ 변환할 기수명</label><input class="inp" id="kwTerm" placeholder="예: 정규1기(3월)" style="width:180px;"></div>
+      <div><label class="form-lbl">🎓 반영 학년도</label><select class="inp" id="kwYear" style="width:130px;"></select></div>
       <button class="btn btn-g" onclick="addKeyword('reg')">+ 추가</button>
     </div>
     <div class="tbl-wrap" style="max-height:220px;">
-      <table class="data-tbl"><thead><tr><th>키워드</th><th>변환 기수명</th><th>삭제</th></tr></thead><tbody id="kwBody"></tbody></table>
+      <table class="data-tbl"><thead><tr><th>키워드</th><th>변환 기수명</th><th>반영 학년도</th><th>삭제</th></tr></thead><tbody id="kwBody"></tbody></table>
     </div>
   </div>
   <!-- 키워드 설정 (단과) -->
@@ -938,10 +955,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
     <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px;">
       <div><label class="form-lbl">내역 키워드</label><input class="inp" id="kwInputD" placeholder="예: 단과(4월)" style="width:180px;"></div>
       <div><label class="form-lbl">→ 변환할 기수명</label><input class="inp" id="kwTermD" placeholder="예: 단과2기(4월)" style="width:180px;"></div>
+      <div><label class="form-lbl">🎓 반영 학년도</label><select class="inp" id="kwYearD" style="width:130px;"></select></div>
       <button class="btn btn-d" onclick="addKeyword('dancha')">+ 추가</button>
     </div>
     <div class="tbl-wrap" style="max-height:220px;">
-      <table class="data-tbl"><thead><tr><th>키워드</th><th>변환 기수명</th><th>삭제</th></tr></thead><tbody id="kwBodyD"></tbody></table>
+      <table class="data-tbl"><thead><tr><th>키워드</th><th>변환 기수명</th><th>반영 학년도</th><th>삭제</th></tr></thead><tbody id="kwBodyD"></tbody></table>
     </div>
   </div>
   <!-- 비밀번호 + 데이터 -->
@@ -987,7 +1005,7 @@ let _SB = null, _isSyncing = false, _pollTimer = null, _lastSaveAt = 0;
 // ════ STATE ════
 function mkState(){
   return {
-    cfg:{prevTerms:['정규(2,3월)','정규1기(3월)'],currTerms:['정규2기(4월)'],danchaTerms:[],dashDate:todayStr(),dashDate2:todayStr(),hiddenTerms:[],danchaHiddenTerms:[],manualOverride:false,keywords:[],danchaKeywords:[],password:'1234'},
+    cfg:{prevTerms:['정규(2,3월)','정규1기(3월)'],currTerms:['정규2기(4월)'],danchaTerms:[],dashDate:todayStr(),dashDate2:todayStr(),hiddenTerms:[],danchaHiddenTerms:[],manualOverride:false,keywords:[],danchaKeywords:[],hiddenYears:[],years:[],defaultYear:'26',password:'1234'},
     pays:[],refunds:[],dancha:[],danchaRefunds:[],snapshots:{},danchaSnapshots:{},
     재입소:[], // [{수험번호, date}] - 재입소 허용 목록
     미납퇴소:[] // [{수험번호, 이름, date}] - 미납자 퇴소처리 목록 (기존 기록 유지)
@@ -1014,6 +1032,118 @@ function fmtKor(y){if(!y)return '';const p=y.split('-');return`${parseInt(p[0])}
 function parseAmt(s){if(!s)return 0;return parseInt(String(s).replace(/[^0-9\-]/g,''))||0;}
 function extractScholarship(b){if(!b)return '';const m=b.match(/Q[①-⑩\d][_\-]\d+/);if(m)return m[0];const m2=b.match(/Q\S+_\d+/);return m2?m2[0]:'';}
 function extractMonth(t){const ms=t.match(/(\d+)월/g);if(ms&&ms.length>0)return parseInt(ms[ms.length-1]);if(t.includes('윈터'))return 1;return 0;}
+// ════ 학년도 (26/27 …) ════
+// 26학년도 = 기존 데이터(표식 없음). 27학년도부터는 내역명 뒤에 " [27학년도]" 표식이 붙어 같은 기수명도 따로 집계됨.
+const LEGACY_YEAR='26';
+function termYear(t){const m=t&&String(t).match(/ \[(\d+)학년도\]$/);return m?m[1]:LEGACY_YEAR;}
+function termBase(t){return t?String(t).replace(/ \[\d+학년도\]$/,''):t;}
+function withYear(t,y){const b=termBase(t);return(!y||y===LEGACY_YEAR)?b:`${b} [${y}학년도]`;}
+function isInstTerm(t){return /_(선금|완납)( \[\d+학년도\])?$/.test(t||'');}      // 분납(선금/완납) 내역
+function isBansuTerm(t){return isSpecialTerm(t)&&!isInstTerm(t);}                  // 반수/편입 등 (분납 제외)
+function hiddenYearList(){return(S.cfg&&S.cfg.hiddenYears)||[];}
+function VP(){const hy=hiddenYearList();return hy.length?S.pays.filter(p=>!hy.includes(termYear(p.내역))):S.pays;}  // 숨김 학년도 제외한 납부 기록
+function knownYears(){const set=new Set([LEGACY_YEAR,...((S.cfg&&S.cfg.years)||[])]);S.pays.forEach(p=>{if(p.내역)set.add(termYear(p.내역));});(S.dancha||[]).forEach(p=>{if(p.내역)set.add(termYear(p.내역));});return[...set].sort();}
+function visibleYears(){const hy=hiddenYearList();return knownYears().filter(y=>!hy.includes(y));}
+// 일일명단 학년도 탭 (정규/단과 각각)
+let _dailyYear=null,_dailyYear2=null;
+function resolveDailyYear(kind){
+  const ys=visibleYears();
+  const cur=kind==='dancha'?_dailyYear2:_dailyYear;
+  if(cur&&ys.includes(cur))return cur;
+  const el=document.getElementById(kind==='dancha'?'dailyDate2':'dailyDate');
+  const date=(el&&el.value)||todayStr();
+  const recs=kind==='dancha'?S.dancha:S.pays;
+  const withData=ys.filter(y=>recs.some(p=>p.내역&&termYear(p.내역)===y&&uploadedOf(p)===date));
+  return withData.length?withData[withData.length-1]:(ys.length?ys[ys.length-1]:LEGACY_YEAR);
+}
+function renderDailyYearTabs(kind){
+  const el=document.getElementById(kind==='dancha'?'dailyYearTabs2':'dailyYearTabs');if(!el)return;
+  const cur=resolveDailyYear(kind);
+  el.innerHTML=visibleYears().map(y=>`<button class="ytab ${y===cur?'on':''}" onclick="setDailyYear('${kind}','${y}')">${y}학년도</button>`).join('');
+}
+function setDailyYear(kind,y){if(kind==='dancha'){_dailyYear2=y;renderDaily2();}else{_dailyYear=y;renderDaily();}}
+function ukey(Y,m){return Y===LEGACY_YEAR?m:`${Y}:${m}`;}                          // 스냅샷 _unpaidByMonth 키
+function primaryYear(){
+  const hy=hiddenYearList();const ys=knownYears().filter(y=>!hy.includes(y));
+  for(let i=ys.length-1;i>=0;i--){const y=ys[i];if(S.pays.some(p=>p.내역&&termYear(p.내역)===y&&!isSpecialTerm(p.내역)&&extractMonth(p.내역)>0))return y;}
+  return ys.length?ys[ys.length-1]:LEGACY_YEAR;
+}
+// 해당 학년도의 이전/현재/반수 기수 (자동 또는 수동 설정)
+function yearCfg(Y){
+  const terms=[...new Set(S.pays.filter(p=>p.내역&&termYear(p.내역)===Y).map(p=>p.내역))];
+  const auto=()=>{
+    const non=terms.filter(x=>!isSpecialTerm(x));
+    const months=[...new Set(non.map(x=>extractMonth(x)).filter(m=>m>0))].sort((a,b)=>a-b);
+    let prev=[],curr=[];
+    if(months.length===1){prev=non.filter(x=>extractMonth(x)===months[0]);}
+    else if(months.length>1){const cm=months[months.length-1],pm=months[months.length-2];prev=non.filter(x=>extractMonth(x)===pm);curr=non.filter(x=>extractMonth(x)===cm);}
+    return{prev,curr,bansu:terms.filter(isBansuTerm)};
+  };
+  if(S.cfg.manualOverride){
+    const f=a=>(a||[]).filter(x=>termYear(x)===Y);
+    const r={prev:f(S.cfg.prevTerms),curr:f(S.cfg.currTerms),bansu:terms.filter(isBansuTerm)};
+    if(r.prev.length||r.curr.length)return r;
+  }
+  return auto();
+}
+// 연속 월 쌍별 미납인원 (학년도별)
+function calcChain(activeY,Y){
+  const map={};
+  const months=[...new Set(activeY.filter(p=>!isSpecialTerm(p.내역)).map(p=>p.내역).filter(Boolean).map(x=>extractMonth(x)).filter(m=>m>0))].sort((a,b)=>a-b);
+  for(let i=1;i<months.length;i++){
+    const pm=months[i-1],cm=months[i];
+    const isLatest=(i===months.length-1);
+    const pmIdsReg=new Set(activeY.filter(p=>extractMonth(p.내역)===pm&&!isSpecialTerm(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
+    const pmIdsSpecial=isLatest?new Set(activeY.filter(p=>isBansuTerm(p.내역)&&extractMonth(p.내역)<cm&&p.환불금액===0).map(p=>p.수험번호)):new Set();
+    const pmIds=new Set([...pmIdsReg,...pmIdsSpecial]);
+    const cmIds=new Set(activeY.filter(p=>extractMonth(p.내역)===cm&&!isSpecialTerm(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
+    const ex=new Set((S.미납퇴소||[]).filter(r=>{if((r.year||LEGACY_YEAR)!==Y)return false;const tm=r.targetMonth||pm;return tm===cm;}).map(r=>r.수험번호));
+    map[cm]=[...pmIds].filter(id=>!cmIds.has(id)&&!ex.has(id)).length;
+  }
+  return{map,latestMonth:months.length?months[months.length-1]:0,months};
+}
+// ── 분납(선금→완납): 완납을 내면 선금에서 빠져 완납으로 "이동" ──
+function isInstFirst(t){return /_선금( \[\d+학년도\])?$/.test(t||'');}
+function isInstFinal(t){return /_완납( \[\d+학년도\])?$/.test(t||'');}
+function instBase(t){return termBase(t).replace(/_(선금|완납)$/,'');}
+function uploadedOf(p){return p.uploadedDate||p.결제일자;}
+// 불변식: 완납(활성)이 있는 학생의 선금 기록은 활성이 아님.
+//  - 선금이 완납보다 먼저(이전 날짜) → status '완납전환' (convertedDate=완납일)
+//  - 같은 날/이후 선금 → status '일시납' (집계 제외, 완납만 신규로 카운트)
+//  - 선금 없이 완납 → 완납 기록에 일시납:true
+//  - 완납 기록이 삭제되면 선금은 활성으로 복귀 (완납이 퇴소/환불 상태로 남아 있으면 복귀하지 않음)
+function reconcileInst(){
+  const groups={};
+  S.pays.forEach(p=>{
+    if(!p.내역||!p.수험번호||!isInstTerm(p.내역))return;
+    const k=termYear(p.내역)+'|'+instBase(p.내역)+'|'+p.수험번호;
+    (groups[k]=groups[k]||[]).push(p);
+  });
+  Object.values(groups).forEach(list=>{
+    const F=list.filter(p=>isInstFirst(p.내역));
+    const G=list.filter(p=>isInstFinal(p.내역));
+    const gAct=G.filter(p=>p.status==='active'&&p.환불금액===0).sort((a,b)=>String(uploadedOf(a)).localeCompare(String(uploadedOf(b))));
+    if(gAct.length){
+      const g=gAct[0],gDate=uploadedOf(g);
+      F.forEach(f=>{
+        if(f.status==='active'||f.status==='완납전환'||f.status==='일시납'){
+          const fDate=uploadedOf(f);
+          f.status=(fDate<gDate)?'완납전환':'일시납';
+          f.convertedDate=gDate;f.convertedTo=g.id;
+        }
+      });
+      const hasConv=F.some(f=>f.status==='완납전환');
+      gAct.forEach(x=>{x.일시납=!hasConv;});
+    } else {
+      F.forEach(f=>{
+        if((f.status==='완납전환'||f.status==='일시납')&&f.convertedTo&&!S.pays.some(x=>x.id===f.convertedTo)){
+          f.status='active';delete f.convertedDate;delete f.convertedTo;
+        }
+      });
+    }
+  });
+}
+function VD(){const hy=hiddenYearList();return hy.length?S.dancha.filter(p=>!hy.includes(termYear(p.내역))):S.dancha;}   // 숨김 학년도 제외한 단과 기록
 function banIdx(b){const i=BAN_ORDER.indexOf(b);return i<0?999:i;}
 function sortByBan(a){return[...a].sort((x,y)=>{const d=banIdx(x.반)-banIdx(y.반);return d!==0?d:(x.이름||'').localeCompare(y.이름||'');});}
 
@@ -1186,6 +1316,9 @@ function applyServerData(d){
   if(d.cfg){
     S.cfg={...S.cfg,...d.cfg};
     if(!S.cfg.hiddenTerms)S.cfg.hiddenTerms=[];
+    if(!S.cfg.hiddenYears)S.cfg.hiddenYears=[];
+    if(!S.cfg.years)S.cfg.years=[];
+    if(!S.cfg.defaultYear)S.cfg.defaultYear='26';
     if(!S.cfg.danchaHiddenTerms)S.cfg.danchaHiddenTerms=[];
     if(!S.cfg.keywords)S.cfg.keywords=[];
     if(!S.cfg.danchaKeywords)S.cfg.danchaKeywords=[];
@@ -1257,7 +1390,7 @@ function goTab(id,btn){
       const dates=[...new Set([...S.pays,...S.dancha].map(p=>p.uploadedDate||p.결제일자).filter(Boolean))].sort();
       if(dates.length>0) inp.value=dates[dates.length-1];
     }
-    renderTodayUploads();renderPayHistory();renderUnpaid();
+    fillUploadYearSel();renderTodayUploads();renderPayHistory();renderUnpaid();
   }
   if(id==='cfg')renderCfg();
   if(id==='stats')renderStats();
@@ -1288,6 +1421,7 @@ const HEADER_ALIASES={결제일자:['결제일자','날짜'],반:['반'],번호:
 function detectHeader(row){return row.some(c=>['수험번호','이름','성명','내역'].includes(String(c||'').trim()));}
 
 function parseRows(rows,uploadDate){
+  const defY=S.cfg.defaultYear||LEGACY_YEAR;
   if(!rows.length)return[];
   const useDate=uploadDate||todayStr();
   let colIdx=null,dataStart=0;
@@ -1342,14 +1476,14 @@ function parseRows(rows,uploadDate){
     const danchaMatches=[];
     for(const line of linesOrFull){
       const dm=dkws.find(kw=>line.includes(kw.kw));
-      if(dm) danchaMatches.push({term:dm.term,line});
+      if(dm) danchaMatches.push({term:dm.term,line,yr:dm.yr||defY});
     }
 
     // 정규 키워드 매칭 → 전체 셀에서 첫 번째 매칭 1개만
     let regMatch=null;
     for(const line of linesOrFull){
       const rm=rkws.find(kw=>line.includes(kw.kw));
-      if(rm){regMatch={term:rm.term,line};break;}
+      if(rm){regMatch={term:rm.term,line,yr:rm.yr||defY};break;}
     }
 
     // 단과 레코드 생성
@@ -1357,7 +1491,7 @@ function parseRows(rows,uploadDate){
       out.push({
         id:`${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
         결제일자,반:get('반',4),번호:get('번호',5),수험번호,이름,
-        내역:m.term,내역원본:m.line,구분:get('구분',9),
+        내역:withYear(m.term,m.yr),학년도:m.yr,내역원본:m.line,구분:get('구분',9),
         결제금액:amt,환불금액:0,장학,비고:비고raw,
         status:'active',addedAt:Date.now(),uploadedDate:useDate,
         _type:'dancha',_unmatched:false
@@ -1368,11 +1502,12 @@ function parseRows(rows,uploadDate){
     // 단과 매칭이 하나도 없거나, 정규 키워드가 있으면 생성
     if(danchaMatches.length===0||regMatch){
       const term=regMatch?regMatch.term:내역raw.split('\n')[0].trim()||내역raw;
+      const recYear=regMatch?regMatch.yr:defY;
       const isUnmatched=!regMatch;
       const rec={
         id:`${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
         결제일자,반:get('반',4),번호:get('번호',5),수험번호,이름,
-        내역:term,내역원본:내역raw,구분:get('구분',9),
+        내역:withYear(term,recYear),학년도:recYear,내역원본:내역raw,구분:get('구분',9),
         결제금액:amt,환불금액:0,장학,비고:비고raw,
         status:'active',addedAt:Date.now(),uploadedDate:useDate,
         _type:isUnmatched?'unknown':'regular',_unmatched:isUnmatched
@@ -1403,34 +1538,37 @@ function importPayExcel(e){
 
 function applyImport(records,neg,unmatched){
   if(!records.length){toast('파싱된 데이터가 없습니다');return;}
-  const withdrawnIds=new Set(S.pays.filter(p=>p.status==='퇴소').map(p=>p.수험번호).filter(Boolean));
+  const wdByYear={};S.pays.filter(p=>p.status==='퇴소'&&p.수험번호).forEach(p=>{const y=termYear(p.내역);(wdByYear[y]=wdByYear[y]||new Set()).add(p.수험번호);});
   // 재입소 허용 목록: 업로드 날짜 >= 재입소 날짜인 경우 허용
   const useDate=records[0]?.uploadedDate||todayStr();
-  const 재입소허용=new Set((S.재입소||[]).filter(r=>r.date<=useDate).map(r=>r.수험번호));
-  const effectiveWithdrawnIds=new Set([...withdrawnIds].filter(id=>!재입소허용.has(id)));
+  const 재입소허용ByYear={};(S.재입소||[]).filter(r=>r.date<=useDate).forEach(r=>{const y=r.year||LEGACY_YEAR;(재입소허용ByYear[y]=재입소허용ByYear[y]||new Set()).add(r.수험번호);});
+  const addedByYear={};
   const existKeyReg=new Set(S.pays.filter(p=>p.status==='active').map(p=>`${p.내역}||${p.수험번호}`));
   const existKeyDan=new Set(S.dancha.filter(p=>p.status==='active').map(p=>`${p.내역}||${p.수험번호}`));
   let addedReg=0,addedDan=0,dups=[],withdrawn=[];
   const newKeys=new Set();
   for(const r of records){
-    if(effectiveWithdrawnIds.has(r.수험번호)){withdrawn.push(r);continue;}
+    {const ry=termYear(r.내역);const wy=wdByYear[ry];const ok2=재입소허용ByYear[ry];if(wy&&wy.has(r.수험번호)&&!(ok2&&ok2.has(r.수험번호))){withdrawn.push(r);continue;}}
     const key=`${r.내역}||${r.수험번호}`;
     if(r._type==='dancha'){
       if(existKeyDan.has(key)||newKeys.has('d'+key)){r._dup=true;dups.push(r);}
-      else{S.dancha.push(r);existKeyDan.add(key);newKeys.add('d'+key);addedDan++;}
+      else{S.dancha.push(r);existKeyDan.add(key);newKeys.add('d'+key);addedDan++;{const y=termYear(r.내역);addedByYear[y]=(addedByYear[y]||0)+1;}}
     } else {
       if(existKeyReg.has(key)||newKeys.has(key)){r._dup=true;dups.push(r);}
-      else{S.pays.push(r);existKeyReg.add(key);newKeys.add(key);addedReg++;}
+      else{S.pays.push(r);existKeyReg.add(key);newKeys.add(key);addedReg++;{const y=termYear(r.내역);addedByYear[y]=(addedByYear[y]||0)+1;}}
     }
   }
   // 업로드 날짜로 대시보드 기준일 자동 업데이트
   const uploadedDay=records[0]?.uploadedDate||todayStr();
   if(!S.cfg.dashDate||uploadedDay>S.cfg.dashDate) S.cfg.dashDate=uploadedDay;
+  reconcileInst();   // 선금→완납 이동/일시납 정리
   save();
   autoDetectTerms();
   updateTermFilter();renderFilterChips();renderFilterChips2();
   renderDash();renderDash2();renderTodayUploads();renderPayHistory();renderUnpaid();
-  let msg=`<span style="color:var(--success);font-weight:700;">✅ 정규 ${addedReg}명 추가</span>`;
+  const _yrs=Object.keys(addedByYear).sort();
+  const _yrNote=(_yrs.length>1||(_yrs.length===1&&_yrs[0]!==LEGACY_YEAR))?` <span style="font-weight:400;color:#1B3A5C;">(${_yrs.map(y=>`${y}학년도 ${addedByYear[y]}명`).join(' · ')})</span>`:'';
+  let msg=`<span style="color:var(--success);font-weight:700;">✅ 정규 ${addedReg}명 추가</span>${_yrNote}`;
   if(addedDan)msg+=`<span style="color:var(--d2);font-weight:700;margin-left:10px;">📘 단과 ${addedDan}명 추가</span>`;
   if(dups.length)msg+=`<span style="color:var(--danger);font-weight:700;margin-left:10px;">⚠️ 중복 ${dups.length}명</span>`;
   if(withdrawn.length)msg+=`<span style="color:#856404;font-weight:700;margin-left:10px;">🚪 퇴소제외 ${withdrawn.length}명</span>`;
@@ -1464,23 +1602,12 @@ function refDate(r){
   return r.processedDate || msToLocalDate(r.processedAt);
 }
 function autoDetectTerms(refDate){
-  const allTerms=[...new Set(S.pays.map(p=>p.내역).filter(Boolean))];
   if(!S.cfg.manualOverride){
-    // 반수 term 제외한 월 목록으로 prevTerms/currTerms 결정
-    const nonBansuTerms=allTerms.filter(t=>!isSpecialTerm(t));
-    const months=[...new Set(nonBansuTerms.map(t=>extractMonth(t)).filter(m=>m>0))].sort((a,b)=>a-b);
-    if(months.length===0){S.cfg.prevTerms=[];S.cfg.currTerms=[];}
-    else if(months.length===1){
-      S.cfg.prevTerms=nonBansuTerms.filter(t=>extractMonth(t)===months[0]);
-      S.cfg.currTerms=[];
-    } else {
-      const cm=months[months.length-1];
-      const pm=months[months.length-2];
-      S.cfg.prevTerms=nonBansuTerms.filter(t=>extractMonth(t)===pm);
-      S.cfg.currTerms=nonBansuTerms.filter(t=>extractMonth(t)===cm);
-    }
-    // 반수 terms는 별도 보관
-    S.cfg.bansuTerms=allTerms.filter(t=>isSpecialTerm(t));
+    // 기본 쌍(미납자 탭 기준)은 "정규 월이 있는 가장 최신 학년도" 기준
+    const c=yearCfg(primaryYear());
+    S.cfg.prevTerms=c.prev;
+    S.cfg.currTerms=c.curr;
+    S.cfg.bansuTerms=[...new Set(S.pays.map(p=>p.내역).filter(x=>x&&isBansuTerm(x)))];
   }
   const danchaTerms=[...new Set(S.dancha.map(p=>p.내역).filter(Boolean))];
   S.cfg.danchaTerms=danchaTerms;
@@ -1489,15 +1616,27 @@ function autoDetectTerms(refDate){
 
 // ════ FILTER CHIPS ════
 function renderFilterChips(){
-  const allT=[...new Set(S.pays.map(p=>p.내역).filter(Boolean))].sort((a,b)=>extractMonth(a)-extractMonth(b)||a.localeCompare(b));
+  const allT=[...new Set(VP().map(p=>p.내역).filter(Boolean))].sort((a,b)=>termYear(a).localeCompare(termYear(b))||extractMonth(a)-extractMonth(b)||a.localeCompare(b));
   const hidden=S.cfg.hiddenTerms||[];
-  document.getElementById('filterChips').innerHTML=allT.map(t=>{
-    const on=!hidden.includes(t);
-    return`<label class="fchip ${on?'on':''}" onclick="toggleTerm('${t.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">${h(t)}</label>`;
-  }).join('')||'<span style="font-size:11px;color:var(--muted);">납부 데이터를 먼저 입력해주세요</span>';
+  const years=[...new Set(allT.map(termYear))];
+  const showYr=years.length>1||(years.length===1&&years[0]!==LEGACY_YEAR);
+  const chip=t=>{const on=!hidden.includes(t);return`<label class="fchip ${on?'on':''}" onclick="toggleTerm('${t.replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')">${h(t)}</label>`;};
+  let html='';
+  years.forEach(Y=>{
+    const ts=allT.filter(x=>termYear(x)===Y);
+    if(showYr)html+=`<div style="flex-basis:100%;width:100%;display:flex;align-items:center;gap:6px;margin:4px 0 2px;"><span style="font-size:12px;font-weight:800;color:#1B3A5C;">📅 ${Y}학년도</span><button class="btn btn-sm btn-ghost" style="padding:1px 7px;font-size:10px;" onclick="filterYear('${Y}',true)">전체선택</button><button class="btn btn-sm btn-ghost" style="padding:1px 7px;font-size:10px;" onclick="filterYear('${Y}',false)">전체해제</button></div>`;
+    html+=ts.map(chip).join('');
+  });
+  document.getElementById('filterChips').innerHTML=html||'<span style="font-size:11px;color:var(--muted);">납부 데이터를 먼저 입력해주세요</span>';
+}
+function filterYear(Y,show){
+  const ts=[...new Set(S.pays.map(p=>p.내역).filter(x=>x&&termYear(x)===Y))];
+  let hd=(S.cfg.hiddenTerms||[]).filter(x=>!ts.includes(x));
+  if(!show)hd=[...hd,...ts];
+  S.cfg.hiddenTerms=hd;save();renderFilterChips();renderDash();
 }
 function renderFilterChips2(){
-  const allT=[...new Set(S.dancha.map(p=>p.내역).filter(Boolean))].sort((a,b)=>extractMonth(a)-extractMonth(b)||a.localeCompare(b));
+  const allT=[...new Set(VD().map(p=>p.내역).filter(Boolean))].sort((a,b)=>termYear(a).localeCompare(termYear(b))||extractMonth(a)-extractMonth(b)||a.localeCompare(b));
   const hidden=S.cfg.danchaHiddenTerms||[];
   document.getElementById('filterChips2').innerHTML=allT.map(t=>{
     const on=!hidden.includes(t);
@@ -1513,7 +1652,7 @@ function filterAll(show,type){
 }
 function updateTermFilter(){
   const sel=document.getElementById('payTermFilter');const cur=sel.value;
-  const terms=[...new Set(S.pays.map(p=>p.내역).filter(Boolean))].sort((a,b)=>extractMonth(a)-extractMonth(b)||a.localeCompare(b));
+  const terms=[...new Set(VP().map(p=>p.내역).filter(Boolean))].sort((a,b)=>termYear(a).localeCompare(termYear(b))||extractMonth(a)-extractMonth(b)||a.localeCompare(b));
   sel.innerHTML='<option value="">전체 내역</option>'+terms.map(t=>`<option value="${h(t)}" ${t===cur?'selected':''}>${h(t)}</option>`).join('');
 }
 
@@ -1543,6 +1682,9 @@ function countAsOf(term,dateStr,type){
     if(!uploaded||uploaded>dateStr)return false;
     if(p.status==='퇴소'&&p.withdrawnAt&&p.withdrawnAt<=dateEndMs)return false;
     if(p.status==='cancelled'&&p.withdrawnAt&&p.withdrawnAt<=dateEndMs)return false;
+    if(p.status==='취소'&&p.cancelledAt&&p.cancelledAt<=dateEndMs)return false;
+    if(p.status==='일시납')return false;
+    if(p.status==='완납전환'&&p.convertedDate&&p.convertedDate<=dateStr)return false;
     return true;
   }).length;
 }
@@ -1553,7 +1695,6 @@ function renderDash(){
   const today=S.cfg.dashDate||todayStr();
   document.getElementById('dashKorDate').textContent=fmtKor(today);
   document.getElementById('dashDatePicker').value=today;
-  const active=S.pays.filter(p=>p.status==='active');
   const hidden=S.cfg.hiddenTerms||[];
   const prevDate=getPrevActivityDate(today,'reg');
   const prevLabel=document.getElementById('prevDateLabel');
@@ -1562,95 +1703,118 @@ function renderDash(){
   const snapBadge=document.getElementById('snapBadge');
   const isSaved=!!snaps[today];
   if(snapBadge)snapBadge.innerHTML=isSaved?`<span style="background:#D4EDDA;color:#155724;padding:2px 9px;border-radius:9px;font-size:11px;">✅ ${fmtShort(today)} 저장됨</span><button class="btn btn-sm btn-ghost" onclick="deleteSnapshot('${today}')" style="margin-left:3px;font-size:10px;">삭제</button>`:`<span style="background:#FFF3CD;color:#856404;padding:2px 9px;border-radius:9px;font-size:11px;">⚠️ 미저장</span>`;
-  const visibleTerms=[...new Set(S.pays.map(p=>p.내역).filter(Boolean))].filter(t=>!hidden.includes(t)).sort((a,b)=>{const d=extractMonth(a)-extractMonth(b);return d!==0?d:a.localeCompare(b);});
-  const 미납퇴소Set=new Set((S.미납퇴소||[]).map(r=>r.수험번호));
-  // ★ 연속 월 쌍마다 미납인원 계산 (3→4월, 4→5월, 5→6월 ...)
-  const allMonths=[...new Set(S.pays.map(p=>p.내역).filter(Boolean).map(t=>extractMonth(t)).filter(m=>m>0))].sort((a,b)=>a-b);
-  function calcUnpaidByMonth(){
-    const map={};
-    const nonSpecialMonths=[...new Set(active.filter(p=>!isSpecialTerm(p.내역)).map(p=>p.내역).filter(Boolean).map(t=>extractMonth(t)).filter(m=>m>0))].sort((a,b)=>a-b);
-    for(let i=1;i<nonSpecialMonths.length;i++){
-      const pm=nonSpecialMonths[i-1],cm=nonSpecialMonths[i];
-      const isLatest=(i===nonSpecialMonths.length-1);
-      // 일반 pm 학생
-      const pmIdsReg=new Set(active.filter(p=>extractMonth(p.내역)===pm&&!isSpecialTerm(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
-      // 최신 쌍: special term 중 month < cm인 학생도 포함 (다음 정규기수 미납에 반영)
-      const pmIdsSpecial=isLatest
-        ? new Set(active.filter(p=>isSpecialTerm(p.내역)&&extractMonth(p.내역)<cm&&p.환불금액===0).map(p=>p.수험번호))
-        : new Set();
-      const pmIds=new Set([...pmIdsReg,...pmIdsSpecial]);
-      const cmIds=new Set(active.filter(p=>extractMonth(p.내역)===cm&&!isSpecialTerm(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
-      const unpaidExcludeSet=new Set((S.미납퇴소||[]).filter(r=>{
-        const tm=r.targetMonth||pm;
-        return tm===cm;
-      }).map(r=>r.수험번호));
-      map[cm]=[...pmIds].filter(id=>!cmIds.has(id)&&!unpaidExcludeSet.has(id)).length;
-    }
-    return map;
+  const years=[...new Set(VP().map(p=>p.내역).filter(x=>x&&!hidden.includes(x)).map(termYear))].sort();
+  const ctx={today,prevDate,snaps,hidden,showYear:years.length>1||(years.length===1&&years[0]!==LEGACY_YEAR)};
+  let html='',grandTotal=0,currCount=0,unpaidTotal=0;
+  for(const Y of years){const r=renderDashYear(Y,ctx);html+=r.html;grandTotal+=r.grandTotal;currCount+=r.currCount;unpaidTotal+=r.unpaidTotal;}
+  if(!html)html=`<tr><td colspan="6" style="text-align:center;color:#bbb;padding:24px;">납부 데이터를 입력하면 표시됩니다</td></tr>`;
+  document.getElementById('dashBody').innerHTML=html;
+  document.getElementById('dashStats').innerHTML=`<div class="chip c-gold" style="border-color:var(--g1);background:#EAF6EE;"><div class="v" style="color:var(--g1);">${grandTotal}</div><div class="l">📌 총인원</div></div><div class="chip c-grn"><div class="v">${grandTotal}</div><div class="l">총 등록인원</div></div><div class="chip c-gold"><div class="v">${currCount}</div><div class="l">선납 완료</div></div><div class="chip c-red"><div class="v">${unpaidTotal}</div><div class="l">미납인원</div></div><div class="chip"><div class="v">${S.refunds.length}</div><div class="l">누적 퇴소</div></div>`;
+}
+// 학년도 1개분의 대시보드 행 + 총인원 계산
+function renderDashYear(Y,ctx){
+  const{today,prevDate,snaps,hidden,showYear}=ctx;
+  const active=S.pays.filter(p=>p.status==='active'&&p.내역&&termYear(p.내역)===Y);
+  const cfgY=yearCfg(Y);
+  const visibleTerms=[...new Set(S.pays.filter(p=>p.내역&&termYear(p.내역)===Y).map(p=>p.내역))].filter(x=>!hidden.includes(x)).sort((a,b)=>{const d=extractMonth(a)-extractMonth(b);return d!==0?d:a.localeCompare(b);});
+  const sg=snaps[today];
+  const chain=calcChain(active,Y);
+  let unpaidByMonth=chain.map;
+  if(sg&&sg._unpaidByMonth){
+    unpaidByMonth={};
+    Object.keys(sg._unpaidByMonth).forEach(k=>{
+      if(Y===LEGACY_YEAR){if(/^\d+$/.test(k))unpaidByMonth[k]=sg._unpaidByMonth[k];}
+      else if(k.startsWith(Y+':'))unpaidByMonth[k.slice(Y.length+1)]=sg._unpaidByMonth[k];
+    });
   }
-  const unpaidByMonth=(snaps[today]&&snaps[today]._unpaidByMonth)
-    ? snaps[today]._unpaidByMonth
-    : calcUnpaidByMonth();
-  // latestMonth: special term 제외 최신 월 기준
-  const nonSpecialMonthsForUnpaid=[...new Set(active.filter(p=>!isSpecialTerm(p.내역)).map(p=>p.내역).filter(Boolean).map(t=>extractMonth(t)).filter(m=>m>0))].sort((a,b)=>a-b);
-  const latestMonth=nonSpecialMonthsForUnpaid.length>0?nonSpecialMonthsForUnpaid[nonSpecialMonthsForUnpaid.length-1]:0;
+  const latestMonth=chain.latestMonth;
   const unpaidCnt=unpaidByMonth[latestMonth]||0;
-  const currIds=new Set(active.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
+  const currIds=new Set(active.filter(p=>cfgY.curr.includes(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
   function calcGrandTotal(){
-    // 반수 등록인원 (별도 합산) - 최신 정규 월(latestMonth) 이상인 special term만 포함
-    const bansuIds=new Set(active.filter(p=>(S.cfg.bansuTerms||[]).includes(p.내역)&&p.환불금액===0&&extractMonth(p.내역)>=latestMonth).map(p=>p.수험번호));
-    if(snaps[today]){
-      if(snaps[today]._grandTotal!==undefined) return snaps[today]._grandTotal;
-      const snapCurrTotal=(S.cfg.currTerms||[]).reduce((sum,term)=>sum+(snaps[today][term]||0),0);
-      const snapBansuTotal=(S.cfg.bansuTerms||[]).filter(term=>extractMonth(term)>=latestMonth).reduce((sum,term)=>sum+(snaps[today][term]||0),0);
+    if(sg){
+      if(sg._grandTotalByYear){return sg._grandTotalByYear[Y]!==undefined?sg._grandTotalByYear[Y]:0;}
+      if(Y!==LEGACY_YEAR)return 0;
+      if(sg._grandTotal!==undefined)return sg._grandTotal;
+      const snapCurrTotal=cfgY.curr.reduce((sum,term)=>sum+(sg[term]||0),0);
+      const snapBansuTotal=cfgY.bansu.filter(term=>extractMonth(term)>=latestMonth).reduce((sum,term)=>sum+(sg[term]||0),0);
       return snapCurrTotal+unpaidCnt+snapBansuTotal;
     }
-    // 총인원 = 정규 최신 월 등록 + 정규 미납 + 반수 등록
-    return currIds.size+unpaidCnt+bansuIds.size;
+    const bansuIds=new Set(active.filter(p=>cfgY.bansu.includes(p.내역)&&p.환불금액===0&&extractMonth(p.내역)>=latestMonth).map(p=>p.수험번호));
+    // 분납(선금/완납): 완납으로 넘어간 학생은 선금에서 빠지므로 활성 기록 수가 곧 인원
+    const instIds=new Set(active.filter(p=>isInstTerm(p.내역)&&p.환불금액===0&&extractMonth(p.내역)>=latestMonth).map(p=>instBase(p.내역)+'|'+p.수험번호));
+    // 총인원 = 정규 최신 월 등록 + 정규 미납 + 반수 등록 + 윈터(선금+완납) 인원
+    return currIds.size+unpaidCnt+bansuIds.size+instIds.size;
   }
-  let grandTotal=0;
   function calcTerm(term){
-    const isPrev=(S.cfg.prevTerms||[]).includes(term);
-    const isCurr=(S.cfg.currTerms||[]).includes(term);
+    const isPrev=cfgY.prev.includes(term);
+    const isCurr=cfgY.curr.includes(term);
     let prevDay;
     if(prevDate&&snaps[prevDate]&&snaps[prevDate][term]!==undefined) prevDay=snaps[prevDate][term];
     else if(prevDate) prevDay=countAsOf(term,prevDate,'reg');
     else prevDay=0;
-    // 금일등록: status 무관 (당일 등록 후 퇴소된 학생도 포함)
+    // 금일등록: status 무관 (당일 등록 후 퇴소된 학생도 포함) / 같은 날 선금+완납 병합(일시납) 선금은 제외
     const allTermRecs=S.pays.filter(p=>p.내역===term);
     const recs=active.filter(p=>p.내역===term);
-    const todayIn=allTermRecs.filter(p=>(p.uploadedDate||p.결제일자)===today&&p.환불금액===0).length;
-    const todayRefund=recs.filter(p=>(p.uploadedDate||p.결제일자)===today&&p.환불금액>0).length;
+    const todayIn=allTermRecs.filter(p=>uploadedOf(p)===today&&p.환불금액===0&&p.status!=='일시납').length;
+    const todayRefund=recs.filter(p=>uploadedOf(p)===today&&p.환불금액>0).length;
     const todayWithdraw=S.refunds.filter(r=>{const d=refDate(r);return d===today&&r.removedTerms?.includes(term);}).length;
-    const todayOut=-(todayRefund+todayWithdraw);
+    // 선금 → 완납 전환: 선금 쪽 금일환불(마이너스)에 포함, 환불명단에는 안 들어감
+    const todayConv=isInstFirst(term)?allTermRecs.filter(p=>p.status==='완납전환'&&p.convertedDate===today).length:0;
+    const todayLump=isInstFinal(term)?allTermRecs.filter(p=>p.일시납&&uploadedOf(p)===today&&p.환불금액===0).length:0;
+    const todayOut=-(todayRefund+todayWithdraw+todayConv);
     // ★ 등록인원(total)만 스냅샷 고정 — 금일등록/환불 표시는 실시간 유지
     const total=snaps[today]&&snaps[today][term]!==undefined ? snaps[today][term] : prevDay+todayIn+todayOut;
-    return{term,prevDay,todayIn,todayOut,total,isPrev,isCurr};
+    const conv=(sg&&sg._conv&&sg._conv[term]!==undefined)?sg._conv[term]:todayConv;
+    const lump=(sg&&sg._lump&&sg._lump[term]!==undefined)?sg._lump[term]:todayLump;
+    return{term,prevDay,todayIn,todayOut,total,isPrev,isCurr,conv,lump};
   }
   const monthMap={};
-  for(const t of visibleTerms){const mo=extractMonth(t);if(!monthMap[mo])monthMap[mo]=[];monthMap[mo].push(t);}
-  let html='';
+  for(const x of visibleTerms){const mo=extractMonth(x);if(!monthMap[mo])monthMap[mo]=[];monthMap[mo].push(x);}
   const moKeys=Object.keys(monthMap).map(Number).sort((a,b)=>a-b);
-  for(let mi=0;mi<moKeys.length;mi++){
-    const mo=moKeys[mi];
-    const isLastMonth=mi===moKeys.length-1;
+  // 월별 묶음 → 일반 / 선금 / 완납 블록으로 분리 (윈터는 선금 구역 아래에 완납 구역)
+  const blocks=[];
+  moKeys.forEach(mo=>{
     const datas=monthMap[mo].map(calcTerm);
+    const normal=datas.filter(d=>!isInstTerm(d.term));
+    const firsts=datas.filter(d=>isInstFirst(d.term));
+    const finals=datas.filter(d=>isInstFinal(d.term));
+    if(normal.length)blocks.push({mo,datas:normal,kind:'normal'});
+    if(firsts.length)blocks.push({mo,datas:firsts,kind:'first'});
+    if(finals.length)blocks.push({mo,datas:finals,kind:'final'});
+  });
+  // 아직 데이터가 없는 (새) 학년도는 해당 날짜 화면에서 숨김 (기존 26학년도는 그대로 표시)
+  if(Y!==LEGACY_YEAR&&blocks.every(g=>g.datas.every(d=>d.total===0&&d.prevDay===0&&d.todayIn===0&&d.todayOut===0)))
+    return{html:'',grandTotal:0,currCount:0,unpaidTotal:0};
+  let html='';
+  if(showYear)html+=`<tr class="row-year"><td colspan="6" style="text-align:left;background:#E8EEF5;color:#1B3A5C;font-weight:800;padding:6px 14px;font-size:12px;">📅 ${Y}학년도</td></tr>`;
+  let grandTotal=0;
+  blocks.forEach((g,bi)=>{
+    const mo=g.mo,datas=g.datas;
+    const isLast=bi===blocks.length-1;
     for(const d of datas){
-      html+=`<tr class="${d.isCurr?'row-curr':''}"><td style="text-align:left;padding-left:16px;">${h(d.term)}</td><td>${d.prevDay>0?d.prevDay.toLocaleString():'0'}</td><td>${d.todayIn>0?`<span class="pos">${d.todayIn.toLocaleString()}</span>`:''}</td><td>${d.todayOut<0?`<span class="neg">${d.todayOut.toLocaleString()}</span>`:''}</td><td><strong>${d.total>0?d.total.toLocaleString():'0'}</strong></td><td>${(()=>{if(isSpecialTerm(d.term))return '';const tm=extractMonth(d.term);const tu=unpaidByMonth[tm]||0;return tu>0?`미납인원:${tu}명`:'';})()}</td></tr>`;
+      const note=(()=>{
+        if(g.kind==='first')return d.conv>0?`완납전환:${d.conv}명`:'';
+        if(g.kind==='final')return d.lump>0?`일시납:${d.lump}명`:'';
+        if(isSpecialTerm(d.term))return '';
+        const tm=extractMonth(d.term);const tu=unpaidByMonth[tm]||0;return tu>0?`미납인원:${tu}명`:'';
+      })();
+      html+=`<tr class="${d.isCurr?'row-curr':''}"><td style="text-align:left;padding-left:16px;">${h(showYear?termBase(d.term):d.term)}</td><td>${d.prevDay>0?d.prevDay.toLocaleString():'0'}</td><td>${d.todayIn>0?`<span class="pos">${d.todayIn.toLocaleString()}</span>`:''}</td><td>${d.todayOut<0?`<span class="neg">${d.todayOut.toLocaleString()}</span>`:''}</td><td><strong>${d.total>0?d.total.toLocaleString():'0'}</strong></td><td>${note}</td></tr>`;
     }
     const sPrev=datas.reduce((a,d)=>a+d.prevDay,0),sIn=datas.reduce((a,d)=>a+d.todayIn,0),sOut=datas.reduce((a,d)=>a+d.todayOut,0),sTotal=datas.reduce((a,d)=>a+d.total,0);
-    if(isLastMonth) grandTotal=calcGrandTotal();
-    // 계 행: 마지막 달만 전체 총인원 표시, 그 외는 해당 달 소계
-    // 소계 = 등록인원 + 해당 월 미납인원 (4→5월 미납은 5월 소계에 포함)
-    // special term 그룹은 미납인원 표시 안 함, 정규 term만 소계에 미납 포함
+    if(isLast) grandTotal=calcGrandTotal();
+    // 계 행: 마지막 블록만 전체 총인원 표시, 그 외는 소계 (소계 = 등록인원 + 해당 월 미납인원)
     const isSpecialGroup=datas.every(d=>isSpecialTerm(d.term));
-    const 해당월미납=(!isLastMonth&&!isSpecialGroup&&unpaidByMonth[mo])||0;
-    const 비고셀=isLastMonth?`총인원:${grandTotal.toLocaleString()}명`:`소계:${(sTotal+해당월미납).toLocaleString()}명`;
+    const 해당월미납=(!isLast&&g.kind==='normal'&&!isSpecialGroup&&unpaidByMonth[mo])||0;
+    let 비고셀;
+    if(isLast)비고셀=`총인원:${grandTotal.toLocaleString()}명`;
+    else if(g.kind==='first'){const c=datas.reduce((a,d)=>a+d.conv,0);비고셀=c>0?`완납전환:${c}명`:'';}
+    else if(g.kind==='final')비고셀='';
+    else 비고셀=`소계:${(sTotal+해당월미납).toLocaleString()}명`;
     html+=`<tr class="row-sub"><td>계</td><td>${sPrev.toLocaleString()}</td><td>${sIn>0?sIn.toLocaleString():'0'}</td><td>${sOut<0?sOut.toLocaleString():''}</td><td>${sTotal.toLocaleString()}</td><td>${비고셀}</td></tr>`;
-  }
-  if(!html)html=`<tr><td colspan="6" style="text-align:center;color:#bbb;padding:24px;">납부 데이터를 입력하면 표시됩니다</td></tr>`;
-  document.getElementById('dashBody').innerHTML=html;
-  document.getElementById('dashStats').innerHTML=`<div class="chip c-gold" style="border-color:var(--g1);background:#EAF6EE;"><div class="v" style="color:var(--g1);">${grandTotal}</div><div class="l">📌 총인원</div></div><div class="chip c-grn"><div class="v">${grandTotal}</div><div class="l">총 등록인원</div></div><div class="chip c-gold"><div class="v">${active.filter(p=>(S.cfg.currTerms||[]).includes(p.내역)&&p.환불금액===0).length}</div><div class="l">선납 완료</div></div><div class="chip c-red"><div class="v">${Object.values(unpaidByMonth).reduce((s,v)=>s+v,0)}</div><div class="l">미납인원</div></div><div class="chip"><div class="v">${S.refunds.length}</div><div class="l">누적 퇴소</div></div>`;
+  });
+  const currCount=active.filter(p=>cfgY.curr.includes(p.내역)&&p.환불금액===0).length;
+  const unpaidTotal=Object.values(unpaidByMonth).reduce((s,v)=>s+v,0);
+  return{html,grandTotal,currCount,unpaidTotal};
 }
 
 // ════ DASHBOARD (단과) ════
@@ -1663,7 +1827,7 @@ function renderDash2(){
   const today=S.cfg.dashDate2||todayStr();
   document.getElementById('dashKorDate2').textContent=fmtKor(today);
   document.getElementById('dashDatePicker2').value=today;
-  const active=S.dancha.filter(p=>p.status==='active');
+  const active=VD().filter(p=>p.status==='active');
   const hidden=S.cfg.danchaHiddenTerms||[];
   const snaps2=S.danchaSnapshots||{};
   const prevDate=getPrevActivityDate(today,'dancha');
@@ -1672,14 +1836,15 @@ function renderDash2(){
   if(snapBadge2)snapBadge2.innerHTML=isSaved
     ?`<span style="background:#D4EDFF;color:var(--d1);padding:2px 9px;border-radius:9px;font-size:11px;">✅ ${fmtShort(today)} 저장됨</span><button class="btn btn-sm btn-ghost" onclick="deleteSnapshot2('${today}')" style="margin-left:3px;font-size:10px;">삭제</button>`
     :`<span style="background:#FFF3CD;color:#856404;padding:2px 9px;border-radius:9px;font-size:11px;">⚠️ 미저장</span>`;
-  const visibleTerms=[...new Set(S.dancha.map(p=>p.내역).filter(Boolean))].filter(t=>!hidden.includes(t)).sort((a,b)=>{
+  const visibleTerms=[...new Set(VD().map(p=>p.내역).filter(Boolean))].filter(t=>!hidden.includes(t)).sort((a,b)=>{
+    const ya=termYear(a),yb=termYear(b);if(ya!==yb)return ya.localeCompare(yb);
     const ga=extractGisu(a),gb=extractGisu(b);
     if(ga!==gb)return ga.localeCompare(gb);
     return a.localeCompare(b);
   });
   // 단과 grandTotal: 스냅샷 있으면 저장값, 없으면 live
   const grandTotal=snaps2[today]
-    ? Object.entries(snaps2[today]).filter(([k])=>!k.startsWith('_')).reduce((s,[,v])=>s+v,0)
+    ? Object.entries(snaps2[today]).filter(([k])=>!k.startsWith('_')&&!hiddenYearList().includes(termYear(k))).reduce((s,[,v])=>s+v,0)
     : active.filter(p=>p.환불금액===0).length;
   function calcTerm2(term){
     let prevDay;
@@ -1697,17 +1862,24 @@ function renderDash2(){
   // 기수별 그룹핑
   const gisuMap={};
   for(const t of visibleTerms){
-    const g=extractGisu(t);
+    const g=termYear(t)+'|'+extractGisu(t);
     if(!gisuMap[g])gisuMap[g]=[];
     gisuMap[g].push(t);
   }
   let html='';
   const gisuOrder=Object.keys(gisuMap).sort((a,b)=>{
-    const na=parseInt(a)||999,nb=parseInt(b)||999;
+    const [ya,ga]=a.split('|'),[yb,gb]=b.split('|');
+    if(ya!==yb)return ya.localeCompare(yb);
+    const na=parseInt(ga)||999,nb=parseInt(gb)||999;
     return na-nb;
   });
-  for(const gisu of gisuOrder){
-    const terms=gisuMap[gisu];
+  const _yrSet=new Set(visibleTerms.map(termYear));
+  const _showYr=_yrSet.size>1||(_yrSet.size===1&&![..._yrSet][0]===LEGACY_YEAR&&[..._yrSet][0]!==LEGACY_YEAR);
+  let _lastY=null;
+  for(const gisuKey of gisuOrder){
+    const [_gy,gisu]=gisuKey.split('|');
+    if(_showYr&&_gy!==_lastY){html+=`<tr class="row-year"><td colspan="6" style="text-align:left;background:#E8EEF5;color:#1B3A5C;font-weight:800;padding:6px 14px;font-size:12px;">📅 ${_gy}학년도</td></tr>`;_lastY=_gy;}
+    const terms=gisuMap[gisuKey];
     const datas=terms.map(calcTerm2);
     // 개별 내역 행
     for(const d of datas){
@@ -1729,50 +1901,48 @@ function saveSnapshot(){
   const prevDate=getPrevActivityDate(today,'reg');
   const active=S.pays.filter(p=>p.status==='active');
   const snap={};
+  snap._conv={};snap._lump={};
   [...new Set(S.pays.map(p=>p.내역).filter(Boolean))].forEach(term=>{
     const recs=active.filter(p=>p.내역===term);
-    // 당일 등록+퇴소 케이스 대응: todayIn은 status 무관하게 계산
+    // 당일 등록+퇴소 케이스 대응: todayIn은 status 무관하게 계산 (같은 날 선금+완납 병합 '일시납' 선금은 제외)
     const allTermRecs=S.pays.filter(p=>p.내역===term);
-    const todayIn=allTermRecs.filter(p=>(p.uploadedDate||p.결제일자)===today&&p.환불금액===0).length;
+    const todayIn=allTermRecs.filter(p=>uploadedOf(p)===today&&p.환불금액===0&&p.status!=='일시납').length;
     const todayRefund=recs.filter(p=>(p.uploadedDate||p.결제일자)===today&&p.환불금액>0).length;
     const todayWithdraw=S.refunds.filter(r=>{const d=refDate(r);return d===today&&r.removedTerms?.includes(term);}).length;
     let prevDay;
     if(prevDate&&snaps[prevDate]&&snaps[prevDate][term]!==undefined)prevDay=snaps[prevDate][term];
     else if(prevDate)prevDay=countAsOf(term,prevDate,'reg');
     else prevDay=0;
-    snap[term]=prevDay+todayIn-(todayRefund+todayWithdraw);
+    const todayConv=isInstFirst(term)?allTermRecs.filter(p=>p.status==='완납전환'&&p.convertedDate===today).length:0;
+    const todayLump=isInstFinal(term)?allTermRecs.filter(p=>p.일시납&&uploadedOf(p)===today&&p.환불금액===0).length:0;
+    if(isInstFirst(term))snap._conv[term]=todayConv;
+    if(isInstFinal(term))snap._lump[term]=todayLump;
+    snap[term]=prevDay+todayIn-(todayRefund+todayWithdraw+todayConv);
   });
-  // 미납인원 스냅샷 저장 (연속 월 쌍별)
-  const snap미납퇴소Set=new Set((S.미납퇴소||[]).map(r=>r.수험번호));
+  // 미납인원/총인원 스냅샷 저장 (학년도별로 계산 후 합산)
   const snapActive=S.pays.filter(p=>p.status==='active');
-  const snapAllMonths=[...new Set(S.pays.map(p=>p.내역).filter(Boolean).map(t=>extractMonth(t)).filter(m=>m>0))].sort((a,b)=>a-b);
-  const snapNonSpecialMonths=[...new Set(snapActive.filter(p=>!isSpecialTerm(p.내역)).map(p=>p.내역).filter(Boolean).map(t=>extractMonth(t)).filter(m=>m>0))].sort((a,b)=>a-b);
-  const snapUnpaidByMonth={};
-  for(let i=1;i<snapNonSpecialMonths.length;i++){
-    const pm=snapNonSpecialMonths[i-1],cm=snapNonSpecialMonths[i];
-    const isLatestSnap=(i===snapNonSpecialMonths.length-1);
-    const snapPmIdsReg=new Set(snapActive.filter(p=>extractMonth(p.내역)===pm&&!isSpecialTerm(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
-    const snapPmIdsSpecial=isLatestSnap
-      ? new Set(snapActive.filter(p=>isSpecialTerm(p.내역)&&extractMonth(p.내역)<cm&&p.환불금액===0).map(p=>p.수험번호))
-      : new Set();
-    const snapPmIds=new Set([...snapPmIdsReg,...snapPmIdsSpecial]);
-    const snapCmIds=new Set(snapActive.filter(p=>extractMonth(p.내역)===cm&&!isSpecialTerm(p.내역)&&p.환불금액===0).map(p=>p.수험번호));
-    const snapExcludeSet=new Set((S.미납퇴소||[]).filter(r=>{
-      const tm=r.targetMonth||pm;
-      return tm===cm;
-    }).map(r=>r.수험번호));
-    snapUnpaidByMonth[cm]=[...snapPmIds].filter(id=>!snapCmIds.has(id)&&!snapExcludeSet.has(id)).length;
+  const snapYears=[...new Set(S.pays.map(p=>p.내역).filter(Boolean).map(termYear))].sort();
+  const snapHidden=hiddenYearList();
+  snap._unpaidByMonth={};snap._grandTotalByYear={};
+  let totUnpaid=0,totGrand=0;
+  for(const Y of snapYears){
+    const actY=snapActive.filter(p=>p.내역&&termYear(p.내역)===Y);
+    const chain=calcChain(actY,Y);
+    Object.keys(chain.map).forEach(m=>{snap._unpaidByMonth[ukey(Y,Number(m))]=chain.map[m];});
+    const unpaidCntY=chain.map[chain.latestMonth]||0;
+    const cfgY=yearCfg(Y);
+    // 윈터(선금+완납) 인원: 그 날짜 기준 고정 등록인원 합
+    let instTotal=0;
+    Object.keys(snap).filter(k=>!k.startsWith('_')&&termYear(k)===Y&&isInstTerm(k)&&extractMonth(k)>=chain.latestMonth).forEach(k=>{instTotal+=snap[k]||0;});
+    // ★ 실시간 active 카운트가 아니라 "그 날짜 기준 고정 등록인원"(snap[term])을 사용
+    const currTotal=cfgY.curr.reduce((sum,term)=>sum+(snap[term]||0),0);
+    const bansuTotal=cfgY.bansu.filter(term=>extractMonth(term)>=chain.latestMonth).reduce((sum,term)=>sum+(snap[term]||0),0);
+    const g=currTotal+unpaidCntY+bansuTotal+instTotal;
+    snap._grandTotalByYear[Y]=g;
+    if(!snapHidden.includes(Y)){totGrand+=g;totUnpaid+=unpaidCntY;}
   }
-  snap._unpaidByMonth=snapUnpaidByMonth;
-  // _unpaidCnt: special term 제외 최신 월 기준
-  const snapNonSpecialLatest=snapNonSpecialMonths.length>0?snapNonSpecialMonths[snapNonSpecialMonths.length-1]:0;
-  snap._unpaidCnt=snapUnpaidByMonth[snapNonSpecialLatest]||0;
-  // grandTotal 스냅샷 저장 (정규 최신월 등록 + 미납 + 반수 등록)
-  // ★ 실시간 active 카운트가 아니라, 방금 위에서 계산한 "그 날짜 기준 고정 등록인원"(snap[term])을 사용
-  //   (나중에 시간이 지난 뒤 재저장해도, 그 날짜 당시의 등록인원 그대로 총인원에 반영되도록)
-  const snapCurrTotal=(S.cfg.currTerms||[]).reduce((sum,term)=>sum+(snap[term]||0),0);
-  const snapBansuTotal=(S.cfg.bansuTerms||[]).filter(term=>extractMonth(term)>=snapNonSpecialLatest).reduce((sum,term)=>sum+(snap[term]||0),0);
-  snap._grandTotal=snapCurrTotal+snap._unpaidCnt+snapBansuTotal;
+  snap._unpaidCnt=totUnpaid;
+  snap._grandTotal=totGrand;
   if(!S.snapshots)S.snapshots={};
   if(S.snapshots[today]){
     openModal('💾 재저장',`<strong>${fmtKor(today)}</strong>에 이미 저장된 현황이 있습니다.<br>덮어쓰시겠습니까?`,
@@ -1844,15 +2014,16 @@ function processReadmit(){
   const hint=document.getElementById('readmitHint');
   if(!val){toast('수험번호를 입력해주세요');return;}
   // 퇴소된 학생인지 확인
-  const withdrawn=S.pays.find(p=>p.수험번호===val&&p.status==='퇴소');
+  const Y=resolveDailyYear('reg');
+  const withdrawn=S.pays.find(p=>p.수험번호===val&&p.status==='퇴소'&&termYear(p.내역)===Y);
   if(!withdrawn){
-    hint.textContent=`"${val}" — 퇴소 학생이 아닙니다`;
+    hint.textContent=`"${val}" — ${Y}학년도 퇴소 학생이 아닙니다`;
     hint.style.color='var(--danger)';
     return;
   }
   // 이미 재입소 목록에 있는지 확인
   if(!S.재입소)S.재입소=[];
-  const already=S.재입소.find(r=>r.수험번호===val);
+  const already=S.재입소.find(r=>r.수험번호===val&&(r.year||LEGACY_YEAR)===Y);
   if(already){
     hint.textContent=`이미 재입소 처리됨 (${already.date})`;
     hint.style.color='var(--muted)';
@@ -1870,7 +2041,7 @@ function processReadmit(){
       </span>
     </div>`,
     [{label:'재입소 처리',cls:'btn-g',fn:()=>{
-      S.재입소.push({수험번호:val,이름:withdrawn.이름,date});
+      S.재입소.push({수험번호:val,이름:withdrawn.이름,date,year:Y});
       save();closeModal();
       document.getElementById('readmitInput').value='';
       hint.textContent=`✅ ${withdrawn.이름} 재입소 처리 완료 (${fmtShort(date)}부터 적용)`;
@@ -1881,12 +2052,13 @@ function processReadmit(){
   );
 }
 function renderReadmitList(){
-  const list=S.재입소||[];
+  const Y=resolveDailyYear('reg');
+  const list=(S.재입소||[]).map((r,i)=>({r,i})).filter(x=>(x.r.year||LEGACY_YEAR)===Y);
   const el=document.getElementById('readmitList');
   if(!el)return;
   if(!list.length){el.innerHTML='';return;}
-  el.innerHTML=`<div style="font-weight:700;color:var(--success);margin-bottom:4px;">재입소 목록 (${list.length}명):</div>`+
-    list.map((r,i)=>`<span style="display:inline-flex;align-items:center;gap:4px;background:#D4EDDA;border-radius:12px;padding:2px 9px;margin:2px;font-size:11px;">${h(r.이름)} (${h(r.수험번호)}) ${fmtShort(r.date)}<button onclick="removeReadmit(${i})" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:11px;padding:0 2px;">✕</button></span>`).join('');
+  el.innerHTML=`<div style="font-weight:700;color:var(--success);margin-bottom:4px;">${Y}학년도 재입소 목록 (${list.length}명):</div>`+
+    list.map(({r,i})=>`<span style="display:inline-flex;align-items:center;gap:4px;background:#D4EDDA;border-radius:12px;padding:2px 9px;margin:2px;font-size:11px;">${h(r.이름)} (${h(r.수험번호)}) ${fmtShort(r.date)}<button onclick="removeReadmit(${i})" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:11px;padding:0 2px;" title="취소">✕</button></span>`).join('');
 }
 function removeReadmit(idx){
   if(!confirm('재입소 처리를 취소하시겠습니까? 해당 학생은 다시 퇴소제외로 처리됩니다.'))return;
@@ -1899,7 +2071,8 @@ function isDateLocked(date){if(!date||date>=todayStr())return false;return !!(S.
 
 function renderDaily(){
   const date=document.getElementById('dailyDate').value||todayStr();
-  document.getElementById('dailyKorDate').textContent=fmtKor(date);
+  const Y=resolveDailyYear('reg');renderDailyYearTabs('reg');
+  document.getElementById('dailyKorDate').textContent=fmtKor(date)+' · '+Y+'학년도';
   updateSortArrows('reg'); updateSortArrows('ref');
   const locked=isDateLocked(date);
   const ri=document.getElementById('refundInput'),rb=document.getElementById('refundProcessBtn'),lb=document.getElementById('lockBadge'),ln=document.getElementById('lockNotice');
@@ -1907,27 +2080,29 @@ function renderDaily(){
   if(locked){ri.disabled=true;rb.disabled=true;b2.disabled=true;[ri,rb,b2].forEach(el=>el.style.opacity='.4');lb.innerHTML='<span style="background:#F8D7DA;color:#721C24;padding:2px 10px;border-radius:9px;font-size:11px;">🔒 조회 모드</span>';ln.style.display='block';}
   else{ri.disabled=false;rb.disabled=false;b2.disabled=false;[ri,rb,b2].forEach(el=>el.style.opacity='1');lb.innerHTML='<span style="background:#D4EDDA;color:#155724;padding:2px 10px;border-radius:9px;font-size:11px;">✏️ 입력 모드</span>';ln.style.display='none';}
   renderReadmitList();
-  const prevIds=new Set(S.pays.filter(p=>p.status==='active'&&(S.cfg.prevTerms||[]).includes(p.내역)).map(p=>p.수험번호));
-  // 당일 등록은 퇴소 여부 무관하게 표시 (등록+취소 동시 발생 케이스 대응)
-  const regs=sortByBan(S.pays.filter(p=>(p.uploadedDate||p.결제일자)===date&&p.환불금액===0));
-  const refPayments=sortByBan(S.pays.filter(p=>(p.uploadedDate||p.결제일자)===date&&p.환불금액>0));
+  const prevIds=new Set(VP().filter(p=>p.status==='active'&&yearCfg(Y).prev.includes(p.내역)).map(p=>p.수험번호));
+  // 당일 등록은 퇴소 여부 무관하게 표시 (등록+취소 동시 발생 케이스 대응) / 같은 날 선금+완납 병합('일시납') 선금은 제외
+  const regs=sortByBan(VP().filter(p=>uploadedOf(p)===date&&p.환불금액===0&&p.status!=='일시납'&&termYear(p.내역)===Y));
+  const refPayments=sortByBan(VP().filter(p=>uploadedOf(p)===date&&p.환불금액>0&&termYear(p.내역)===Y));
   // 조회 기준월 이상의 내역만 환불 표시 (이전 달 납부건은 제외)
-  const refWithdrawals=sortByBan(S.refunds.filter(r=>refDate(r)===date).flatMap(r=>r.removedTerms.map((term,ti)=>({반:r.반,번호:r.번호,수험번호:r.수험번호,이름:r.이름,내역:term,장학:r.장학||'',_refId:r.id,_termIdx:ti}))));
+  const refWithdrawals=sortByBan(S.refunds.filter(r=>refDate(r)===date).flatMap(r=>r.removedTerms.map((term,ti)=>({반:r.반,번호:r.번호,수험번호:r.수험번호,이름:r.이름,내역:term,장학:r.장학||'',_refId:r.id,_termIdx:ti}))).filter(x=>termYear(x.내역)===Y));
   let regHtml='';
   // 재입소 학생 = 항상 신규로 처리
-  const 재입소Set=new Set((S.재입소||[]).map(r=>r.수험번호));
+  const 재입소Set=new Set((S.재입소||[]).filter(r=>(r.year||LEGACY_YEAR)===Y).map(r=>r.수험번호));
   // 신규 판정: 해당 기수 월과 다른 월에 이미 납부 기록이 있으면 신규 아님 (재입소 학생 제외)
   const otherIdsCache={};
-  function getOlderIds(month){
-    if(!otherIdsCache[month]) otherIdsCache[month]=new Set(
-      S.pays.filter(p=>p.status==='active'&&extractMonth(p.내역)>0&&extractMonth(p.내역)!==month&&p.환불금액===0&&!재입소Set.has(p.수험번호)).map(p=>p.수험번호)
+  function getOlderIds(month,yr){
+    yr=yr||LEGACY_YEAR;const ck=yr+':'+month;
+    if(!otherIdsCache[ck]) otherIdsCache[ck]=new Set(
+      VP().filter(p=>p.status==='active'&&termYear(p.내역)===yr&&extractMonth(p.내역)>0&&extractMonth(p.내역)!==month&&p.환불금액===0&&!재입소Set.has(p.수험번호)).map(p=>p.수험번호)
     );
-    return otherIdsCache[month];
+    return otherIdsCache[ck];
   }
   // 정렬 전에 신규 여부를 각 행에 미리 계산해 저장
-  regs.forEach(r=>{const termMo=extractMonth(r.내역);r._isOut=r.status==='퇴소';r._isNew=!r._isOut&&(termMo>0?!getOlderIds(termMo).has(r.수험번호):!prevIds.has(r.수험번호));});
+  const convTargets=new Set(S.pays.filter(f=>f.convertedTo&&f.status==='완납전환').map(f=>f.convertedTo));
+  regs.forEach(r=>{const termMo=extractMonth(r.내역);r._isOut=r.status==='퇴소';r._conv=isInstFinal(r.내역)&&convTargets.has(r.id);r._lump=isInstFinal(r.내역)&&!r._conv&&!!r.일시납;r._isNew=!r._isOut&&!r._conv&&(termMo>0?!getOlderIds(termMo,termYear(r.내역)).has(r.수험번호):!prevIds.has(r.수험번호));});
   const regsSorted=applyDailySort('reg', regs);
-  regsSorted.forEach((r,i)=>{const isOut=r._isOut;const isNew=r._isNew;const rowCls=isOut?'row-out':'';const cancelBdg=isOut?'<span class="bdg bdg-out" style="font-size:9px;">당일퇴소</span>':'';regHtml+=`<tr class="${rowCls}"><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td>${h(r.장학)}</td><td class="new-cell">${isNew?'신규':''}${cancelBdg}</td></tr>`;});
+  regsSorted.forEach((r,i)=>{const isOut=r._isOut;const isNew=r._isNew;const rowCls=isOut?'row-out':'';const cancelBdg=isOut?'<span class="bdg bdg-out" style="font-size:9px;">당일퇴소</span>':'';regHtml+=`<tr class="${rowCls}"><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td>${h(r.장학)}</td><td class="new-cell">${r._conv?'<span class="bdg" style="background:#E3F2FD;color:#0D47A1;font-size:10px;">완납전환</span>':(isNew?(r._lump?'신규(일시납)':'신규'):'')}${cancelBdg}</td></tr>`;});
   if(!regHtml)regHtml=`<tr><td colspan="8" style="text-align:center;color:#bbb;padding:16px;">등록 내역 없음</td></tr>`;
   document.getElementById('regBody').innerHTML=regHtml;
   const refAll=applyDailySort('ref', [...refPayments,...refWithdrawals]);
@@ -1970,7 +2145,7 @@ function deleteRefundRecord(refId, termIdx, type){
       rec.removedTerms.splice(termIdx, 1);
       // 연결된 pays/dancha 레코드 퇴소 상태 복원
       const pays = type==='dancha' ? S.dancha : S.pays;
-      const restored = pays.filter(p=>p.수험번호===rec.수험번호&&p.내역===term&&p.status==='퇴소'||p.status==='cancelled');
+      const restored = pays.filter(p=>p.수험번호===rec.수험번호&&p.내역===term&&(p.status==='퇴소'||p.status==='cancelled'||p.status==='취소'));
       restored.forEach(p=>{p.status='active';delete p.withdrawnAt;});
       // removedTerms 비어있으면 환불 레코드 전체 삭제
       if(rec.removedTerms.length===0){
@@ -1992,7 +2167,7 @@ function editRefundTerm(refId, termIdx){
   const currentTerm = rec.removedTerms[termIdx];
   // 선택 가능한 기수 목록
   const kwTerms = [...(S.cfg.keywords||[]).map(k=>k.term), ...(S.cfg.danchaKeywords||[]).map(k=>k.term), ...ALL_TERMS];
-  const allTerms = [...new Set([...S.pays.map(p=>p.내역).filter(Boolean), ...kwTerms])];
+  const allTerms = [...new Set([...VP().map(p=>p.내역).filter(Boolean), ...kwTerms])];
   const opts = allTerms.map(t=>`<option value="${h(t)}" ${t===currentTerm?'selected':''}>${h(t)}</option>`).join('');
   openModal('✏️ 환불 내역 수정',
     `<div style="font-size:13px;margin-bottom:10px;">
@@ -2017,10 +2192,11 @@ function editRefundTerm(refId, termIdx){
 // ════ DAILY LIST (단과) ════
 function renderDaily2(){
   const date=document.getElementById('dailyDate2').value||todayStr();
-  document.getElementById('dailyKorDate2').textContent=fmtKor(date);
+  const Y=resolveDailyYear('dancha');renderDailyYearTabs('dancha');
+  document.getElementById('dailyKorDate2').textContent=fmtKor(date)+' · '+Y+'학년도';
   updateSortArrows('reg2'); updateSortArrows('cancel');
-  const regs=applyDailySort('reg2', sortByBan(S.dancha.filter(p=>(p.uploadedDate||p.결제일자)===date&&p.status==='active')));
-  const cancels=applyDailySort('cancel', sortByBan(S.danchaRefunds.filter(r=>(refDate(r))===date).flatMap(r=>r.removedTerms.map((term,ti)=>({반:r.반||'',번호:r.번호||'',수험번호:r.수험번호,이름:r.이름,내역:term,_refId:r.id,_termIdx:ti})))));
+  const regs=applyDailySort('reg2', sortByBan(VD().filter(p=>uploadedOf(p)===date&&p.status==='active'&&termYear(p.내역)===Y)));
+  const cancels=applyDailySort('cancel', sortByBan(S.danchaRefunds.filter(r=>(refDate(r))===date).flatMap(r=>r.removedTerms.map((term,ti)=>({반:r.반||'',번호:r.번호||'',수험번호:r.수험번호,이름:r.이름,내역:term,_refId:r.id,_termIdx:ti}))).filter(x=>termYear(x.내역)===Y)));
   let regHtml='';
   regs.forEach((r,i)=>{regHtml+=`<tr><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td>${h(r.장학||'')}</td></tr>`;});
   if(!regHtml)regHtml=`<tr><td colspan="7" style="text-align:center;color:#bbb;padding:16px;">등록 내역 없음</td></tr>`;
@@ -2035,8 +2211,8 @@ function renderDaily2(){
 function renderTodayUploads(){
   const today=document.getElementById('uploadDateInput').value||todayStr();
 
-  const todayPays=S.pays.filter(p=>(p.uploadedDate||p.결제일자)===today);
-  const todayDancha=S.dancha.filter(p=>(p.uploadedDate||p.결제일자)===today);
+  const todayPays=VP().filter(p=>(p.uploadedDate||p.결제일자)===today);
+  const todayDancha=VD().filter(p=>(p.uploadedDate||p.결제일자)===today);
   const all=[...todayPays,...todayDancha].sort((a,b)=>(a.수험번호||'').localeCompare(b.수험번호||''));
   const isSaved=!!(S.snapshots&&S.snapshots[today]);
 
@@ -2122,6 +2298,7 @@ function deleteChecked(){
       const danIds=new Set(items.filter(i=>i.type==='dancha').map(i=>i.id));
       S.pays=S.pays.filter(p=>!regIds.has(p.id));
       S.dancha=S.dancha.filter(p=>!danIds.has(p.id));
+      reconcileInst();
       save();closeModal();
       // 필터 초기화 후 재렌더
       const filterEl=document.getElementById('todayTermFilter');
@@ -2194,8 +2371,9 @@ function editTerm(id,type){
     [{label:'저장',cls:'btn-g',fn:()=>{
       const v=document.getElementById('editTermCustom').value.trim()||document.getElementById('editTermSel').value;
       if(v){
-        r.내역=v;
+        r.내역=(type==='dancha')?v:withYear(v,termYear(r.내역));
         r._unmatched=false;
+        reconcileInst();
         closeModal();
         save();
         // 약간 딜레이 후 렌더링 (연속 수정 시에도 반영 보장)
@@ -2219,20 +2397,22 @@ function renderPayHistory(){
   const termF=document.getElementById('payTermFilter')?.value||'';
   const typeF=document.getElementById('payTypeFilter')?.value||'';
   const dupOnly=document.getElementById('showDupOnly')?.checked;
-  const currIds=new Set(S.pays.filter(p=>p.status==='active'&&(S.cfg.currTerms||[]).includes(p.내역)).map(p=>p.수험번호));
-  const prevIds=new Set(S.pays.filter(p=>p.status==='active'&&(S.cfg.prevTerms||[]).includes(p.내역)).map(p=>p.수험번호));
-  // 신규 판정: 해당 기수 월보다 이전 월 기수에 없는 학생 (currTerms 무관)
-  const _재입소SetPay=new Set((S.재입소||[]).map(r=>r.수험번호));
+  // 학년도별 이전/현재 기수 (같은 수험번호라도 학년도가 다르면 다른 학생)
+  const _cfgByYear={};const cfgOfY=y=>_cfgByYear[y]||(_cfgByYear[y]=yearCfg(y));
+  const currIds=new Set(VP().filter(p=>p.status==='active'&&cfgOfY(termYear(p.내역)).curr.includes(p.내역)).map(p=>termYear(p.내역)+'|'+p.수험번호));
+  // 신규 판정: 같은 학년도 안에서 해당 기수 월보다 이전 월 기수에 없는 학생 (currTerms 무관)
+  const _재입소SetPay=new Set((S.재입소||[]).map(r=>(r.year||LEGACY_YEAR)+'|'+r.수험번호));
   const _olderIdsCachePay={};
-  function getOlderIdsPay(month){
-    if(!_olderIdsCachePay[month]) _olderIdsCachePay[month]=new Set(
-      S.pays.filter(p=>p.status==='active'&&extractMonth(p.내역)>0&&extractMonth(p.내역)!==month&&p.환불금액===0&&!_재입소SetPay.has(p.수험번호)).map(p=>p.수험번호)
+  function getOlderIdsPay(month,yr){
+    const ck=yr+':'+month;
+    if(!_olderIdsCachePay[ck]) _olderIdsCachePay[ck]=new Set(
+      VP().filter(p=>p.status==='active'&&termYear(p.내역)===yr&&extractMonth(p.내역)>0&&extractMonth(p.내역)!==month&&p.환불금액===0&&!_재입소SetPay.has(yr+'|'+p.수험번호)).map(p=>p.수험번호)
     );
-    return _olderIdsCachePay[month];
+    return _olderIdsCachePay[ck];
   }
   const keyCount={};
-  for(const p of S.pays.filter(p=>p.status==='active')){const k=`${p.내역}||${p.수험번호}`;keyCount[k]=(keyCount[k]||0)+1;}
-  let rows=S.pays.filter(p=>{
+  for(const p of VP().filter(p=>p.status==='active')){const k=`${p.내역}||${p.수험번호}`;keyCount[k]=(keyCount[k]||0)+1;}
+  let rows=VP().filter(p=>{
     if(search&&!p.이름.toLowerCase().includes(search)&&!p.수험번호.toLowerCase().includes(search)&&!(p.번호||'').toLowerCase().includes(search))return false;
     if(termF&&p.내역!==termF)return false;
     const isRef=p.status==='퇴소';
@@ -2247,18 +2427,19 @@ function renderPayHistory(){
   for(const r of rows){
     const isDup=(keyCount[`${r.내역}||${r.수험번호}`]||0)>1&&r.status==='active';
     const isOut=r.status==='퇴소';
-    const _rMo=extractMonth(r.내역);const isNew=r.status==='active'&&_rMo>0&&!getOlderIdsPay(_rMo).has(r.수험번호);
-    const isUnpaid=r.status==='active'&&(S.cfg.prevTerms||[]).includes(r.내역)&&!currIds.has(r.수험번호);
+    const _rMo=extractMonth(r.내역);const _ry=termYear(r.내역);const isNew=r.status==='active'&&_rMo>0&&!getOlderIdsPay(_rMo,_ry).has(r.수험번호);
+    const isUnpaid=r.status==='active'&&cfgOfY(_ry).prev.includes(r.내역)&&!currIds.has(_ry+'|'+r.수험번호);
     const rc=isDup?'row-dup':isOut?'row-out':isNew?'row-new':isUnpaid?'row-unpaid':'';
     const bdg=isDup?'<span class="bdg bdg-dup">중복</span>':isOut?'<span class="bdg bdg-out">퇴소</span>':isNew?'<span class="bdg bdg-new">신규</span>':isUnpaid?'<span class="bdg bdg-unpaid">미납</span>':'<span class="bdg bdg-ok">정상</span>';
     const typeBdg=isOut?'<span class="bdg bdg-ref">환불</span>':'<span class="bdg bdg-reg">등록</span>';
+    const _conv=r.status==='완납전환'?'<span class="bdg" style="background:#E3F2FD;color:#0D47A1;">완납전환</span>':(r.status==='일시납'?'<span class="bdg" style="background:#EEE;color:#555;">일시납(병합)</span>':'');
     if(r.내역!==lastTerm){const tc=rows.filter(x=>x.내역===r.내역).length;const te=r.내역.replace(/'/g,"\\'");html+=`<tr><td colspan="12" style="background:var(--g1);color:var(--gold);font-weight:700;font-size:11px;padding:4px 12px;"><span style="display:flex;align-items:center;justify-content:space-between;"><span>📋 ${h(r.내역)} (${tc}명)</span><button onclick="deleteByTerm('${te}')" style="background:var(--danger);color:#fff;border:none;border-radius:3px;padding:1px 8px;font-size:10px;cursor:pointer;">🗑️ 삭제</button></span></td></tr>`;lastTerm=r.내역;idx=1;}
-    html+=`<tr class="${rc}"><td>${isDup?'':idx++}</td><td>${typeBdg}</td><td>${h(r.uploadedDate||r.결제일자)}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td style="text-align:right;">${r.결제금액.toLocaleString()}</td><td>${h(r.장학)}</td><td>${bdg}</td><td><button onclick="deleteRecord('${r.id}','reg')" style="background:none;border:none;cursor:pointer;">🗑️</button></td></tr>`;
+    html+=`<tr class="${rc}"><td>${isDup?'':idx++}</td><td>${typeBdg}</td><td>${h(r.uploadedDate||r.결제일자)}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td style="text-align:right;">${r.결제금액.toLocaleString()}</td><td>${h(r.장학)}</td><td>${_conv||bdg}</td><td><button onclick="deleteRecord('${r.id}','reg')" style="background:none;border:none;cursor:pointer;">🗑️</button></td></tr>`;
   }
   if(!html)html=`<tr><td colspan="12" style="text-align:center;color:#bbb;padding:24px;">데이터 없음</td></tr>`;
   document.getElementById('payBody').innerHTML=html;
-  const active=S.pays.filter(p=>p.status==='active');
-  const outCnt=S.pays.filter(p=>p.status==='퇴소').length;
+  const active=VP().filter(p=>p.status==='active');
+  const outCnt=VP().filter(p=>p.status==='퇴소').length;
   const dupCnt=Object.values(keyCount).filter(v=>v>1).length;
   document.getElementById('payStats').innerHTML=`<div class="chip c-grn"><div class="v">${active.length}</div><div class="l">활성</div></div><div class="chip c-red"><div class="v">${outCnt}</div><div class="l">퇴소</div></div><div class="chip c-gold"><div class="v">${dupCnt}</div><div class="l">중복오류</div></div>`;
 }
@@ -2270,10 +2451,10 @@ function renderPayHistory2(){
   // 단과 내역 필터 드롭다운 업데이트
   const sel=document.getElementById('payTermFilter2');
   const cur=sel?.value||'';
-  const terms=[...new Set(S.dancha.map(p=>p.내역).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const terms=[...new Set(VD().map(p=>p.내역).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
   if(sel) sel.innerHTML='<option value="">전체 내역</option>'+terms.map(t=>`<option value="${h(t)}" ${t===cur?'selected':''}>${h(t)}</option>`).join('');
 
-  let rows=S.dancha.filter(p=>{
+  let rows=VD().filter(p=>{
     if(search&&!p.이름.toLowerCase().includes(search)&&!p.수험번호.toLowerCase().includes(search)&&!(p.번호||'').toLowerCase().includes(search))return false;
     if(termF&&p.내역!==termF)return false;
     return true;
@@ -2295,8 +2476,8 @@ function renderPayHistory2(){
   }
   if(!html)html=`<tr><td colspan="12" style="text-align:center;color:#bbb;padding:24px;">단과 데이터 없음</td></tr>`;
   document.getElementById('payBody2').innerHTML=html;
-  const active=S.dancha.filter(p=>p.status==='active');
-  const cancelCnt=S.dancha.filter(p=>p.status==='cancelled').length;
+  const active=VD().filter(p=>p.status==='active');
+  const cancelCnt=VD().filter(p=>p.status==='cancelled').length;
   document.getElementById('payStats2').innerHTML=`<div class="chip c-blue"><div class="v">${active.length}</div><div class="l">활성</div></div><div class="chip c-red"><div class="v">${cancelCnt}</div><div class="l">취소</div></div>`;
 }
 
@@ -2320,49 +2501,45 @@ function exportPayHistoryExcel2(){
   toast('단과 납부현황 엑셀 다운로드 완료');
 }
 function exportGrandTotalExcel(){
-  const active=S.pays.filter(p=>p.status==='active'&&p.환불금액===0);
-  if(!active.length){toast('데이터가 없습니다');return;}
-
-  // 정규 기수 최신 월
-  const nonSpecialMonths=[...new Set(active.filter(p=>!isSpecialTerm(p.내역)).map(p=>p.내역).filter(Boolean).map(t=>extractMonth(t)).filter(m=>m>0))].sort((a,b)=>a-b);
-  if(!nonSpecialMonths.length){toast('데이터가 없습니다');return;}
-  const cm=nonSpecialMonths[nonSpecialMonths.length-1]; // 최신 정규 월
-
-  // 총인원 = 정규 최신 월 active + special term active (all)
-  // 정규 최신 월 납부자
-  const currRegIds=new Set(active.filter(p=>extractMonth(p.내역)===cm&&!isSpecialTerm(p.내역)).map(p=>p.수험번호));
-  // 미납자 = prevMonth(cm-1) active 중 curr 미납 (dashboard와 동일 로직)
-  const prevRegMonths=nonSpecialMonths.slice(0,-1);
-  const pm2=prevRegMonths.length>0?prevRegMonths[prevRegMonths.length-1]:null;
-  const prevRegIds=pm2?new Set(active.filter(p=>extractMonth(p.내역)===pm2&&!isSpecialTerm(p.내역)).map(p=>p.수험번호)):new Set();
-  const 미납퇴소Set=new Set((S.미납퇴소||[]).map(r=>r.수험번호));
-  const unpaidIds=new Set([...prevRegIds].filter(id=>!currRegIds.has(id)&&!미납퇴소Set.has(id)));
-  // special term 학생 (최신 정규 월 이상인 경우만 총인원에 포함)
-  const specialIds=new Set(active.filter(p=>isSpecialTerm(p.내역)&&extractMonth(p.내역)>=cm).map(p=>p.수험번호));
-  const allIds=new Set([...currRegIds,...unpaidIds,...specialIds]);
-
-  // 수험번호별 최신 납부 기수 추출
-  const latestRecByNum={};
-  active.forEach(r=>{
-    const mo=extractMonth(r.내역);
-    if(!mo)return;
-    const existing=latestRecByNum[r.수험번호];
-    if(!existing||mo>extractMonth(existing.내역)){
-      latestRecByNum[r.수험번호]=r;
+  const hy=hiddenYearList();
+  const activeAll=S.pays.filter(p=>p.status==='active'&&p.환불금액===0&&!hy.includes(termYear(p.내역)));
+  if(!activeAll.length){toast('데이터가 없습니다');return;}
+  const years=[...new Set(activeAll.map(p=>termYear(p.내역)))].sort();
+  const keys=new Set();                       // `${학년도}|${수험번호}`
+  const ordOf=r=>Number(termYear(r.내역))*100+extractMonth(r.내역);
+  years.forEach(Y=>{
+    const active=activeAll.filter(p=>termYear(p.내역)===Y);
+    const nonSpecialMonths=[...new Set(active.filter(p=>!isSpecialTerm(p.내역)).map(p=>p.내역).filter(Boolean).map(x=>extractMonth(x)).filter(m=>m>0))].sort((a,b)=>a-b);
+    const cm=nonSpecialMonths.length?nonSpecialMonths[nonSpecialMonths.length-1]:0;   // 최신 정규 월
+    const add=id=>keys.add(Y+'|'+id);
+    if(nonSpecialMonths.length){
+      const currRegIds=new Set(active.filter(p=>extractMonth(p.내역)===cm&&!isSpecialTerm(p.내역)).map(p=>p.수험번호));
+      const prevRegMonths=nonSpecialMonths.slice(0,-1);
+      const pm2=prevRegMonths.length>0?prevRegMonths[prevRegMonths.length-1]:null;
+      const prevRegIds=pm2?new Set(active.filter(p=>extractMonth(p.내역)===pm2&&!isSpecialTerm(p.내역)).map(p=>p.수험번호)):new Set();
+      const 미납퇴소Set=new Set((S.미납퇴소||[]).filter(r=>(r.year||LEGACY_YEAR)===Y).map(r=>r.수험번호));
+      currRegIds.forEach(add);
+      [...prevRegIds].filter(id=>!currRegIds.has(id)&&!미납퇴소Set.has(id)).forEach(add);
     }
+    // 반수/편입: 최신 정규 월 이상인 경우만 총인원에 포함
+    active.filter(p=>isBansuTerm(p.내역)&&extractMonth(p.내역)>=cm).forEach(p=>add(p.수험번호));
+    // 윈터(선금/완납): 선금만 낸 학생은 선금, 완납한 학생은 완납으로 한 번만 포함 (완납하면 선금에서 빠짐)
+    active.filter(p=>isInstTerm(p.내역)&&extractMonth(p.내역)>=cm).forEach(p=>add(p.수험번호));
   });
-
-  // 총인원 명단 구성
+  // 학년도+수험번호별 최신 납부 기수 추출
+  const latest={};
+  activeAll.forEach(r=>{
+    const mo=extractMonth(r.내역);if(!mo)return;
+    const k=termYear(r.내역)+'|'+r.수험번호;
+    if(!latest[k]||ordOf(r)>ordOf(latest[k])||(ordOf(r)===ordOf(latest[k])&&isInstFinal(r.내역)))latest[k]=r;
+  });
   let rows=[];
-  allIds.forEach(suh=>{
-    const r=latestRecByNum[suh];
-    if(r) rows.push(r);
-  });
-
+  keys.forEach(k=>{const r=latest[k];if(r)rows.push(r);});
   rows=sortByBan(rows);
   if(!rows.length){toast('데이터가 없습니다');return;}
-  const headers=['반','학번','수험번호','성명','최신납부내역','결제금액','장학'];
-  const data=[headers,...rows.map(r=>[r.반||'',r.번호||'',r.수험번호,r.이름,r.내역,r.결제금액,r.장학||''])];
+  const multi=years.length>1||years[0]!==LEGACY_YEAR;
+  const headers=multi?['학년도','반','학번','수험번호','성명','최신납부내역','결제금액','장학']:['반','학번','수험번호','성명','최신납부내역','결제금액','장학'];
+  const data=[headers,...rows.map(r=>multi?[termYear(r.내역)+'학년도',r.반||'',r.번호||'',r.수험번호,r.이름,r.내역,r.결제금액,r.장학||'']:[r.반||'',r.번호||'',r.수험번호,r.이름,r.내역,r.결제금액,r.장학||''])];
   const wb2=XLSX.utils.book_new();
   const ws2=XLSX.utils.aoa_to_sheet(data);
   ws2['!cols']=headers.map(()=>({wch:14}));
@@ -2373,9 +2550,10 @@ function exportGrandTotalExcel(){
 }
 function exportUnpaidExcel(){
   if(!S.미납퇴소)S.미납퇴소=[];
-  const 미납퇴소Set=new Set(S.미납퇴소.map(r=>r.수험번호));
-  const currIds=new Set(S.pays.filter(p=>p.status==='active'&&(S.cfg.currTerms||[]).includes(p.내역)).map(p=>p.수험번호));
-  const unpaid=sortByBan(S.pays.filter(p=>p.status==='active'&&(S.cfg.prevTerms||[]).includes(p.내역)&&!currIds.has(p.수험번호)&&!미납퇴소Set.has(p.수험번호)));
+  const _uy=unpaidYear();
+  const 미납퇴소Set=new Set(S.미납퇴소.filter(r=>(r.year||LEGACY_YEAR)===_uy).map(r=>r.수험번호));
+  const currIds=new Set(VP().filter(p=>p.status==='active'&&(S.cfg.currTerms||[]).includes(p.내역)).map(p=>p.수험번호));
+  const unpaid=sortByBan(VP().filter(p=>p.status==='active'&&(S.cfg.prevTerms||[]).includes(p.내역)&&!currIds.has(p.수험번호)&&!미납퇴소Set.has(p.수험번호)));
   if(!unpaid.length){toast('미납자가 없습니다');return;}
   const headers=['반','학번','수험번호','성명','수강 내역'];
   const data=[headers,...unpaid.map(r=>[r.반||'',r.번호||'',r.수험번호,r.이름,r.내역])];
@@ -2386,11 +2564,14 @@ function exportUnpaidExcel(){
   XLSX.writeFile(wb,`QUETTA_미납자_${todayStr()}.xlsx`);
   toast(`✅ 미납자 ${unpaid.length}명 다운로드 완료`);
 }
-function renderUnpaid(){
+function unpaidYear(){return termYear((S.cfg.currTerms||[])[0]||(S.cfg.prevTerms||[])[0]||'')===LEGACY_YEAR&&!((S.cfg.currTerms||[])[0]||(S.cfg.prevTerms||[])[0])?primaryYear():termYear((S.cfg.currTerms||[])[0]||(S.cfg.prevTerms||[])[0]);}
+function renderUnpaid(){renderUnpaidMain();}
+function renderUnpaidMain(){
   if(!S.미납퇴소)S.미납퇴소=[];
-  const 미납퇴소Set=new Set(S.미납퇴소.map(r=>r.수험번호));
-  const currIds=new Set(S.pays.filter(p=>p.status==='active'&&(S.cfg.currTerms||[]).includes(p.내역)).map(p=>p.수험번호));
-  const unpaid=sortByBan(S.pays.filter(p=>p.status==='active'&&(S.cfg.prevTerms||[]).includes(p.내역)&&!currIds.has(p.수험번호)&&!미납퇴소Set.has(p.수험번호)));
+  const _uy=unpaidYear();
+  const 미납퇴소Set=new Set(S.미납퇴소.filter(r=>(r.year||LEGACY_YEAR)===_uy).map(r=>r.수험번호));
+  const currIds=new Set(VP().filter(p=>p.status==='active'&&(S.cfg.currTerms||[]).includes(p.내역)).map(p=>p.수험번호));
+  const unpaid=sortByBan(VP().filter(p=>p.status==='active'&&(S.cfg.prevTerms||[]).includes(p.내역)&&!currIds.has(p.수험번호)&&!미납퇴소Set.has(p.수험번호)));
   document.getElementById('unpaidLabel').textContent=`수강: ${(S.cfg.prevTerms||[]).join(', ')} → 선납: ${(S.cfg.currTerms||[]).join(', ')}`;
   let html='';
   unpaid.forEach((r,i)=>{html+=`<tr><td>${i+1}</td><td>${h(r.반)}</td><td>${h(r.번호)}</td><td>${h(r.수험번호)}</td><td>${h(r.이름)}</td><td>${h(r.내역)}</td><td><button class="btn btn-sm btn-red" onclick="quickWithdraw('${r.수험번호}','${h(r.이름)}')">퇴소처리</button></td></tr>`;});
@@ -2402,7 +2583,7 @@ function renderUnpaid(){
     if(S.미납퇴소.length){
       listEl.style.display='block';
       listEl.innerHTML=`<div style="font-size:12px;font-weight:700;color:var(--danger);margin-bottom:6px;">🚪 미납퇴소 처리됨 (${S.미납퇴소.length}명) — 수강 기록은 유지, 미납에서만 제외</div>`+
-        S.미납퇴소.map((r,i)=>`<span style="display:inline-flex;align-items:center;gap:4px;background:#FDE8E8;border:1px solid #F5B7B1;border-radius:12px;padding:2px 9px;margin:2px;font-size:11px;">${h(r.이름)} (${h(r.수험번호)}) ${fmtShort(r.date)}${r.targetMonth?` · <strong>${r.targetMonth}월</strong> 대상`:' · 대상월 미지정'}<button onclick="removeUnpaidWithdraw(${i})" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:11px;padding:0 2px;" title="취소">✕</button></span>`).join('');
+        S.미납퇴소.map((r,i)=>`<span style="display:inline-flex;align-items:center;gap:4px;background:#FDE8E8;border:1px solid #F5B7B1;border-radius:12px;padding:2px 9px;margin:2px;font-size:11px;">${h(r.이름)} (${h(r.수험번호)}) ${fmtShort(r.date)}${r.targetMonth?` · <strong>${r.targetMonth}월</strong> 대상`:' · 대상월 미지정'}${r.year&&r.year!==LEGACY_YEAR?` · ${r.year}학년도`:''}<button onclick="removeUnpaidWithdraw(${i})" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:11px;padding:0 2px;" title="취소">✕</button></span>`).join('');
     } else {
       listEl.style.display='none';
       listEl.innerHTML='';
@@ -2414,7 +2595,7 @@ function quickWithdraw(수험번호, 이름){
   const recs=S.pays.filter(p=>p.수험번호===수험번호&&p.status==='active');
   if(!recs.length){toast('처리할 활성 기록이 없습니다');return;}
   if(!S.미납퇴소)S.미납퇴소=[];
-  if(S.미납퇴소.find(r=>r.수험번호===수험번호)){toast('이미 미납퇴소 처리된 학생입니다');return;}
+  if(S.미납퇴소.find(r=>r.수험번호===수험번호&&(r.year||LEGACY_YEAR)===unpaidYear())){toast('이미 미납퇴소 처리된 학생입니다');return;}
   const prevRecs=recs.filter(p=>(S.cfg.prevTerms||[]).includes(p.내역));
   const currTermNames=(S.cfg.currTerms||[]).join(', ')||'선납 내역';
   openModal('🚪 미납퇴소 처리',
@@ -2435,7 +2616,7 @@ function quickWithdraw(수험번호, 이름){
       //  향후 데이터가 미리 업로드돼 있어도 엉뚱한 월로 잘못 잡히지 않도록)
       const _currTermMonths=(S.cfg.currTerms||[]).map(t=>extractMonth(t)).filter(m=>m>0);
       const _targetMonth=_currTermMonths.length>0?Math.max(..._currTermMonths):0;
-      S.미납퇴소.push({수험번호,이름,date,targetMonth:_targetMonth});
+      S.미납퇴소.push({수험번호,이름,date,targetMonth:_targetMonth,year:unpaidYear()});
       save();closeModal();
       renderUnpaid();renderDash();
       toast(`✅ ${이름} 미납퇴소 처리 완료 — 수강 기록은 유지됩니다`);
@@ -2454,11 +2635,12 @@ function isSpecialTerm(t){ return !!(t&&t.includes('_')); }
 // 업로드 월이 prev월이면: prevTerms + currTerms(있으면)
 // 업로드 월이 curr월이면: currTerms만 (없으면 최근 기수 fallback)
 function getSmartRemovedRecs(recs, date){
+  const cfgY=yearCfg(termYear((recs[0]||{}).내역||''));
   const uploadMonth=parseInt((date||todayStr()).split('-')[1]);
-  const prevMonths=new Set((S.cfg.prevTerms||[]).map(t=>extractMonth(t)).filter(m=>m>0));
-  const currMonths=new Set((S.cfg.currTerms||[]).map(t=>extractMonth(t)).filter(m=>m>0));
-  const prevRecs=recs.filter(p=>(S.cfg.prevTerms||[]).includes(p.내역));
-  const currRecs=recs.filter(p=>(S.cfg.currTerms||[]).includes(p.내역));
+  const prevMonths=new Set(cfgY.prev.map(t=>extractMonth(t)).filter(m=>m>0));
+  const currMonths=new Set(cfgY.curr.map(t=>extractMonth(t)).filter(m=>m>0));
+  const prevRecs=recs.filter(p=>cfgY.prev.includes(p.내역));
+  const currRecs=recs.filter(p=>cfgY.curr.includes(p.내역));
   let result=[];
   if(prevMonths.has(uploadMonth)){
     // prev월 업로드: prev기수 + curr기수(있으면)
@@ -2476,10 +2658,8 @@ function getSmartRemovedRecs(recs, date){
 }
 function findActiveRecs(val){
   const v=val.trim();if(!v)return[];
-  const direct=S.pays.filter(p=>p.status==='active'&&p.수험번호===v);
-  if(!direct.length)return[];
-  const suhIds=new Set(direct.map(p=>p.수험번호).filter(Boolean));
-  return S.pays.filter(p=>p.status==='active'&&suhIds.has(p.수험번호));
+  const Y=resolveDailyYear('reg');   // 선택된 학년도 탭의 학생만 (학년도가 다르면 다른 학생)
+  return S.pays.filter(p=>p.status==='active'&&p.수험번호===v&&termYear(p.내역)===Y);
 }
 function processRefundInput(){
   const date=document.getElementById('dailyDate').value||todayStr();
@@ -2497,8 +2677,9 @@ function processRefundInput(){
 }
 function showRefundModal(val,recs){
   const student=recs[0];
-  const prevRecs=recs.filter(p=>(S.cfg.prevTerms||[]).includes(p.내역));
-  const currRecs=recs.filter(p=>(S.cfg.currTerms||[]).includes(p.내역));
+  const cfgY=yearCfg(termYear(student.내역));
+  const prevRecs=recs.filter(p=>cfgY.prev.includes(p.내역));
+  const currRecs=recs.filter(p=>cfgY.curr.includes(p.내역));
 
   // 업로드 날짜 월 기준으로 기본 선택 기수 결정
   const _modalDate=document.getElementById('dailyDate')?.value||todayStr();
@@ -2508,7 +2689,8 @@ function showRefundModal(val,recs){
   // 선택 가능한 기수 목록 (설정된 변환 기수명 + 현재 보유 내역)
   const kwTerms=[...(S.cfg.keywords||[]).map(k=>k.term),...(S.cfg.danchaKeywords||[]).map(k=>k.term),...ALL_TERMS];
   const existTerms=recs.map(r=>r.내역);
-  const termOptions=[...new Set([...existTerms,...kwTerms])].filter(Boolean);
+  const _Yr=termYear(student.내역);
+  const termOptions=[...new Set([...existTerms,...kwTerms.map(x=>withYear(x,_Yr))])].filter(Boolean);
 
   const selectedTermIds=displayRecs.map(r=>r.id);
   const opts=termOptions.map(t=>`<option value="${h(t)}">${h(t)}</option>`).join('');
@@ -2525,6 +2707,7 @@ function showRefundModal(val,recs){
   openModal('🚪 퇴소 처리 확인',
     `<div style="background:#FEF0EE;border-radius:5px;padding:10px;margin-bottom:10px;">
       <div style="font-size:14px;font-weight:700;">${h(student.이름)}</div>
+      <div style="font-size:11px;color:#1B3A5C;font-weight:700;">📅 ${_Yr}학년도</div>
       <div style="font-size:12px;color:var(--muted);">학번:${h(student.번호||'-')} 수험번호:${h(student.수험번호||'-')} 반:${h(student.반)}</div>
     </div>
     ${fallbackNote}
@@ -2565,7 +2748,7 @@ function confirmRefundFromModal(val,recs){
   const 수험번호=student.수험번호;
 
   // 해당 학생의 모든 active pays 레코드를 퇴소로 변경 (미납 방지)
-  S.pays.filter(p=>p.수험번호===수험번호&&p.status==='active').forEach(r=>{
+  S.pays.filter(p=>p.수험번호===수험번호&&p.status==='active'&&termYear(p.내역)===termYear(student.내역)).forEach(r=>{
     r.status='퇴소';r.withdrawnAt=Date.now();
   });
 
@@ -2609,7 +2792,7 @@ function processRefundExcel(e){
         const removedRecs=getSmartRemovedRecs(recs,date);
         const removedTerms=[...new Set(removedRecs.map(r=>r.내역))];
         // 모든 active 레코드 퇴소 처리 (재업로드 시 중복 방지)
-        S.pays.filter(p=>p.수험번호===student.수험번호&&p.status==='active').forEach(r=>{r.status='퇴소';r.withdrawnAt=Date.now();});
+        S.pays.filter(p=>p.수험번호===student.수험번호&&p.status==='active'&&termYear(p.내역)===termYear(student.내역)).forEach(r=>{r.status='퇴소';r.withdrawnAt=Date.now();});
         S.refunds.push({id:Date.now()+Math.random(),processedAt:Date.now(),processedDate:date,수험번호:student.수험번호,이름:student.이름,반:student.반,번호:student.번호,장학:student.장학||'',removedTerms});
         ok.push(`${student.이름}(${val})`);
       }
@@ -2632,8 +2815,9 @@ let _danchaLookupRecs=[];
 function lookupDanchaStudent(){
   const val=document.getElementById('danchaStudentInput').value.trim();
   if(!val){toast('학번 또는 수험번호를 입력하세요');return;}
-  const recs=S.dancha.filter(p=>p.status==='active'&&p.환불금액===0&&(p.번호===val||p.수험번호===val||p.이름===val));
-  if(!recs.length){toast(`등록된 단과 내역이 없습니다 (${val})`);return;}
+  const Y=resolveDailyYear('dancha');
+  const recs=S.dancha.filter(p=>p.status==='active'&&p.환불금액===0&&termYear(p.내역)===Y&&(p.번호===val||p.수험번호===val||p.이름===val));
+  if(!recs.length){toast(`${Y}학년도에 등록된 단과 내역이 없습니다 (${val})`);return;}
   _danchaLookupRecs=recs;
   const student=recs[0];
   let body=`<div style="font-size:13px;color:var(--muted);margin-bottom:12px;">${h(student.이름)} (${h(student.수험번호)}) — 취소할 과목을 선택하세요</div>`;
@@ -2706,17 +2890,18 @@ function processCancelExcel(e){
       }
 
       const dataRows=hasHeader?rows.slice(1):rows;
+      const Yc=resolveDailyYear('dancha');
       let ok=[],fail=[];
       for(const row of dataRows){
         const val=suhIdx>=0?String(row[suhIdx]||'').trim():'';
         const termRaw=termIdx>=0?String(row[termIdx]||'').trim():'';
         if(!val)continue;
         const matched=applyKeywords(termRaw);
-        const term=matched.term;
-        // 수험번호 + 내역 매칭
+        const term=withYear(matched.term,Yc);
+        // 수험번호 + 내역 매칭 (선택된 학년도 안에서만)
         let recs=S.dancha.filter(p=>p.status==='active'&&p.수험번호===val&&p.내역===term);
         // 내역 매칭 실패 시 수험번호만으로
-        if(!recs.length) recs=S.dancha.filter(p=>p.status==='active'&&p.수험번호===val);
+        if(!recs.length) recs=S.dancha.filter(p=>p.status==='active'&&p.수험번호===val&&termYear(p.내역)===Yc);
         if(!recs.length){fail.push(`${val}(${termRaw})`);continue;}
         const student=recs[0];
         for(const r of recs){r.status='cancelled';r.withdrawnAt=Date.now();}
@@ -2764,39 +2949,43 @@ function deleteRecord(id,type){
   const arr=type==='dancha'?S.dancha:S.pays;
   const r=arr.find(p=>p.id===id);if(!r)return;
   openModal('🗑️ 삭제 확인',`<strong>${h(r.이름)}</strong> (${h(r.수험번호)})<br>내역: <strong>${h(r.내역)}</strong><br><span style="color:var(--danger);font-size:11px;">이 기록을 삭제하시겠습니까?</span>`,
-    [{label:'삭제',cls:'btn-red',fn:()=>{if(type==='dancha')S.dancha=S.dancha.filter(p=>p.id!==id);else S.pays=S.pays.filter(p=>p.id!==id);save();closeModal();updateTermFilter();renderTodayUploads();renderPayHistory();renderUnpaid();renderDash();renderDash2();renderFilterChips();renderFilterChips2();toast(`✅ 삭제 완료`);}},{label:'취소',cls:'btn-ghost',fn:closeModal}]);
+    [{label:'삭제',cls:'btn-red',fn:()=>{if(type==='dancha')S.dancha=S.dancha.filter(p=>p.id!==id);else{S.pays=S.pays.filter(p=>p.id!==id);reconcileInst();}save();closeModal();updateTermFilter();renderTodayUploads();renderPayHistory();renderUnpaid();renderDash();renderDash2();renderFilterChips();renderFilterChips2();toast(`✅ 삭제 완료`);}},{label:'취소',cls:'btn-ghost',fn:closeModal}]);
 }
 function deleteByTerm(term){
   const cnt=S.pays.filter(p=>p.내역===term).length;
   openModal(`🗑️ "${term}" 전체 삭제`,`<strong>${h(term)}</strong> 내역 ${cnt}명을 전부 삭제합니다.<br><span style="color:var(--danger);font-size:11px;">퇴소 기록도 함께 삭제됩니다.</span>`,
-    [{label:'삭제',cls:'btn-red',fn:()=>{S.pays=S.pays.filter(p=>p.내역!==term);save();closeModal();updateTermFilter();renderPayHistory();renderUnpaid();renderDash();renderFilterChips();toast(`✅ "${term}" 삭제 완료`);}},{label:'취소',cls:'btn-ghost',fn:closeModal}]);
+    [{label:'삭제',cls:'btn-red',fn:()=>{S.pays=S.pays.filter(p=>p.내역!==term);reconcileInst();save();closeModal();updateTermFilter();renderPayHistory();renderUnpaid();renderDash();renderFilterChips();toast(`✅ "${term}" 삭제 완료`);}},{label:'취소',cls:'btn-ghost',fn:closeModal}]);
 }
 
 // ════ EXPORT ════
 function exportDailyExcel(){
   const date=document.getElementById('dailyDate').value||todayStr();
-  const prevIds=new Set(S.pays.filter(p=>p.status==='active'&&(S.cfg.prevTerms||[]).includes(p.내역)).map(p=>p.수험번호));
-  const regs=sortByBan(S.pays.filter(p=>(p.uploadedDate||p.결제일자)===date&&p.환불금액===0&&p.status==='active'));
-  const refs=sortByBan([...S.pays.filter(p=>(p.uploadedDate||p.결제일자)===date&&p.환불금액>0),...S.refunds.filter(r=>(refDate(r))===date).map(r=>({반:r.반,번호:r.번호||'',수험번호:r.수험번호,이름:r.이름,내역:r.removedTerms.join('/'),장학:r.장학||''}))]);
+  const Y=resolveDailyYear('reg');
+  const prevIds=new Set(S.pays.filter(p=>p.status==='active'&&yearCfg(Y).prev.includes(p.내역)).map(p=>p.수험번호));
+  const convSet=new Set(S.pays.filter(f=>f.convertedTo&&f.status==='완납전환').map(f=>f.convertedTo));
+  const newLabel=reg=>isInstFinal(reg.내역)?(convSet.has(reg.id)?'완납전환':(reg.일시납?'신규(일시납)':'신규')):(!prevIds.has(reg.수험번호)?'신규':'');
+  const regs=sortByBan(S.pays.filter(p=>uploadedOf(p)===date&&p.환불금액===0&&(p.status==='active'||p.status==='완납전환')&&termYear(p.내역)===Y));
+  const refs=sortByBan([...S.pays.filter(p=>uploadedOf(p)===date&&p.환불금액>0&&termYear(p.내역)===Y),...S.refunds.filter(r=>(refDate(r))===date).map(r=>({반:r.반,번호:r.번호||'',수험번호:r.수험번호,이름:r.이름,내역:r.removedTerms.filter(x=>termYear(x)===Y).join('/'),장학:r.장학||''})).filter(r=>r.내역)]);
   const wb=XLSX.utils.book_new();const rows=[];
-  rows.push([date,'','','','재수정규반 일일 등록 명단']);rows.push(['']);
+  rows.push([date,'','','','재수정규반 일일 등록 명단 ('+Y+'학년도)']);rows.push(['']);
   rows.push(['no','반','학번','수험번호','성명','등록','장학','신규','','반','학번','수험번호','성명','등록','환불','장학']);
   const maxLen=Math.max(regs.length,refs.length);
-  for(let i=0;i<maxLen;i++){const reg=regs[i];const ref=refs[i];rows.push([reg?i+1:'',reg?reg.반:'',reg?reg.번호:'',reg?reg.수험번호:'',reg?reg.이름:'',reg?reg.내역:'',reg?reg.장학:'',reg&&!prevIds.has(reg.수험번호)?'신규':'','',ref?ref.반:'',ref?(ref.번호||''):'',ref?ref.수험번호:'',ref?ref.이름:'',ref?ref.내역:'',ref?fmtShort(date):'',ref?(ref.장학||''):'']);}
+  for(let i=0;i<maxLen;i++){const reg=regs[i];const ref=refs[i];rows.push([reg?i+1:'',reg?reg.반:'',reg?reg.번호:'',reg?reg.수험번호:'',reg?reg.이름:'',reg?reg.내역:'',reg?reg.장학:'',reg?newLabel(reg):'','',ref?ref.반:'',ref?(ref.번호||''):'',ref?ref.수험번호:'',ref?ref.이름:'',ref?ref.내역:'',ref?fmtShort(date):'',ref?(ref.장학||''):'']);}
   const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=Array(16).fill({wch:11});
-  XLSX.utils.book_append_sheet(wb,ws,'일일등록명단');XLSX.writeFile(wb,`QUETTA_일일등록명단_${date}.xlsx`);toast('엑셀 다운로드 완료');
+  XLSX.utils.book_append_sheet(wb,ws,'일일등록명단');XLSX.writeFile(wb,`QUETTA_일일등록명단_${date}${Y!==LEGACY_YEAR?'_'+Y+'학년도':''}.xlsx`);toast('엑셀 다운로드 완료');
 }
 function exportDailyExcel2(){
   const date=document.getElementById('dailyDate2').value||todayStr();
-  const regs=sortByBan(S.dancha.filter(p=>(p.uploadedDate||p.결제일자)===date&&p.status==='active'));
-  const cancels=sortByBan(S.danchaRefunds.filter(r=>(refDate(r))===date).flatMap(r=>r.removedTerms.map(term=>({반:r.반||'',번호:r.번호||'',수험번호:r.수험번호,이름:r.이름,내역:term}))));
+  const Y=resolveDailyYear('dancha');
+  const regs=sortByBan(S.dancha.filter(p=>uploadedOf(p)===date&&p.status==='active'&&termYear(p.내역)===Y));
+  const cancels=sortByBan(S.danchaRefunds.filter(r=>(refDate(r))===date).flatMap(r=>r.removedTerms.map(term=>({반:r.반||'',번호:r.번호||'',수험번호:r.수험번호,이름:r.이름,내역:term}))).filter(x=>termYear(x.내역)===Y));
   const wb=XLSX.utils.book_new();const rows=[];
   rows.push([date,'','단과 일일 등록 명단']);rows.push(['']);
   rows.push(['no','반','학번','수험번호','성명','내역','장학','','반','학번','수험번호','성명','내역','취소']);
   const maxLen=Math.max(regs.length,cancels.length);
   for(let i=0;i<maxLen;i++){const reg=regs[i];const can=cancels[i];rows.push([reg?i+1:'',reg?reg.반:'',reg?reg.번호:'',reg?reg.수험번호:'',reg?reg.이름:'',reg?reg.내역:'',reg?reg.장학||'':'','',can?can.반:'',can?can.번호||'':'',can?can.수험번호:'',can?can.이름:'',can?can.내역:'',can?fmtShort(date):'']);}
   const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=Array(14).fill({wch:11});
-  XLSX.utils.book_append_sheet(wb,ws,'단과일일등록');XLSX.writeFile(wb,`QUETTA_단과_일일등록명단_${date}.xlsx`);toast('단과 엑셀 다운로드 완료');
+  XLSX.utils.book_append_sheet(wb,ws,'단과일일등록');XLSX.writeFile(wb,`QUETTA_단과_일일등록명단_${date}${Y!==LEGACY_YEAR?'_'+Y+'학년도':''}.xlsx`);toast('단과 엑셀 다운로드 완료');
 }
 function exportPayHistoryExcel(){
   const date=document.getElementById('historyExcelDate').value;
@@ -2823,20 +3012,81 @@ function renderCfg(){
     container.innerHTML=cfgTerms.map(t=>{const checked=(S.cfg[side+'Terms']||[]).includes(t)?'checked':'';return`<label class="term-check"><input type="checkbox" value="${h(t)}" ${checked} data-side="${side}"> ${h(t)}</label>`;}).join('');
   });
   renderKeywords();
+  renderYearCfg();
+}
+// ════ 학년도 설정 ════
+function fillUploadYearSel(){
+  const el=document.getElementById('uploadYearInfo');if(!el)return;
+  const def=S.cfg.defaultYear||LEGACY_YEAR;
+  const kws=[...(S.cfg.keywords||[]),...(S.cfg.danchaKeywords||[])];
+  const other=kws.filter(k=>k.yr&&k.yr!==def);
+  el.innerHTML=`🎓 학년도는 키워드 설정대로 자동 반영 · 기본 <strong>${def}학년도</strong>`+(other.length?` · 별도 지정 키워드 ${other.length}개`:'');
+}
+function setDefaultYear(y){S.cfg.defaultYear=y;save();renderYearCfg();renderKeywords();toast(`🎓 기본 학년도 ${y} — 학년도를 따로 지정하지 않은 키워드는 이후 업로드부터 ${y}학년도로 저장됩니다`);}
+function renderYearCfg(){
+  const el=document.getElementById('yearCfgBody');if(!el)return;
+  const hy=hiddenYearList();
+  const _ys=knownYears();const _next=String(Math.max(..._ys.map(Number))+1);
+  const _defOpts=[...new Set([..._ys,_next])].map(y=>`<option value="${y}" ${y===(S.cfg.defaultYear||LEGACY_YEAR)?'selected':''}>${y}학년도</option>`).join('');
+  el.innerHTML=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;padding:8px 10px;background:#F3F8FF;border:1px solid #B9D3F2;border-radius:7px;"><label class="form-lbl" style="margin:0;">🎓 기본 학년도</label><select class="inp" style="width:130px;" onchange="setDefaultYear(this.value)">${_defOpts}</select><span style="font-size:11px;color:var(--muted);">키워드에 학년도를 따로 지정하지 않으면 이 학년도로 저장돼요 (이미 저장된 기록은 그대로)</span></div>`+`<table class="data-tbl"><thead><tr><th>학년도</th><th>납부 기록</th><th>상태</th><th>처리</th></tr></thead><tbody>`+
+    knownYears().map(Y=>{
+      const n=S.pays.filter(p=>p.내역&&termYear(p.내역)===Y).length;
+      const hid=hy.includes(Y);
+      return`<tr><td><strong>${Y}학년도</strong>${Y===LEGACY_YEAR?' <span style="font-size:10px;color:var(--muted);">(기존 데이터)</span>':''}</td><td>${n.toLocaleString()}건</td><td>${hid?'<span style="color:var(--danger);">🙈 숨김</span>':'<span style="color:var(--success);">👁 표시 중</span>'}</td><td><button class="btn btn-sm ${hid?'btn-g':'btn-red'}" onclick="toggleYearHidden('${Y}')">${hid?'다시 보이기':'숨기기'}</button></td></tr>`;
+    }).join('')+`</tbody></table>`;
+  fillUploadYearSel();
+}
+function refreshAfterYearChange(){
+  autoDetectTerms();renderYearCfg();renderFilterChips();updateTermFilter();renderDash();renderUnpaid();
+  try{renderPayHistory();renderTodayUploads();}catch(e){}
+  try{renderDaily();}catch(e){}
+}
+function toggleYearHidden(Y){
+  const hy=hiddenYearList();
+  const apply=()=>{S.cfg.hiddenYears=hy.includes(Y)?hy.filter(x=>x!==Y):[...hy,Y];save();closeModal();refreshAfterYearChange();toast(hy.includes(Y)?`👁 ${Y}학년도를 다시 표시합니다`:`🙈 ${Y}학년도를 숨겼습니다`);};
+  if(hy.includes(Y)){apply();return;}
+  openModal(`🙈 ${Y}학년도 숨기기`,`<div style="font-size:13px;line-height:1.8;"><strong>${Y}학년도</strong> 데이터가 대시보드·일일명단·납부현황·미납자·총인원 명단에서 모두 보이지 않게 됩니다.<br><span style="font-size:11px;color:var(--muted);">데이터는 삭제되지 않으며, 설정에서 언제든 "다시 보이기"로 복구할 수 있습니다.</span></div>`,
+    [{label:'숨기기',cls:'btn-red',fn:apply},{label:'취소',cls:'btn-ghost',fn:closeModal}]);
+}
+function addYear(){
+  const v=(document.getElementById('newYearInput').value||'').trim();
+  if(!/^\d{2}$/.test(v)){toast('두 자리 숫자로 입력해주세요 (예: 28)');return;}
+  if(knownYears().includes(v)){toast('이미 있는 학년도입니다');return;}
+  S.cfg.years=[...(S.cfg.years||[]),v];save();document.getElementById('newYearInput').value='';renderYearCfg();renderKeywords();toast(`✅ ${v}학년도 추가`);
+}
+function yearOptionsHtml(sel){
+  const ys=knownYears();const next=String(Math.max(...ys.map(Number))+1);
+  const opts=[...new Set([...ys,next])];
+  const def=S.cfg.defaultYear||LEGACY_YEAR;
+  return `<option value="" ${!sel?'selected':''}>기본 (${def}학년도)</option>`+opts.map(y=>`<option value="${y}" ${sel===y?'selected':''}>${y}학년도</option>`).join('');
 }
 function renderKeywords(){
+  const row=(k,i,type)=>`<tr><td>${h(k.kw)}</td><td>${h(k.term)}</td><td><select class="inp" style="width:130px;padding:3px 6px;${k.yr&&k.yr!==LEGACY_YEAR?'background:#FFF3CD;font-weight:700;':''}" onchange="setKeywordYear(${i},'${type}',this.value)">${yearOptionsHtml(k.yr||'')}</select></td><td><button onclick="removeKeyword(${i},'${type}')" class="btn btn-sm btn-red">삭제</button></td></tr>`;
   const kws=S.cfg.keywords||[];
-  document.getElementById('kwBody').innerHTML=kws.length?kws.map((k,i)=>`<tr><td>${h(k.kw)}</td><td>${h(k.term)}</td><td><button onclick="removeKeyword(${i},'reg')" class="btn btn-sm btn-red">삭제</button></td></tr>`).join(''):`<tr><td colspan="3" style="text-align:center;color:#bbb;padding:10px;">키워드 없음</td></tr>`;
+  document.getElementById('kwBody').innerHTML=kws.length?kws.map((k,i)=>row(k,i,'reg')).join(''):`<tr><td colspan="4" style="text-align:center;color:#bbb;padding:10px;">키워드 없음</td></tr>`;
   const dkws=S.cfg.danchaKeywords||[];
-  document.getElementById('kwBodyD').innerHTML=dkws.length?dkws.map((k,i)=>`<tr><td>${h(k.kw)}</td><td>${h(k.term)}</td><td><button onclick="removeKeyword(${i},'dancha')" class="btn btn-sm btn-red">삭제</button></td></tr>`).join(''):`<tr><td colspan="3" style="text-align:center;color:#bbb;padding:10px;">키워드 없음</td></tr>`;
+  document.getElementById('kwBodyD').innerHTML=dkws.length?dkws.map((k,i)=>row(k,i,'dancha')).join(''):`<tr><td colspan="4" style="text-align:center;color:#bbb;padding:10px;">키워드 없음</td></tr>`;
+  const a=document.getElementById('kwYear'),b=document.getElementById('kwYearD');
+  if(a)a.innerHTML=yearOptionsHtml(a.value||'');
+  if(b)b.innerHTML=yearOptionsHtml(b.value||'');
 }
+function setKeywordYear(idx,type,val){
+  const arr=type==='dancha'?S.cfg.danchaKeywords:S.cfg.keywords;
+  if(!arr[idx])return;
+  if(val)arr[idx].yr=val;else delete arr[idx].yr;
+  save();renderKeywords();
+  toast(`🎓 "${arr[idx].kw}" → ${val?val+'학년도':'기본 학년도'} (이후 업로드부터 적용)`);
+}
+
 function addKeyword(type){
   const kwInp=document.getElementById(type==='dancha'?'kwInputD':'kwInput');
   const termInp=document.getElementById(type==='dancha'?'kwTermD':'kwTerm');
   const kw=kwInp.value.trim();const term=termInp.value.trim();
   if(!kw||!term){toast('키워드와 기수명을 모두 입력해주세요');return;}
-  if(type==='dancha'){if(!S.cfg.danchaKeywords)S.cfg.danchaKeywords=[];S.cfg.danchaKeywords.push({kw,term});}
-  else{if(!S.cfg.keywords)S.cfg.keywords=[];S.cfg.keywords.push({kw,term});}
+  const yr=(document.getElementById(type==='dancha'?'kwYearD':'kwYear')||{}).value||'';
+  const ent=yr?{kw,term,yr}:{kw,term};
+  if(type==='dancha'){if(!S.cfg.danchaKeywords)S.cfg.danchaKeywords=[];S.cfg.danchaKeywords.push(ent);}
+  else{if(!S.cfg.keywords)S.cfg.keywords=[];S.cfg.keywords.push(ent);}
   kwInp.value='';termInp.value='';
   save();renderKeywords();toast(`✅ 키워드 추가 완료: "${kw}" → "${term}"`);
 }
