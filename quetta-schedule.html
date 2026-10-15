@@ -1480,13 +1480,15 @@ function changePersonalMonth(delta){
 async function loadPersonalData(){
   const mo=`${S.pYr}-${String(S.pMo).padStart(2,'0')}`;
   const mo1=mo+'-01', mo31=mo+'-31';
-  const [r1,r2,r3]=await Promise.all([
+  const [r1,r2,r3,r4]=await Promise.all([
     sb.from('schedule_overrides').select('*').gte('date',mo1).lte('date',mo31),
     sb.from('leave_records').select('*').gte('date',mo1).lte('date',mo31),
     sb.from('holidays').select('*'),
+    sb.from('date_notes').select('*').gte('date',mo1).lte('date',mo31),
   ]);
   S._pOverrides=(r1.data||[]).map(o=>({id:o.id,staffId:o.staff_id,date:o.date,isAbsent:o.is_absent,deptId:o.dept_id,shiftTypeId:o.shift_type_id}));
   S._pLeaves=(r2.data||[]).map(l=>({id:l.id,staffId:l.staff_id,date:l.date,type:l.type,reason:l.reason}));
+  S._pNotes={};(r4?.data||[]).forEach(n=>{S._pNotes[n.date]=n.note;});
   S._pHolidays=(r3.data||[]).map(h=>({id:h.id,date:h.date,type:h.type,useRotation:h.use_rotation,workerCount:h.worker_count,workerIds:h.worker_ids||[],note:h.note}));
 }
 
@@ -1521,7 +1523,18 @@ function renderPersonalTab(){
   }
 
   // 개인 탭 전용 데이터 로딩 (월이 다를 수 있음)
-  loadPersonalData().then(()=>_renderPersonalContent(activeStaff));
+  loadPersonalData().then(()=>{
+    // 메인 월과 개인 월이 다를 경우 S.overrides/leaves/notes를 개인 월 기준으로 교체
+    const savedOv=S.overrides, savedLv=S.leaves, savedNt=S.notes;
+    S.overrides=S._pOverrides||[];
+    S.leaves=S._pLeaves||[];
+    S.notes={...savedNt,...(S._pNotes||{})};
+    _renderPersonalContent(activeStaff);
+    // 렌더링 후 복원
+    S.overrides=savedOv;
+    S.leaves=savedLv;
+    S.notes=savedNt;
+  });
 }
 
 function _renderPersonalContent(activeStaff){
