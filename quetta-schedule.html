@@ -1479,7 +1479,9 @@ function changePersonalMonth(delta){
 }
 async function loadPersonalData(){
   const mo=`${S.pYr}-${String(S.pMo).padStart(2,'0')}`;
-  const mo1=mo+'-01', mo31=mo+'-31';
+  const mo1=mo+'-01';
+  const pLastDay=new Date(S.pYr,S.pMo,0).getDate();
+  const mo31=`${mo}-${String(pLastDay).padStart(2,'0')}`;
   const [r1,r2,r3,r4]=await Promise.all([
     sb.from('schedule_overrides').select('*').gte('date',mo1).lte('date',mo31),
     sb.from('leave_records').select('*').gte('date',mo1).lte('date',mo31),
