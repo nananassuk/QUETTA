@@ -1567,6 +1567,10 @@ function _renderPersonalContent(activeStaff){
       continue;
     }
 
+    // 수동편성 휴무(absent override) 체크
+    const pOv=S._pOverrides?S._pOverrides.find(o=>o.staffId===_selectedStaffId&&o.date===ds):getOverride(_selectedStaffId,ds);
+    if(pOv&&pOv.isAbsent) continue; // 이 날 제외 처리된 경우 표시 안 함
+
     // 근무 없는 날 (hoff)
     if(dd.dayType==='hoff') continue;
 
