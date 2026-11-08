@@ -330,7 +330,8 @@ window.onerror = function(msg, src, line){
     <div class="mbody">
       <div class="fgrid">
         <div class="fg"><label class="fl">직원 *</label><select class="fs" id="lStaff"></select></div>
-        <div class="fg"><label class="fl">날짜 *</label><input type="date" class="fi" id="lDate"></div>
+        <div class="fg"><label class="fl">시작일 *</label><input type="date" class="fi" id="lDate"></div>
+        <div class="fg"><label class="fl">종료일 (기간 휴가일 때)</label><input type="date" class="fi" id="lDateEnd"></div>
         <div class="fg"><label class="fl">유형 *</label>
           <select class="fs" id="lType">
             <option value="연차">연차 (전일)</option>
@@ -340,6 +341,7 @@ window.onerror = function(msg, src, line){
           </select>
         </div>
       </div>
+      <div style="font-size:11px;color:var(--text2);margin-top:6px;">종료일을 비워두면 시작일 하루만 저장됩니다. 기간 입력 시 근무일만 저장되고, 일요일·전원 휴무일·휴일 설정으로 쉬는 날은 자동으로 제외됩니다.</div>
       <div class="fg mt8"><label class="fl">사유</label><textarea class="fta" id="lReason" placeholder="예: 예비군 훈련, 통원치료 등"></textarea></div>
     </div>
     <div class="mfooter"><button class="btn btn-ghost" onclick="closeModal('leaveModal')">취소</button><button class="btn btn-primary" onclick="saveLeave()">저장</button></div>
@@ -1731,27 +1733,115 @@ function openAssignModal(staffId){
   openModal('assignModal');
 }
 function openAddLeave(){
-  S._leaveId=null;
+  S._leaveId=null;S._leaveGroup=null;S._detailLeave=null;
   const today=fmtDate(new Date());
   document.getElementById('lStaff').innerHTML=S.staff.filter(s=>!s.leaveDate||s.leaveDate>today).map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
   document.getElementById('lDate').value=today;
+  document.getElementById('lDateEnd').value='';
   document.getElementById('lType').value='연차';
   document.getElementById('lReason').value='';
+  document.getElementById('leaveModalTitle').textContent='휴가 입력';
   openModal('leaveModal');
 }
-function showLeaveDetail(id){
+function shiftDate(ds,n){const d=parseD(ds);d.setDate(d.getDate()+n);return fmtDate(d);}
+
+// 기간 휴가 저장 대상일(근무일) 판단
+function isLeaveWorkday(staffId,ds){
+  const dd=computeDay(parseD(ds));
+  if(!dd||dd.dayType==='hoff') return false;
+  const st=S.staff.find(s=>s.id===staffId);
+  if(st){
+    if(st.hireDate&&st.hireDate>ds) return false;
+    if(st.leaveDate&&st.leaveDate<ds) return false;
+  }
+  if(dd.dayType==='saturday'||dd.dayType==='hwork'){
+    return (dd.dutyWorkers||[]).some(w=>w.staff.id===staffId)||(dd.offStaff||[]).some(o=>o.staff.id===staffId);
+  }
+  return true;
+}
+
+// 두 기록 사이에 정상 근무일이 없으면 같은 기간 휴가로 간주
+function leaveGapOk(a,b){
+  let cur=shiftDate(a,1);
+  while(cur<b){
+    const dd=computeDay(parseD(cur));
+    if(dd&&dd.dayType==='regular') return false;
+    cur=shiftDate(cur,1);
+  }
+  return true;
+}
+
+// 같은 직원·유형·사유로 이어진 휴가 기록을 한 기간으로 묶기
+async function loadLeaveGroup(lv){
+  const res=await sb.from('leave_records').select('*').eq('staff_id',lv.staffId).eq('type',lv.type)
+    .gte('date',shiftDate(lv.date,-60)).lte('date',shiftDate(lv.date,60)).order('date');
+  if(res.error) throw new Error(res.error.message);
+  const norm=r=>(r||'').trim();
+  const recs=(res.data||[]).filter(r=>norm(r.reason)===norm(lv.reason))
+    .map(r=>({id:r.id,staffId:r.staff_id,date:r.date,type:r.type,reason:r.reason}));
+  const idx=recs.findIndex(r=>r.id===lv.id);
+  if(idx<0) return [{id:lv.id,staffId:lv.staffId,date:lv.date,type:lv.type,reason:lv.reason}];
+  let s=idx,e=idx;
+  while(s>0&&leaveGapOk(recs[s-1].date,recs[s].date)) s--;
+  while(e<recs.length-1&&leaveGapOk(recs[e].date,recs[e+1].date)) e++;
+  return recs.slice(s,e+1);
+}
+
+async function showLeaveDetail(id){
   const lv=S.leaves.find(l=>l.id===id);if(!lv)return;
-  const st=S.staff.find(s=>s.id===lv.staffId);const dt=parseD(lv.date);
+  let group=[lv];
+  try{group=await loadLeaveGroup(lv);}catch(e){console.error('휴가 기간 조회 오류:',e);}
+  S._leaveGroup=group;S._detailLeave=lv;
+  const st=S.staff.find(s=>s.id===lv.staffId);
+  const isRange=group.length>1;
+  const first=group[0].date,last=group[group.length-1].date;
+  const dateRow=isRange
+    ?`<tr><td style="padding:6px;color:var(--text2);">기간</td><td style="padding:6px;">${first} (${DOW_KR[parseD(first).getDay()]}) ~ ${last} (${DOW_KR[parseD(last).getDay()]})<br><span style="font-size:11px;color:var(--text2);">근무일 ${group.length}일</span></td></tr>`
+    :`<tr><td style="padding:6px;color:var(--text2);">날짜</td><td style="padding:6px;">${lv.date} (${DOW_KR[parseD(lv.date).getDay()]})</td></tr>`;
   document.getElementById('leaveDetailBody').innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:13px;">
     <tr><td style="padding:6px;color:var(--text2);width:70px;">직원</td><td style="padding:6px;font-weight:600;">${st?.name||'-'}</td></tr>
-    <tr><td style="padding:6px;color:var(--text2);">날짜</td><td style="padding:6px;">${lv.date} (${DOW_KR[dt.getDay()]})</td></tr>
+    ${dateRow}
     <tr><td style="padding:6px;color:var(--text2);">유형</td><td style="padding:6px;"><span class="chip chip-${lv.type}">${lv.type}</span></td></tr>
     <tr><td style="padding:6px;color:var(--text2);">사유</td><td style="padding:6px;">${lv.reason||'-'}</td></tr>
   </table>`;
   const ft=document.getElementById('leaveDetailFooter');
   ft.innerHTML='<button class="btn btn-ghost" onclick="closeModal(\'leaveDetailModal\')">닫기</button>';
-  if(S.isAdmin)ft.innerHTML+=`<button class="btn btn-danger btn-sm" onclick="delLeave('${id}')">삭제</button>`;
+  if(S.isAdmin){
+    ft.innerHTML+=`<button class="btn btn-primary btn-sm" onclick="openEditLeave()">${isRange?'기간 수정':'수정'}</button>`;
+    if(isRange){
+      ft.innerHTML+=`<button class="btn btn-ghost btn-sm" onclick="delLeave('${id}')">이 날만 삭제</button>`;
+      ft.innerHTML+=`<button class="btn btn-danger btn-sm" onclick="delLeaveGroup()">기간 전체 삭제 (${group.length}일)</button>`;
+    }else{
+      ft.innerHTML+=`<button class="btn btn-danger btn-sm" onclick="delLeave('${id}')">삭제</button>`;
+    }
+  }
   openModal('leaveDetailModal');
+}
+
+function openEditLeave(){
+  const lv=S._detailLeave;if(!lv)return;
+  const group=S._leaveGroup&&S._leaveGroup.length?S._leaveGroup:[lv];
+  S._leaveId=lv.id;
+  const today=fmtDate(new Date());
+  const list=S.staff.filter(s=>!s.leaveDate||s.leaveDate>today||s.id===lv.staffId);
+  document.getElementById('lStaff').innerHTML=list.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  document.getElementById('lStaff').value=lv.staffId;
+  document.getElementById('lDate').value=group[0].date;
+  document.getElementById('lDateEnd').value=group.length>1?group[group.length-1].date:'';
+  document.getElementById('lType').value=lv.type;
+  document.getElementById('lReason').value=lv.reason||'';
+  document.getElementById('leaveModalTitle').textContent=group.length>1?'휴가 기간 수정':'휴가 수정';
+  closeModal('leaveDetailModal');
+  openModal('leaveModal');
+}
+
+async function delLeaveGroup(){
+  const g=S._leaveGroup||[];if(g.length<2)return;
+  if(!confirm(`${g[0].date} ~ ${g[g.length-1].date} 휴가 ${g.length}일을 모두 삭제하시겠습니까?`))return;
+  try{
+    sbCheck(await sb.from('leave_records').delete().in('id',g.map(x=>x.id)));
+    await reload();renderLeaveTab();renderSchedule();closeModal('leaveDetailModal');toast(`${g.length}일 삭제됨`);
+  }catch(e){toast('오류: '+e.message,'err');console.error(e);}
 }
 function updateRotPreview(){
   const cnt=parseInt(document.getElementById('hWCount')?.value||2);
@@ -1940,17 +2030,36 @@ async function delAssign(id){
 }
 
 async function saveLeave(){
-  const staffId=v('lStaff'),date=v('lDate'),type=v('lType'),reason=v('lReason').trim();
-  if(!staffId||!date||!type){toast('필수 항목을 입력하세요','err');return;}
+  const staffId=v('lStaff'),start=v('lDate'),endRaw=v('lDateEnd'),type=v('lType'),reason=v('lReason').trim();
+  if(!staffId||!start||!type){toast('필수 항목을 입력하세요','err');return;}
+  const end=endRaw||start;
+  if(end<start){toast('종료일이 시작일보다 빠릅니다','err');return;}
+  if((parseD(end)-parseD(start))/86400000>92){toast('기간은 최대 3개월까지 입력할 수 있습니다','err');return;}
+  // 하루 입력은 그대로 저장, 기간 입력은 근무일만 저장
+  const dates=[];
+  if(start===end) dates.push(start);
+  else{let cur=start;while(cur<=end){if(isLeaveWorkday(staffId,cur)) dates.push(cur);cur=shiftDate(cur,1);}}
+  if(!dates.length){toast('선택한 기간에 근무일이 없습니다','err');return;}
+  const oldGroup=S._leaveId?(S._leaveGroup||[]):[];
+  const oldIds=new Set(oldGroup.map(g=>g.id));
   try{
-    const dup=S.leaves.find(l=>l.staffId===staffId&&l.date===date);
-    const data={staff_id:staffId,date,type,reason};
-    if(dup){if(!confirm('이 날 기록이 이미 있습니다. 덮어쓸까요?'))return;sbCheck(await sb.from('leave_records').update(data).eq('id',dup.id));}
-    else{sbCheck(await sb.from('leave_records').insert(data));}
-    await reload();renderLeaveTab();renderSchedule();closeModal('leaveModal');toast('저장됨');
+    const exRes=await sb.from('leave_records').select('id,date').eq('staff_id',staffId).gte('date',start).lte('date',end);
+    if(exRes.error) throw new Error(exRes.error.message);
+    const exMap={};(exRes.data||[]).forEach(r=>{exMap[r.date]=r.id;});
+    const overlap=dates.filter(d=>exMap[d]&&!oldIds.has(exMap[d])).length;
+    if(overlap&&!confirm(`이미 기록된 날짜가 ${overlap}일 있습니다. 덮어쓸까요?`)) return;
+    const target=new Set(dates);
+    const toDelete=oldGroup.filter(g=>!(g.staffId===staffId&&target.has(g.date))).map(g=>g.id);
+    const toUpdate=dates.filter(d=>exMap[d]).map(d=>exMap[d]);
+    const toInsert=dates.filter(d=>!exMap[d]).map(d=>({staff_id:staffId,date:d,type,reason}));
+    if(toDelete.length) sbCheck(await sb.from('leave_records').delete().in('id',toDelete));
+    if(toUpdate.length) sbCheck(await sb.from('leave_records').update({type,reason}).in('id',toUpdate));
+    if(toInsert.length) sbCheck(await sb.from('leave_records').insert(toInsert));
+    S._leaveId=null;S._leaveGroup=null;S._detailLeave=null;
+    await reload();renderLeaveTab();renderSchedule();closeModal('leaveModal');
+    toast(dates.length>1?`${dates.length}일 저장됨`:'저장됨');
   }catch(e){toast('오류: '+e.message,'err');console.error(e);}
 }
-
 async function delLeave(id){
   if(!confirm('삭제하시겠습니까?'))return;
   try{sbCheck(await sb.from('leave_records').delete().eq('id',id));await reload();renderLeaveTab();renderSchedule();closeModal('leaveDetailModal');toast('삭제됨');}
