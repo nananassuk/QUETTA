@@ -986,6 +986,11 @@ body{font-family:'Noto Sans KR','Malgun Gothic',sans-serif;background:var(--bg);
         <button class="btn btn-red" onclick="resetAll()">⚠️ 초기화</button>
         <input type="file" id="importFileInput" accept=".json" style="display:none" onchange="importData(event)">
       </div>
+      <div style="margin-top:10px;border-top:1px dashed #ddd;padding-top:8px;">
+        <div style="font-size:12px;font-weight:700;margin-bottom:4px;">🛟 자동 백업 <button class="btn btn-sm btn-ghost" onclick="backupNow()">지금 백업</button> <button class="btn btn-sm btn-ghost" onclick="renderBackupList()">🔄</button></div>
+        <div id="backupList" style="font-size:11px;line-height:1.7;"></div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px;">문제가 생기면 📥 받기로 받은 JSON을 위의 "📥 가져오기"로 복원할 수 있어요.</div>
+      </div>
     </div>
   </div>
 </div><!-- /tab-cfg -->
@@ -1004,7 +1009,7 @@ const BAN_ORDER = ['X','A','K','N','I','O','M','D','S'];
 const ALL_TERMS = ['윈터','시즌제로(1월)','시즌제로(2월)','정규(2,3월)','정규1기(3월)','정규2기(4월)','정규3기(5월)','정규4기(6월)','정규5기(7월)','정규6기(8월)','정규7기(9월)','정규8기(10월)','정규9기(11월)'];
 const DEFAULT_PW = '1234';
 let _appPw = localStorage.getItem('quetta_pw') || DEFAULT_PW;
-let _SB = null, _isSyncing = false, _pollTimer = null, _lastSaveAt = 0;
+var _SB = null, _isSyncing = false, _pollTimer = null, _lastSaveAt = 0;
 
 // ════ STATE ════
 function mkState(){
@@ -1219,9 +1224,9 @@ function doLogin(){
     const err=document.getElementById('loginErr');
     err.textContent='확인 중...';
     if(_SB){
-      _SB.from('quetta_state').select('data').eq('id',1).single()
+      _SB.from('quetta_state').select('pw:data->cfg->>password').eq('id',1).maybeSingle()
         .then(({data:row})=>{
-          const serverPw=row?.data?.cfg?.password;
+          const serverPw=row?.pw;
           if(serverPw&&pw===serverPw){
             _appPw=serverPw;
             localStorage.setItem('quetta_pw',serverPw);
@@ -1254,6 +1259,26 @@ function _loginSuccess(){
   try{setupSupabase();}catch(e){console.error(e);}
 }
 
+// ════ 서버 동기화 (가벼운 변경 확인 · 충돌 병합 · 보호 장치 · 자동 백업) ════
+let _knownStamp=null;          // 내가 마지막으로 저장/불러온 서버 시각
+let _loadedOnce=false;         // 서버 데이터를 한 번이라도 정상적으로 불러왔는가 (불러오기 전에는 저장 금지)
+let _serverHadRow=true,_dirty=false,_saveTimer=null,_saving=false,_saveAgain=false,_saveSeq=0;
+let _baseData=null;            // 서버와 마지막으로 일치했던 데이터 (충돌 시 병합 기준)
+let _casBroken=false,_forceUpsert=false,_failCount=0,_initTries=0,_checking=false,_shrinkStamp=null,_syncListeners=false;
+const SAVE_DEBOUNCE=700;
+function modalIsOpen(){const m=document.getElementById('modalBg');return !!(m&&m.classList.contains('open'));}
+function sameStamp(a,b){const x=new Date(a).getTime(),y=new Date(b).getTime();return !isNaN(x)&&!isNaN(y)&&x===y;}
+function cloneData(x){return JSON.parse(JSON.stringify(x));}
+function countRecords(d){return d?((d.pays||[]).length+(d.dancha||[]).length):0;}
+
+// ── 화면 위 경고 띠 ──
+function showBanner(html){
+  let b=document.getElementById('syncBanner');
+  if(!b){b=document.createElement('div');b.id='syncBanner';b.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#C0392B;color:#fff;padding:9px 14px;font-size:13px;font-weight:700;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.3);line-height:1.6;';document.body.appendChild(b);}
+  b.innerHTML=html;b.style.display='block';
+}
+function hideBanner(){const b=document.getElementById('syncBanner');if(b)b.style.display='none';}
+
 function setupSupabase(){
   if(typeof supabase==='undefined'){
     setSyncStatus('err','SDK 로드 실패');
@@ -1264,70 +1289,120 @@ function setupSupabase(){
     if(!_SB) _SB=supabase.createClient(SUPABASE_URL,SUPABASE_ANON);
   }catch(e){setSyncStatus('err','연결 실패');toast('❌ 연결 실패: '+e.message,5000);return;}
   setSyncStatus('wait','연결 중...');
-  loadFromServer(true);
-  _pollTimer=setInterval(()=>loadFromServer(false),10000);
+  initialLoad();
+  _pollTimer=setInterval(()=>checkServer({}),10000);
+  if(!_syncListeners){
+    _syncListeners=true;
+    document.addEventListener('visibilitychange',()=>{
+      if(document.visibilityState==='visible')checkServer({});
+      else if(_saveTimer){clearTimeout(_saveTimer);_saveTimer=null;_flushSave();}   // 창을 가리면 대기 중인 저장을 바로 실행
+    });
+    window.addEventListener('beforeunload',e=>{if(_dirty||_saving||_saveTimer){e.preventDefault();e.returnValue='아직 저장되지 않은 변경이 있어요.';return e.returnValue;}});
+  }
 }
 
-let _knownStamp=null;   // 내가 마지막으로 저장/불러온 서버 시각
-function modalIsOpen(){const m=document.getElementById('modalBg');return !!(m&&m.classList.contains('open'));}
-function sameStamp(a,b){const x=new Date(a).getTime(),y=new Date(b).getTime();return !isNaN(x)&&!isNaN(y)&&x===y;}
-function loadFromServer(initial){
+// ── 최초 불러오기 (실패하면 저장을 막고 자동 재시도) ──
+function initialLoad(){
   if(!_SB)return;
-  // 저장 직후 3초간 폴링 덮어쓰기 방지
-  if(!initial && _isSyncing) return;
-  if(!initial && Date.now()-_lastSaveAt < 3000) return;
-  // 팝업(내역 수정·퇴소 등)이 열려 있는 동안엔 데이터를 갈아끼우지 않음 (수정이 엉뚱한 옛 데이터에 적용되는 문제 방지)
-  if(!initial && modalIsOpen()) return;
-  _SB.from('quetta_state').select('data,updated_at').eq('id',1).single()
+  _SB.from('quetta_state').select('data,updated_at').eq('id',1).maybeSingle()
     .then(({data:row,error})=>{
-      if(error){
-        setSyncStatus('err','로드 실패');
-        if(initial) toast(`❌ 서버 연결 실패: ${error.message}`, 5000);
-        console.error('Load error:', error);
-        return;
-      }
-      // ★ 요청 진행 중 저장이 일어났으면 무시 (레이스 컨디션 방지)
-      if(!initial && (Date.now()-_lastSaveAt < 3000 || _isSyncing || modalIsOpen())) return;
-      if(row?.data){
-        // 서버 데이터가 내가 마지막으로 저장한 것과 같으면(다른 기기에서 바뀐 게 없으면) 그대로 둠
-        if(!initial && _knownStamp && row.updated_at && sameStamp(row.updated_at,_knownStamp)){setSyncStatus('ok','동기화됨');return;}
-        if(row.updated_at)_knownStamp=row.updated_at;
-        applyServerData(row.data);
-        setSyncStatus('ok', initial?'연결됨':'동기화됨');
-        autoDetectTerms();
-        if(initial){
-          // 최초 로드 시만 전체 새로고침
-          refreshAll();
-        } else {
-          // 폴링 시: 대시보드/필터칩만 조용히 갱신, 현재 작업 중인 탭은 건드리지 않음
-          updateTermFilter();
-          renderFilterChips();
-          renderFilterChips2();
-          renderDash();
-          renderDash2();
-          // 납부명단(pay) 탭은 폴링 새로고침 안 함 (작업 중 방해 방지)
-          const onTab=document.querySelector('.tab-btn.on');
-          if(onTab){
-            const m=onTab.getAttribute('onclick')?.match(/goTab\('(\w+)'/);
-            if(m && m[1]!=='pay'){
-              if(m[1]==='daily')renderDaily();
-              if(m[1]==='daily2')renderDaily2();
-              if(m[1]==='cfg')renderCfg();
-            }
-          }
-        }
-      } else if(initial){
+      if(error)throw error;
+      if(row&&row.data){
+        applyServerData(row.data);_knownStamp=row.updated_at;_baseData=cloneData(row.data);_serverHadRow=true;
+        setSyncStatus('ok','연결됨');
+      } else {
+        _serverHadRow=!!row;_baseData=null;
         setSyncStatus('ok','연결됨 (데이터 없음)');
-        refreshAll();
       }
+      _loadedOnce=true;_failCount=0;_initTries=0;hideBanner();
+      autoDetectTerms();refreshAll();
     }).catch(e=>{
-      setSyncStatus('err','오류');
-      if(initial) toast(`❌ 연결 오류: ${e.message}`, 5000);
-      console.error(e);
+      _initTries++;
+      setSyncStatus('err','로드 실패');console.error('Load error:',e);
+      showBanner(`⚠️ 서버에서 데이터를 불러오지 못했어요 — 이 상태에선 <u>저장·업로드를 하지 마세요</u> (자동으로 다시 시도 중) <button onclick="initialLoad()" style="margin-left:8px;padding:2px 10px;border-radius:5px;border:none;cursor:pointer;font-weight:700;">지금 다시 시도</button>`);
+      const wait=Math.min(60000,5000*Math.pow(2,Math.min(_initTries,4)));
+      setTimeout(()=>{if(!_loadedOnce)initialLoad();},wait);
     });
 }
 
-function manualSync(){loadFromServer(false);setSyncStatus('wait','동기화 중...');}
+// ── 10초마다 "바뀌었는지"만 가볍게 확인 → 바뀐 경우에만 전체를 받아옴 ──
+function checkServer(opts){
+  opts=opts||{};
+  if(!_SB||!_loadedOnce||_checking)return Promise.resolve();
+  if(!opts.fromUser){
+    if(document.hidden)return Promise.resolve();                         // 안 보는 창은 확인 안 함
+    if(_isSyncing||_saving||_saveTimer||_dirty)return Promise.resolve(); // 내 저장 진행/대기 중
+    if(Date.now()-_lastSaveAt<3000)return Promise.resolve();
+    if(modalIsOpen())return Promise.resolve();                          // 팝업 작업 중엔 데이터를 갈아끼우지 않음
+  }
+  _checking=true;
+  return _SB.from('quetta_state').select('updated_at').eq('id',1).maybeSingle()
+    .then(({data:row,error})=>{
+      if(error)throw error;
+      if(!row){
+        showBanner(`⚠️ 서버에 저장된 데이터가 없어요. 이 PC 화면의 데이터가 마지막 사본일 수 있어요 — <button onclick="restoreToServer()" style="margin-left:8px;padding:2px 10px;border-radius:5px;border:none;cursor:pointer;font-weight:700;">이 PC 데이터를 서버에 복구 저장</button>`);
+        _serverHadRow=false;return;
+      }
+      if(!opts.refetch&&_knownStamp&&sameStamp(row.updated_at,_knownStamp)){setSyncStatus('ok','동기화됨');return;}
+      if(_shrinkStamp&&sameStamp(row.updated_at,_shrinkStamp))return;     // 이미 경고한 변경
+      return fetchAndApply(opts);
+    }).catch(e=>{setSyncStatus('err','동기화 실패');console.warn('sync check',e);})
+    .finally(()=>{_checking=false;});
+}
+function fetchAndApply(opts){
+  opts=opts||{};
+  return _SB.from('quetta_state').select('data,updated_at').eq('id',1).maybeSingle().then(({data:row,error})=>{
+    if(error)throw error;
+    if(!row||!row.data)return;
+    if(!opts.fromUser&&(_saving||_saveTimer||_dirty||modalIsOpen()))return;   // 응답이 온 시점에도 다시 확인
+    if(!opts.refetch&&_knownStamp&&sameStamp(row.updated_at,_knownStamp))return;
+    const incoming=countRecords(row.data),local=countRecords(S);
+    if(local>=100&&incoming<local*0.5){
+      // 서버 데이터가 갑자기 절반 아래로 줄었다 → 이 PC 화면이 마지막 정상 사본일 수 있어 덮어쓰지 않음
+      localBackup(S,'before-shrink');_shrinkStamp=row.updated_at;
+      showBanner(`⚠️ 서버 데이터가 갑자기 크게 줄었어요 (${local.toLocaleString()}건 → ${incoming.toLocaleString()}건). 이 PC 화면의 데이터는 지금 <u>자동 보관</u>해두었어요.<br><button onclick="acceptServerData()" style="margin:4px 6px 0;padding:3px 10px;border-radius:5px;border:none;cursor:pointer;font-weight:700;">서버 데이터로 바꾸기</button><button onclick="restoreToServer()" style="margin:4px 6px 0;padding:3px 10px;border-radius:5px;border:none;cursor:pointer;font-weight:700;">이 PC 데이터로 서버 복구</button>`);
+      return;
+    }
+    applyServerData(row.data);_knownStamp=row.updated_at;_baseData=cloneData(row.data);_shrinkStamp=null;
+    setSyncStatus('ok','동기화됨');
+    autoDetectTerms();refreshAfterSync();
+  });
+}
+function acceptServerData(){
+  _shrinkStamp=null;hideBanner();
+  _SB.from('quetta_state').select('data,updated_at').eq('id',1).maybeSingle().then(({data:row})=>{
+    if(row&&row.data){applyServerData(row.data);_knownStamp=row.updated_at;_baseData=cloneData(row.data);autoDetectTerms();refreshAll();toast('서버 데이터로 바꿨어요');}
+  });
+}
+function restoreToServer(){
+  if(!confirm('이 PC 화면의 데이터로 서버를 덮어씁니다. 화면에 정상 데이터가 보이는 것을 확인하셨나요?'))return;
+  hideBanner();_shrinkStamp=null;_forceUpsert=true;window._skipShrinkGuard=true;
+  save();toast('이 PC 데이터를 서버에 복구 저장합니다');
+}
+function refreshAfterSync(){
+  updateTermFilter();renderFilterChips();renderFilterChips2();renderDash();renderDash2();
+  // 납부명단(pay) 탭은 새로고침하지 않음 (작업 중 방해 방지)
+  const onTab=document.querySelector('.tab-btn.on');
+  if(onTab){
+    const m=onTab.getAttribute('onclick')?.match(/goTab\('(\w+)'/);
+    if(m&&m[1]!=='pay'){
+      if(m[1]==='daily')renderDaily();
+      if(m[1]==='daily2')renderDaily2();
+      if(m[1]==='cfg')renderCfg();
+    }
+  }
+}
+function loadFromServer(initial){return initial?initialLoad():checkServer({});}
+function manualSync(){setSyncStatus('wait','동기화 중...');checkServer({fromUser:true,refetch:true});}
+// 업로드·대량 처리 직전: 대기 중인 저장을 끝내고 최신 데이터인지 확인
+function ensureFresh(){
+  if(!_SB||!_loadedOnce)return Promise.resolve();
+  return flushNow().then(()=>checkServer({fromUser:true}));
+}
+function flushNow(){
+  if(_saveTimer){clearTimeout(_saveTimer);_saveTimer=null;return _flushSave();}
+  return Promise.resolve();
+}
 
 function applyServerData(d){
   if(!d)return;
@@ -1355,29 +1430,193 @@ function applyServerData(d){
   }
 }
 
+// ── 저장: 700ms 묶음 저장 + 보호 장치 ──
 function save(){
   if(!_SB){ toast('⚠️ 서버 미연결 — 데이터가 저장되지 않습니다!', 4000); return; }
-  _isSyncing=true;
-  _lastSaveAt=Date.now();
+  if(!_loadedOnce){
+    showBanner('⚠️ 서버에서 데이터를 아직 불러오지 못해 <u>저장하지 않았어요</u>. 연결이 복구된 뒤 다시 작업해주세요.');
+    toast('❌ 서버 데이터를 불러오기 전이라 저장하지 않았어요', 5000);
+    return;
+  }
+  _dirty=true;_saveSeq++;_lastSaveAt=Date.now();
+  clearTimeout(_saveTimer);
+  _saveTimer=setTimeout(()=>{_saveTimer=null;_flushSave();},SAVE_DEBOUNCE);
+  setSyncStatus('wait','저장 대기...');
+}
+async function _flushSave(){
+  if(_saving){_saveAgain=true;return;}
+  if(!_SB||!_loadedOnce)return;
+  _saving=true;_isSyncing=true;_lastSaveAt=Date.now();
   setSyncStatus('wait','저장 중...');
-  const payload = JSON.parse(JSON.stringify(S));
-  const _stamp=new Date().toISOString();
-  _SB.from('quetta_state').upsert({id:1, data:payload, updated_at:_stamp})
-    .then(({error})=>{
-      _isSyncing=false;
-      if(error){
-        setSyncStatus('err','저장 실패');
-        toast(`❌ 저장 실패: ${error.message}`, 5000);
-        console.error('Save error:', error);
-      } else {
-        _knownStamp=_stamp;
-        setSyncStatus('ok','저장됨');
+  const seq=_saveSeq;
+  try{
+    let payload=cloneData(S);
+    const skip=window._skipShrinkGuard;window._skipShrinkGuard=false;
+    // 안전장치: 데이터가 절반 아래로 줄어드는 저장은 한 번 더 확인
+    const baseCnt=countRecords(_baseData),nowCnt=countRecords(payload);
+    if(!skip&&baseCnt>=100&&nowCnt<baseCnt*0.5){
+      if(!confirm(`⚠️ 저장하려는 데이터가 기존보다 크게 줄었어요 (${baseCnt.toLocaleString()}건 → ${nowCnt.toLocaleString()}건).\n\n의도한 삭제가 아니라면 [취소]를 눌러주세요. 서버 데이터로 되돌립니다.`)){
+        _saving=false;_isSyncing=false;_dirty=false;
+        await checkServer({fromUser:true,refetch:true});
+        toast('저장을 취소하고 서버 데이터로 되돌렸어요');
+        return;
       }
-    }).catch(e=>{
-      _isSyncing=false;
-      setSyncStatus('err','저장 실패');
-      toast(`❌ 저장 오류: ${e.message}`, 5000);
-    });
+    }
+    const res=await casSave(payload,skip);
+    _knownStamp=res.stamp;_baseData=cloneData(res.payload);_shrinkStamp=null;
+    if(res.merged){
+      // 다른 PC의 변경과 합쳐서 저장됨 → 화면 데이터도 합친 결과로 교체 (저장 중 새로 한 작업이 있으면 그것도 보존)
+      const next=(_saveSeq===seq)?res.payload:mergeState(res.orig,cloneData(S),res.payload);
+      applyServerData(next);autoDetectTerms();refreshAll();
+      toast('다른 PC의 변경과 합쳐서 저장했어요 ✅',4000);
+    }
+    if(_saveSeq===seq)_dirty=false;
+    _failCount=0;hideBanner();setSyncStatus('ok','저장됨');
+    try{maybeBackup(res.payload);maybeLocalBackup(res.payload);}catch(e){console.warn('backup',e);}
+  }catch(e){
+    if(e&&e.hold){   // 사용자가 직접 보류한 경우: 자동 재시도하지 않음
+      setSyncStatus('err','저장 보류');
+      showBanner(`⚠️ ${h(e.message)}. 이 PC 화면의 데이터는 그대로 남아 있어요 — <u>창을 닫지 마세요</u>.`);
+      return;
+    }
+    _failCount++;setSyncStatus('err','저장 실패');console.error('Save error:',e);
+    showBanner(`⚠️ 저장에 실패했어요 (${h(e&&e.message||String(e))}) — <u>이 창을 닫지 마세요</u>. 자동으로 다시 시도합니다.`);
+    if(_failCount<=8){const wait=Math.min(60000,2000*Math.pow(2,_failCount-1));clearTimeout(_saveTimer);_saveTimer=setTimeout(()=>{_saveTimer=null;_flushSave();},wait);}
+    else toast('❌ 저장 실패가 계속돼요 — 설정의 📤 내보내기로 백업부터 받아주세요',8000);
+  }finally{
+    _saving=false;_isSyncing=false;
+    if(_saveAgain){_saveAgain=false;clearTimeout(_saveTimer);_saveTimer=setTimeout(()=>{_saveTimer=null;_flushSave();},SAVE_DEBOUNCE);}
+  }
+}
+// 낙관적 잠금: 내가 마지막으로 본 서버 시각과 같을 때만 덮어씀 → 다르면(다른 PC가 먼저 저장) 병합
+async function casSave(payload,force){
+  const orig=payload;let merged=false;
+  for(let attempt=0;attempt<4;attempt++){
+    const stamp=new Date().toISOString();
+    if(!_serverHadRow||_casBroken||_forceUpsert||_knownStamp==null){
+      const{error}=await _SB.from('quetta_state').upsert({id:1,data:payload,updated_at:stamp});
+      if(error)throw error;
+      _serverHadRow=true;_forceUpsert=false;return{payload,stamp,merged,orig};
+    }
+    const{data,error}=await _SB.from('quetta_state').update({data:payload,updated_at:stamp}).eq('id',1).eq('updated_at',_knownStamp).select('updated_at');
+    if(error)throw error;
+    if(data&&data.length)return{payload,stamp,merged,orig};
+    // 0행 갱신 → 충돌(다른 PC가 먼저 저장) / 서버 행 사라짐 / 시각 형식 불일치
+    const{data:row,error:e2}=await _SB.from('quetta_state').select('data,updated_at').eq('id',1).maybeSingle();
+    if(e2)throw e2;
+    if(!row){_serverHadRow=false;continue;}                       // 서버 행이 사라짐 → 이 PC 사본으로 복구 저장
+    if(sameStamp(row.updated_at,_knownStamp)){_casBroken=true;continue;}   // 시각 비교가 안 맞는 경우 → 단순 덮어쓰기 방식으로
+    const theirsCnt=countRecords(row.data),baseCnt=countRecords(_baseData);
+    if(!force&&baseCnt>=100&&theirsCnt<baseCnt*0.5){
+      localBackup(payload,'before-shrink');
+      if(!confirm(`⚠️ 서버 데이터가 크게 줄어 있어요 (${baseCnt.toLocaleString()}건 → ${theirsCnt.toLocaleString()}건).\n다른 PC에서 지운 것이 아니라면, 이 PC 화면의 데이터로 서버를 복구해야 해요.\n\n[확인] 이 PC 데이터로 서버 덮어쓰기 / [취소] 저장 보류`)){
+        const he=new Error('서버 데이터가 크게 줄어 있어 저장을 보류했어요 — 서버 상태를 확인해주세요');he.hold=true;throw he;
+      }
+      _forceUpsert=true;continue;     // 사용자가 직접 선택한 복구 덮어쓰기 (한 번만)
+    }
+    // 진짜 충돌: 내 변경을 최신 서버 데이터 위에 합침 (서버 버전은 PC에 보관)
+    localBackup(row.data,'conflict-server');
+    payload=mergeState(_baseData,payload,row.data);
+    _baseData=cloneData(row.data);_knownStamp=row.updated_at;merged=true;
+  }
+  throw new Error('다른 PC와의 충돌이 계속돼요');
+}
+// ── 3-way 병합 (base: 마지막으로 서버와 일치했던 데이터 / mine: 내 데이터 / theirs: 최신 서버 데이터) ──
+function stable(x){if(x===null||typeof x!=='object')return JSON.stringify(x);if(Array.isArray(x))return'['+x.map(stable).join(',')+']';return'{'+Object.keys(x).sort().map(k=>JSON.stringify(k)+':'+stable(x[k])).join(',')+'}';}
+function mergeArrayById(base,mine,theirs){
+  const bm=new Map((base||[]).map(r=>[String(r.id),r])),mm=new Map((mine||[]).map(r=>[String(r.id),r]));
+  const out=[],used=new Set();
+  (theirs||[]).forEach(t=>{
+    const id=String(t.id),b=bm.get(id),m=mm.get(id);
+    used.add(id);
+    if(!b){out.push(t);return;}                                              // 서버에서 새로 생긴 기록
+    if(!m){if(stable(t)!==stable(b))out.push(t);return;}                      // 내가 삭제 (서버가 그 사이 수정했으면 보존)
+    out.push(stable(m)!==stable(b)?m:t);                                      // 내가 수정했으면 내 것, 아니면 서버 것
+  });
+  (mine||[]).forEach(m=>{
+    const id=String(m.id);if(used.has(id))return;
+    const b=bm.get(id);
+    if(!b)out.push(m);                                                        // 내가 새로 추가한 기록
+    else if(stable(m)!==stable(b))out.push(m);                                // 서버에서 삭제됐지만 내가 수정한 기록은 보존
+  });
+  return out;
+}
+function mergeSetArray(base,mine,theirs){
+  const bs=new Set((base||[]).map(stable)),ms=new Set((mine||[]).map(stable));
+  const out=[],seen=new Set();
+  (theirs||[]).forEach(t=>{const k=stable(t);if(bs.has(k)&&!ms.has(k))return;out.push(t);seen.add(k);});
+  (mine||[]).forEach(m=>{const k=stable(m);if(!seen.has(k)&&!bs.has(k)){out.push(m);seen.add(k);}});
+  return out;
+}
+function mergeObj(base,mine,theirs){
+  base=base||{};mine=mine||{};const out={...(theirs||{})};
+  new Set([...Object.keys(base),...Object.keys(mine)]).forEach(k=>{
+    const inM=Object.prototype.hasOwnProperty.call(mine,k),inB=Object.prototype.hasOwnProperty.call(base,k);
+    if(inM&&(!inB||stable(mine[k])!==stable(base[k])))out[k]=mine[k];
+    else if(!inM&&inB&&stable((theirs||{})[k])===stable(base[k]))delete out[k];
+  });
+  return out;
+}
+function mergeState(base,mine,theirs){
+  base=base||{};
+  const out={...theirs};
+  ['pays','refunds','dancha','danchaRefunds'].forEach(k=>{out[k]=mergeArrayById(base[k],mine[k],theirs[k]);});
+  ['재입소','미납퇴소'].forEach(k=>{out[k]=mergeSetArray(base[k],mine[k],theirs[k]);});
+  ['snapshots','danchaSnapshots','cfg'].forEach(k=>{out[k]=mergeObj(base[k],mine[k],theirs[k]);});
+  const known=['pays','refunds','dancha','danchaRefunds','재입소','미납퇴소','snapshots','danchaSnapshots','cfg'];
+  Object.keys(mine).forEach(k=>{if(!known.includes(k)&&stable(mine[k])!==stable(base[k]))out[k]=mine[k];});
+  return out;
+}
+
+// ── 자동 백업: 서버(6시간 단위, 최근 14일 순환) + 이 PC 브라우저(2시간 단위, 3개 순환) ──
+function maybeBackup(payload){
+  const bucket=Math.floor(Date.now()/21600000);              // 6시간
+  if(S.cfg._bkBucket===bucket)return;
+  S.cfg._bkBucket=bucket;                                    // 다음 저장 때 함께 기록됨
+  const slot=100+(bucket%56);                                // 100~155 (14일치)
+  _SB.from('quetta_state').upsert({id:slot,data:payload,updated_at:new Date().toISOString()}).then(({error})=>{if(error)console.warn('서버 백업 실패',error);});
+}
+function localBackup(data,kind){
+  try{
+    const rec={ts:Date.now(),kind:kind||'auto',json:JSON.stringify(data)};
+    const slots=[0,1,2].map(i=>{try{const r=JSON.parse(localStorage.getItem('quetta_lbk_'+i)||'null');return{i,ts:r?r.ts:0};}catch(e){return{i,ts:0};}}).sort((a,b)=>a.ts-b.ts);
+    try{localStorage.setItem('quetta_lbk_'+slots[0].i,JSON.stringify(rec));}
+    catch(e){[0,1,2].forEach(j=>localStorage.removeItem('quetta_lbk_'+j));try{localStorage.setItem('quetta_lbk_0',JSON.stringify(rec));}catch(e2){}}
+  }catch(e){}
+}
+function maybeLocalBackup(payload){
+  const last=Number(localStorage.getItem('quetta_lbk_last')||0);
+  if(Date.now()-last<7200000)return;
+  localBackup(payload,'auto');localStorage.setItem('quetta_lbk_last',String(Date.now()));
+}
+function dl(name,text){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'application/json'}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);}
+function kstText(ts){const d=new Date(new Date(ts).getTime()+9*3600000);return d.toISOString().replace('T',' ').slice(0,16);}
+async function renderBackupList(){
+  const el=document.getElementById('backupList');if(!el)return;
+  let html='<div style="color:var(--muted);margin-bottom:3px;">이 PC 브라우저 보관본</div>';
+  const locals=[0,1,2].map(i=>{try{const r=JSON.parse(localStorage.getItem('quetta_lbk_'+i)||'null');return r?{i,ts:r.ts,kind:r.kind,kb:Math.round(r.json.length/1024)}:null;}catch(e){return null;}}).filter(Boolean).sort((a,b)=>b.ts-a.ts);
+  html+=locals.length?locals.map(r=>`<div>• ${kstText(r.ts)} (${r.kind}, ${r.kb}KB) <button class="btn btn-sm btn-ghost" onclick="downloadLocalBackup(${r.i})">📥 받기</button></div>`).join(''):'<div style="color:#bbb;">없음</div>';
+  html+='<div style="color:var(--muted);margin:6px 0 3px;">서버 보관본 (6시간마다 · 최근 14일)</div><div id="serverBkList" style="color:#bbb;">불러오는 중…</div>';
+  el.innerHTML=html;
+  if(!_SB)return;
+  try{
+    const{data,error}=await _SB.from('quetta_state').select('id,updated_at').gte('id',100).order('updated_at',{ascending:false});
+    const box=document.getElementById('serverBkList');if(!box)return;
+    if(error)throw error;
+    box.innerHTML=(data&&data.length)?data.slice(0,20).map(r=>`<div style="color:inherit;">• ${kstText(r.updated_at)} <button class="btn btn-sm btn-ghost" onclick="downloadServerBackup(${r.id})">📥 받기</button></div>`).join(''):'아직 없음 (저장 후 6시간마다 자동 생성)';
+  }catch(e){const box=document.getElementById('serverBkList');if(box)box.textContent='목록을 불러오지 못했어요';}
+}
+function downloadLocalBackup(i){try{const r=JSON.parse(localStorage.getItem('quetta_lbk_'+i));dl(`QUETTA_backup_PC_${kstText(r.ts).replace(/[: ]/g,'-')}.json`,r.json);}catch(e){toast('보관본을 읽지 못했어요');}}
+async function downloadServerBackup(id){
+  const{data,error}=await _SB.from('quetta_state').select('data,updated_at').eq('id',id).maybeSingle();
+  if(error||!data){toast('보관본을 불러오지 못했어요');return;}
+  dl(`QUETTA_backup_server_${kstText(data.updated_at).replace(/[: ]/g,'-')}.json`,JSON.stringify(data.data));
+}
+function backupNow(){
+  if(!_loadedOnce){toast('서버 데이터를 불러온 뒤에 가능해요');return;}
+  const p=cloneData(S);localBackup(p,'manual');
+  const bucket=Math.floor(Date.now()/21600000);S.cfg._bkBucket=bucket;
+  _SB.from('quetta_state').upsert({id:100+(bucket%56),data:p,updated_at:new Date().toISOString()}).then(({error})=>{toast(error?'서버 백업 실패':'✅ 지금 백업했어요 (서버 + 이 PC)');renderBackupList();});
 }
 
 function refreshAll(){
@@ -1420,7 +1659,7 @@ function goTab(id,btn){
     }
     fillUploadYearSel();renderTodayUploads();renderPayHistory();renderUnpaid();
   }
-  if(id==='cfg')renderCfg();
+  if(id==='cfg'){renderCfg();renderBackupList();}
   if(id==='stats')renderStats();
 }
 function goPayTab(id,btn){
@@ -1555,8 +1794,9 @@ function importPayExcel(e){
   const file=e.target.files[0];if(!file)return;
   const uploadDate=document.getElementById('uploadDateInput').value||todayStr();
   const reader=new FileReader();
-  reader.onload=ev=>{
+  reader.onload=async ev=>{
     try{
+      await ensureFresh();   // 업로드 직전: 다른 PC의 최신 변경을 먼저 반영 (중복 판정이 정확해짐)
       const wb=XLSX.read(ev.target.result,{type:'array',cellDates:true});
       const ws=wb.Sheets[wb.SheetNames[0]];
       const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true});
@@ -2826,8 +3066,9 @@ function processRefundExcel(e){
   if(isDateLocked(date)){toast('🔒 스냅샷이 저장된 날짜입니다');e.target.value='';return;}
   const file=e.target.files[0];if(!file)return;
   const reader=new FileReader();
-  reader.onload=ev=>{
+  reader.onload=async ev=>{
     try{
+      await ensureFresh();
       const wb=XLSX.read(ev.target.result,{type:'array'});
       const ws=wb.Sheets[wb.SheetNames[0]];
       const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
@@ -3183,7 +3424,7 @@ function changePassword(){
 
 // ════ DATA MANAGEMENT ════
 function exportData(){const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`QUETTA_data_${todayStr()}.json`;a.click();URL.revokeObjectURL(a.href);toast('내보내기 완료');}
-function importData(e){const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(!confirm('현재 데이터를 덮어씁니다. 계속?'))return;applyServerData(d);save();refreshAll();toast('가져오기 완료');}catch(err){alert('파일 오류: '+err.message);}};reader.readAsText(file);e.target.value='';}
+function importData(e){const file=e.target.files[0];if(!file)return;const reader=new FileReader();reader.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(!confirm('현재 데이터를 덮어씁니다. 계속?'))return;applyServerData(d);window._skipShrinkGuard=true;save();refreshAll();toast('가져오기 완료');}catch(err){alert('파일 오류: '+err.message);}};reader.readAsText(file);e.target.value='';}
 function findBadWithdrawn(){
   const todayMs1=new Date(todayStr()+'T23:59:59').getTime();
   // 오늘 퇴소 처리된 정상 학생 수험번호 (refunds.processedDate = 오늘)
@@ -3221,8 +3462,8 @@ function findBadWithdrawn(){
     }},{label:'취소',cls:'btn-ghost',fn:closeModal}]
   );
 }
-function resetAll(){if(!confirm('모든 데이터를 초기화하시겠습니까?'))return;if(!confirm('정말로 초기화하시겠습니까?'))return;S=mkState();save();refreshAll();toast('초기화 완료');}
-function migrateFromLocal(){const SKEY='quetta_v4';try{const d=localStorage.getItem(SKEY);if(!d){alert('로컬 데이터가 없습니다.');return;}if(!confirm('기존 로컬 데이터를 클라우드로 업로드하시겠습니까?'))return;const p=JSON.parse(d);_SB.from('quetta_state').upsert({id:1,data:p,updated_at:new Date().toISOString()}).then(({error})=>{if(error)alert('오류: '+error.message);else{applyServerData(p);refreshAll();toast('✅ 마이그레이션 완료!');}});}catch(e){alert('오류: '+e.message);}}
+function resetAll(){if(!confirm('모든 데이터를 초기화하시겠습니까?'))return;if(!confirm('정말로 초기화하시겠습니까?'))return;S=mkState();window._skipShrinkGuard=true;save();refreshAll();toast('초기화 완료');}
+function migrateFromLocal(){const SKEY='quetta_v4';try{const d=localStorage.getItem(SKEY);if(!d){alert('로컬 데이터가 없습니다.');return;}if(!confirm('⚠️ 옛 로컬 데이터로 서버의 현재 데이터를 덮어씁니다. 현재 서버 데이터는 사라져요.\n정말 진행하시겠습니까?'))return;localBackup(S,'before-migrate');const p=JSON.parse(d);_SB.from('quetta_state').upsert({id:1,data:p,updated_at:new Date().toISOString()}).then(({error})=>{if(error)alert('오류: '+error.message);else{applyServerData(p);_knownStamp=null;_baseData=cloneData(p);refreshAll();toast('✅ 마이그레이션 완료!');}});}catch(e){alert('오류: '+e.message);}}
 
 // ════ MODAL + TOAST ════
 function openModal(title,body,buttons){
